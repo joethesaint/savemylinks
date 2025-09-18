@@ -18,7 +18,7 @@ import os
 import sys
 import logging
 import logging.handlers
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from pathlib import Path
 import json
@@ -45,7 +45,7 @@ class JSONFormatter(logging.Formatter):
             str: JSON-formatted log message
         """
         log_entry = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -168,15 +168,29 @@ class SecurityFilter(logging.Filter):
         Returns:
             bool: True if record should be logged
         """
-        # Sanitize message for sensitive information
-        message = record.getMessage().lower()
+        import re
         
-        # Check for sensitive fields and mask them
+        # Get the original message (preserve casing)
+        original_message = record.getMessage()
+        
+        # Check for sensitive fields and mask their values
+        redacted_message = original_message
         for field in self.SENSITIVE_FIELDS:
-            if field in message:
-                record.msg = record.msg.replace(
-                    field, f"{field}=***REDACTED***"
-                )
+            # Build regex pattern to match field followed by separators and capture the value
+            # Pattern matches: field_name followed by optional whitespace, then : or =, 
+            # then optional whitespace, then optional quotes, then the value, then optional closing quotes
+            pattern = rf'(?i)(\b{re.escape(field)}\b\s*[:=]\s*)(["\']?)([^"\'\\\s,}}]+)(\2)'
+            
+            def replace_value(match):
+                return f"{match.group(1)}{match.group(2)}***REDACTED***{match.group(4)}"
+            
+            redacted_message = re.sub(pattern, replace_value, redacted_message)
+        
+        # Update the record message with redacted version
+        if redacted_message != original_message:
+            record.msg = redacted_message
+            # Clear args to prevent re-formatting with original values
+            record.args = ()
         
         # Add security context
         if hasattr(record, 'security_event'):

@@ -20,6 +20,8 @@
     <!-- Three.js Library -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.144.0/build/three.min.js"></script>
     
+    <!-- Modern Clippy CSS is included in the JS module -->
+    
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔗</text></svg>">
 </head>
@@ -204,7 +206,7 @@
                         renderer.domElement.style.top = '0';
                         renderer.domElement.style.left = '0';
                         renderer.domElement.style.pointerEvents = 'none';
-                        renderer.domElement.style.zIndex = '-1';
+                        renderer.domElement.style.zIndex = '1';
                         document.body.appendChild(renderer.domElement);
                         console.log('Three.js renderer created and added to DOM');
                     } catch (e) {
@@ -213,24 +215,24 @@
                         return;
                     }
                     
-                    // Create simple particle system with larger, more visible particles
-                    const particleCount = 80;
-                    const geometry = new THREE.CircleGeometry(0.3, 12); // Much larger particles
+                    // Create simple particle system with tiny dust-like particles
+                    const particleCount = 120;
+                    const geometry = new THREE.CircleGeometry(0.05, 6); // Much smaller particles like dust
                     
-                    // Create particles with bright, vibrant green materials
-                    const greenColors = [
-                        new THREE.Color(0x00ff00), // Bright green
-                        new THREE.Color(0x32ff32), // Light green
-                        new THREE.Color(0x00cc00), // Medium green
-                        new THREE.Color(0x66ff66), // Pale green
-                        new THREE.Color(0x00aa00)  // Dark green
+                    // Create particles with subtle, dust-like materials
+                    const dustColors = [
+                        new THREE.Color(0x888888), // Gray dust
+                        new THREE.Color(0x999999), // Light gray
+                        new THREE.Color(0x777777), // Dark gray
+                        new THREE.Color(0xaaaaaa), // Very light gray
+                        new THREE.Color(0x666666)  // Darker gray
                     ];
                     
                     for (let i = 0; i < particleCount; i++) {
                         const material = new THREE.MeshBasicMaterial({
-                            color: greenColors[Math.floor(Math.random() * greenColors.length)],
+                            color: dustColors[Math.floor(Math.random() * dustColors.length)],
                             transparent: true,
-                            opacity: 0.8 + Math.random() * 0.2 // Higher opacity
+                            opacity: 0.3 + Math.random() * 0.2 // Lower opacity for dust effect
                         });
                         
                         const particle = new THREE.Mesh(geometry, material);
@@ -240,14 +242,20 @@
                         particle.position.y = (Math.random() - 0.5) * 15;
                         particle.position.z = (Math.random() - 0.5) * 5;
                         
-                        // Store original position and velocity
+                        // Store boid behavior data
                         particle.userData = {
                             originalX: particle.position.x,
                             originalY: particle.position.y,
-                            velocityX: 0,
-                            velocityY: 0,
+                            velocityX: (Math.random() - 0.5) * 0.02,
+                            velocityY: (Math.random() - 0.5) * 0.02,
                             age: Math.random() * 100,
-                            baseOpacity: material.opacity
+                            baseOpacity: material.opacity,
+                            // Boid behavior properties
+                            separationRadius: 0.5,
+                            alignmentRadius: 1.0,
+                            cohesionRadius: 1.5,
+                            maxSpeed: 0.03,
+                            maxForce: 0.001
                         };
                         
                         particles.push(particle);
@@ -278,7 +286,7 @@
                 particleContainer.style.width = '100%';
                 particleContainer.style.height = '100%';
                 particleContainer.style.pointerEvents = 'none';
-                particleContainer.style.zIndex = '-1';
+                particleContainer.style.zIndex = '1';
                 particleContainer.style.overflow = 'hidden';
                 document.body.appendChild(particleContainer);
                 
@@ -366,43 +374,106 @@
                     const mouseWorldX = (mouseX / window.innerWidth) * 20 - 10;
                     const mouseWorldY = -(mouseY / window.innerHeight) * 15 + 7.5;
                     
-                    // Update each particle
+                    // Boid algorithm implementation
                     particles.forEach((particle, index) => {
                         const userData = particle.userData;
                         
                         // Age the particle
                         userData.age += 0.5;
                         
-                        // Calculate distance to mouse
-                        const dx = mouseWorldX - particle.position.x;
-                        const dy = mouseWorldY - particle.position.y;
-                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        // Boid forces
+                        let separationForceX = 0, separationForceY = 0;
+                        let alignmentForceX = 0, alignmentForceY = 0;
+                        let cohesionForceX = 0, cohesionForceY = 0;
+                        let separationCount = 0, alignmentCount = 0, cohesionCount = 0;
                         
-                        // Mouse attraction with stronger force
-                        if (distance > 0.5) {
-                            const attraction = 0.08 / (1 + distance * 0.05); // Stronger attraction
-                            userData.velocityX += dx * attraction;
-                            userData.velocityY += dy * attraction;
+                        // Check neighbors for boid behavior
+                        particles.forEach((other, otherIndex) => {
+                            if (index === otherIndex) return;
+                            
+                            const dx = other.position.x - particle.position.x;
+                            const dy = other.position.y - particle.position.y;
+                            const distance = Math.sqrt(dx * dx + dy * dy);
+                            
+                            // Separation - avoid crowding neighbors
+                            if (distance < userData.separationRadius && distance > 0) {
+                                separationForceX -= dx / distance;
+                                separationForceY -= dy / distance;
+                                separationCount++;
+                            }
+                            
+                            // Alignment - steer towards average heading of neighbors
+                            if (distance < userData.alignmentRadius && distance > 0) {
+                                alignmentForceX += other.userData.velocityX;
+                                alignmentForceY += other.userData.velocityY;
+                                alignmentCount++;
+                            }
+                            
+                            // Cohesion - steer towards average position of neighbors
+                            if (distance < userData.cohesionRadius && distance > 0) {
+                                cohesionForceX += dx;
+                                cohesionForceY += dy;
+                                cohesionCount++;
+                            }
+                        });
+                        
+                        // Average the forces
+                        if (separationCount > 0) {
+                            separationForceX /= separationCount;
+                            separationForceY /= separationCount;
                         }
                         
-                        // Add more dynamic floating motion
-                        userData.velocityX += Math.sin(time * 0.8 + userData.age * 0.15) * 0.003;
-                        userData.velocityY += Math.cos(time * 0.6 + userData.age * 0.12) * 0.003;
+                        if (alignmentCount > 0) {
+                            alignmentForceX /= alignmentCount;
+                            alignmentForceY /= alignmentCount;
+                        }
                         
-                        // Apply velocity with less damping for more movement
+                        if (cohesionCount > 0) {
+                            cohesionForceX /= cohesionCount;
+                            cohesionForceY /= cohesionCount;
+                        }
+                        
+                        // Mouse attraction when hovering - made faster and more responsive
+                        const mouseDistance = Math.sqrt((mouseWorldX - particle.position.x) ** 2 + (mouseWorldY - particle.position.y) ** 2);
+                        let mouseForceX = 0, mouseForceY = 0;
+                        
+                        if (mouseDistance < 5 && mouseDistance > 0.1) {
+                            const mouseAttraction = 0.08 / (1 + mouseDistance * 0.2);
+                            mouseForceX = (mouseWorldX - particle.position.x) * mouseAttraction;
+                            mouseForceY = (mouseWorldY - particle.position.y) * mouseAttraction;
+                        }
+                        
+                        // Random wandering behavior
+                        const wanderForceX = Math.sin(time * 0.5 + userData.age * 0.1) * 0.001;
+                        const wanderForceY = Math.cos(time * 0.3 + userData.age * 0.08) * 0.001;
+                        
+                        // Combine all forces with different weights - increased mouse force weight
+                        const totalForceX = separationForceX * 1.5 + alignmentForceX * 1.0 + cohesionForceX * 0.5 + mouseForceX * 4.0 + wanderForceX;
+                        const totalForceY = separationForceY * 1.5 + alignmentForceY * 1.0 + cohesionForceY * 0.5 + mouseForceY * 4.0 + wanderForceY;
+                        
+                        // Apply forces to velocity
+                        userData.velocityX += totalForceX * userData.maxForce;
+                        userData.velocityY += totalForceY * userData.maxForce;
+                        
+                        // Limit speed
+                        const speed = Math.sqrt(userData.velocityX ** 2 + userData.velocityY ** 2);
+                        if (speed > userData.maxSpeed) {
+                            userData.velocityX = (userData.velocityX / speed) * userData.maxSpeed;
+                            userData.velocityY = (userData.velocityY / speed) * userData.maxSpeed;
+                        }
+                        
+                        // Apply velocity
                         particle.position.x += userData.velocityX;
                         particle.position.y += userData.velocityY;
-                        userData.velocityX *= 0.96; // Less damping
-                        userData.velocityY *= 0.96; // Less damping
                         
-                        // Update opacity based on distance to mouse with more dramatic effect
-                        const opacity = userData.baseOpacity * (0.5 + 1.5 / (1 + distance * 0.1));
-                        particle.material.opacity = Math.min(opacity, 1.0);
+                        // Update opacity based on mouse proximity
+                        const opacity = userData.baseOpacity * (0.4 + 0.6 / (1 + mouseDistance * 0.3));
+                        particle.material.opacity = Math.min(opacity, 0.8);
                         
-                        // Add more noticeable rotation
-                        particle.rotation.z = time * 0.3 + userData.age * 0.02;
+                        // Subtle rotation
+                        particle.rotation.z = time * 0.1 + userData.age * 0.01;
                         
-                        // Keep particles within bounds
+                        // Wrap around screen edges
                         if (particle.position.x > 12) particle.position.x = -12;
                         if (particle.position.x < -12) particle.position.x = 12;
                         if (particle.position.y > 9) particle.position.y = -9;
@@ -438,5 +509,128 @@
             }
         });
     </script>
+    
+    <!-- Clippy Assistant Scripts -->
+    <!-- Modern Clippy Assistant Scripts - Loaded after main content -->
+    <script type="module">
+        let clippy;
+        let randomMovementInterval;
+        
+        function startRandomAnimations() {
+            if (randomMovementInterval) clearInterval(randomMovementInterval);
+            
+            randomMovementInterval = setInterval(() => {
+                if (!clippy) return;
+                
+                // Use correct animation names from modern-clippy
+                const animations = ['Idle', 'Wave', 'Thinking', 'Explain', 'GetAttention', 'Congratulate'];
+                const randomAnimation = animations[Math.floor(Math.random() * animations.length)];
+                
+                clippy.play(randomAnimation);
+                
+                // Occasionally speak random messages
+                if (Math.random() < 0.4) {
+                    const messages = [
+                        "Need any help?",
+                        "I'm here if you need assistance!",
+                        "Exploring the website?",
+                        "Let me know if you have questions!",
+                        "Looking good!",
+                        "How's it going?",
+                        "Anything I can help with?"
+                    ];
+                    const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+                    setTimeout(() => {
+                        clippy.speak(randomMessage);
+                    }, 500);
+                }
+            }, 3000 + Math.random() * 4000); // Faster interval between 3-7 seconds
+        }
+        
+        async function initModernClippy() {
+            try {
+                // Dynamic import to load Clippy after main content
+                const { initClippy } = await import('/static/modern-clippy.js');
+                
+                clippy = await initClippy({ basePath: '/static/' });
+                
+                // Add drag functionality
+                let isDragging = false;
+                let dragOffset = { x: 0, y: 0 };
+                
+                const clippyContainer = clippy.container;
+                
+                // Mouse down event
+                clippyContainer.addEventListener('mousedown', (e) => {
+                    isDragging = true;
+                    const rect = clippyContainer.getBoundingClientRect();
+                    dragOffset.x = e.clientX - rect.left;
+                    dragOffset.y = e.clientY - rect.top;
+                    clippyContainer.style.cursor = 'grabbing';
+                    
+                    // Stop animations while dragging
+                    if (randomMovementInterval) {
+                        clearInterval(randomMovementInterval);
+                        randomMovementInterval = null;
+                    }
+                    
+                    e.preventDefault();
+                });
+                
+                // Mouse move event
+                document.addEventListener('mousemove', (e) => {
+                    if (!isDragging) return;
+                    
+                    const newX = window.innerWidth - (e.clientX - dragOffset.x + clippyContainer.offsetWidth);
+                    const newY = window.innerHeight - (e.clientY - dragOffset.y + clippyContainer.offsetHeight);
+                    
+                    // Keep within bounds
+                    const boundedX = Math.max(20, Math.min(newX, window.innerWidth - 150));
+                    const boundedY = Math.max(20, Math.min(newY, window.innerHeight - 120));
+                    
+                    clippyContainer.style.right = boundedX + 'px';
+                    clippyContainer.style.bottom = boundedY + 'px';
+                });
+                
+                // Mouse up event
+                document.addEventListener('mouseup', () => {
+                    if (isDragging) {
+                        isDragging = false;
+                        clippyContainer.style.cursor = 'grab';
+                        
+                        // Restart animations after a brief delay
+                        setTimeout(() => {
+                            if (!randomMovementInterval) {
+                                startRandomAnimations();
+                            }
+                        }, 2000);
+                    }
+                });
+                
+                // Set initial cursor
+                clippyContainer.style.cursor = 'grab';
+                
+                // Welcome message
+                setTimeout(() => {
+                    clippy.play('GetAttention');
+                    setTimeout(() => {
+                        clippy.speak("Hello! I'm your assistant. I'm here to help you navigate this website!");
+                        // Start random animations after welcome
+                        setTimeout(startRandomAnimations, 2000);
+                    }, 500);
+                }, 1000);
+                
+            } catch (error) {
+                console.error('Failed to initialize Modern Clippy:', error);
+            }
+        }
+        
+        // Initialize after main content is fully loaded
+        window.addEventListener('load', () => {
+            // Add delay to ensure main content is prioritized
+            setTimeout(initModernClippy, 1000);
+        });
+    </script>
+    
 </body>
 </html>

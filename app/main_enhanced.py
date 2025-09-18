@@ -13,7 +13,7 @@ This module sets up the FastAPI application with all enhancements:
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from typing import Dict, Any
+from typing import Dict, Any, List, Tuple
 
 from fastapi import FastAPI, Request, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -38,6 +38,9 @@ from app.middleware import (
     RequestLoggingMiddleware,
     TrustedHostMiddleware
 )
+
+# Global list to track background tasks and their stop events
+background_tasks: List[Tuple[asyncio.Task, asyncio.Event]] = []
 from app.cache import (
     get_cache,
     CacheManager,
@@ -78,8 +81,10 @@ async def lifespan(app: FastAPI):
         # Start background tasks
         if settings.CACHE_ENABLED:
             logger.info("Starting cache maintenance task...")
-            # Start cache maintenance task (runs every 5 minutes)
-            asyncio.create_task(periodic_cache_maintenance())
+            # Create stop event and start cache maintenance task
+            stop_event = asyncio.Event()
+            task = asyncio.create_task(periodic_cache_maintenance(stop_event))
+            background_tasks.append((task, stop_event))
         
         # Log security configuration
         log_security_event(
@@ -104,6 +109,23 @@ async def lifespan(app: FastAPI):
         # Shutdown procedures
         logger.info("Shutting down SaveMyLinks application...")
         
+        # Stop all background tasks
+        if background_tasks:
+            logger.info(f"Stopping {len(background_tasks)} background tasks...")
+            for task, stop_event in background_tasks:
+                stop_event.set()
+            
+            # Wait for all tasks to finish
+            for task, stop_event in background_tasks:
+                try:
+                    await task
+                except Exception as e:
+                    logger.error(f"Error while stopping background task: {e}")
+            
+            # Clear the background tasks list
+            background_tasks.clear()
+            logger.info("All background tasks stopped")
+        
         # Clear cache if needed
         if settings.CACHE_ENABLED:
             cache_stats = await CacheManager.get_cache_stats()
@@ -112,14 +134,32 @@ async def lifespan(app: FastAPI):
         logger.info("Application shutdown completed")
 
 
-async def periodic_cache_maintenance():
-    """Background task for periodic cache maintenance."""
-    while True:
+async def periodic_cache_maintenance(stop_event: asyncio.Event):
+    """
+    Background task for periodic cache maintenance.
+    
+    Args:
+        stop_event: Event to signal when the task should stop
+    """
+    logger = logging.getLogger(__name__)
+    
+    while not stop_event.is_set():
         try:
-            await asyncio.sleep(300)  # 5 minutes
-            await cache_maintenance_task()
+            # Wait for either the stop event or timeout (5 minutes)
+            await asyncio.wait_for(stop_event.wait(), timeout=300)
+            # If we reach here, stop_event was set, so break the loop
+            break
+        except asyncio.TimeoutError:
+            # Timeout occurred, perform maintenance and continue
+            try:
+                await cache_maintenance_task()
+            except Exception as e:
+                logger.error(f"Cache maintenance error: {e}")
         except Exception as e:
-            logger.error(f"Cache maintenance error: {e}")
+            logger.error(f"Unexpected error in cache maintenance: {e}")
+            break
+    
+    logger.info("Cache maintenance task stopped")
 
 
 def create_enhanced_app() -> FastAPI:

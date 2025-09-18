@@ -193,6 +193,61 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--white) !important;
 }
 
+/* Glassmorphism Button Effects for Dark Mode */
+[data-theme="dark"] .button {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--white);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .button.is-primary {
+  background: rgba(22, 163, 74, 0.25);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(22, 163, 74, 0.3);
+  color: var(--white);
+  box-shadow: 0 4px 16px rgba(22, 163, 74, 0.3);
+}
+
+[data-theme="dark"] .button.is-primary.is-light {
+  background: rgba(22, 163, 74, 0.15);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(22, 163, 74, 0.2);
+  color: var(--white) !important;
+}
+
+/* Enhanced Glassmorphism Button Hover States */
+[data-theme="dark"] .button:hover {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+[data-theme="dark"] .button.is-primary:hover {
+  background: rgba(22, 163, 74, 0.35);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(22, 163, 74, 0.4);
+  box-shadow: 0 6px 24px rgba(22, 163, 74, 0.4), 0 0 0 1px rgba(22, 163, 74, 0.2);
+  transform: translateY(-2px);
+}
+
+[data-theme="dark"] .button.is-primary.is-light:hover {
+  background: rgba(22, 163, 74, 0.25);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(22, 163, 74, 0.3);
+  box-shadow: 0 6px 20px rgba(22, 163, 74, 0.3), 0 0 0 1px rgba(22, 163, 74, 0.15);
+  transform: translateY(-2px);
+}
+
 /* Card Components with Glassmorphism */
 .card {
   border-radius: var(--radius-lg);
@@ -402,23 +457,23 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Dark Theme Support - Manual Toggle */
 [data-theme="dark"] {
-  /* Dark theme green color adjustments */
-  --primary-gradient: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  /* Dark theme green color adjustments - Solid colors only */
+  --primary-gradient: #16a34a;
   --primary-color: #16a34a;
   --primary-dark: #15803d;
   --primary-light: #22c55e;
   --secondary-color: #047857;
-  --secondary-gradient: linear-gradient(135deg, #059669 0%, #047857 100%);
+  --secondary-gradient: #059669;
   --accent-color: #65a30d;
   --accent-light: #84cc16;
   
-  /* Dark nature gradients */
-  --forest-gradient: linear-gradient(135deg, #14532d 0%, #166534 50%, #16a34a 100%);
-  --meadow-gradient: linear-gradient(135deg, #65a30d 0%, #4d7c0f 50%, #15803d 100%);
-  --leaf-gradient: linear-gradient(135deg, #16a34a 0%, #65a30d 100%);
+  /* Solid dark nature colors */
+  --forest-gradient: #166534;
+  --meadow-gradient: #65a30d;
+  --leaf-gradient: #16a34a;
   
-  /* Dark backgrounds with smooth blending */
-  --bg-light: linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #475569 75%, #64748b 100%);
+  /* Solid dark backgrounds - no gradients */
+  --bg-light: #0f172a;
   --bg-card: rgba(30, 41, 59, 0.95);
   
   /* Dark neutral colors - keeping white elements white */

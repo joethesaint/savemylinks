@@ -1,0 +1,49 @@
+{
+  "overlayCount": 1,
+  "sounds": [],
+  "framesize": [124, 93],
+  "animations": {
+    "Idle": {
+      "frames": [{
+        "duration": 400,
+        "imageMap": {
+          "source": "map.png",
+          "x": 0,
+          "y": 0,
+          "width": 124,
+          "height": 93
+        },
+        "position": {"x": 0, "y": 0}
+      }],
+      "useQueue": false
+    },
+    "Wave": {
+      "frames": [
+        {
+          "duration": 400,
+          "imageMap": {
+            "source": "map.png",
+            "x": 124,
+            "y": 0,
+            "width": 124,
+            "height": 93
+          },
+          "position": {"x": 0, "y": -10}
+        },
+        {
+          "duration": 400,
+          "imageMap": {
+            "source": "map.png",
+            "x": 0,
+            "y": 0,
+            "width": 124,
+            "height": 93
+          },
+          "position": {"x": 0, "y": 0}
+        }
+      ],
+      "useQueue": true
+    }
+  },
+  "sizes": [[124, 93]]
+}

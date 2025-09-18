@@ -40,10 +40,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         AsyncSession: Database session for dependency injection.
     """
     async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+        yield session
 
 
 async def create_tables():

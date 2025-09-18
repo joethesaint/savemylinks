@@ -138,6 +138,14 @@ savemylinks/
    ```bash
    python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
    ```
+   
+   ⚠️ **Security Warning**: The `--host 0.0.0.0` flag exposes the application on all network interfaces, making it accessible from any device on your network. This is **NOT recommended for production use**.
+   
+   **For production deployment**:
+   - Use `--host 127.0.0.1` to bind only to localhost
+   - Deploy behind a proper production server (e.g., Gunicorn, uWSGI) with a reverse proxy (Nginx, Apache)
+   - Configure firewall rules and allowed hosts appropriately
+   - Use environment-specific configuration files for different deployment environments
 
 5. **Access the application**:
    - **Web Interface**: Open your browser and navigate to `http://localhost:8000`

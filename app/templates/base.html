@@ -80,6 +80,9 @@
         </div>
     </nav>
 
+    <!-- Particle Canvas Background -->
+    <canvas id="particle-canvas" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none;"></canvas>
+
     <!-- Main Content -->
     <main class="main-content">
         <div class="container">
@@ -175,108 +178,121 @@
                 }
             }
             
-            // Three.js Mouse-Following Particle Effect
-            let scene, camera, renderer, particles = [];
-            let mouseX = 0, mouseY = 0;
-            let targetMouseX = 0, targetMouseY = 0;
+            // Canvas-based Green Dust Particle Effect
+            const canvas = document.getElementById('particle-canvas');
+            const ctx = canvas.getContext('2d');
+            let particlesArray = [];
             
-            function initThreeJS() {
-                try {
-                    console.log('Initializing Three.js particle system...');
+            // Set canvas size
+            function setCanvasSize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            
+            setCanvasSize();
+            window.addEventListener('resize', setCanvasSize);
+            
+            // Mouse position
+            let mouse = {
+                x: null,
+                y: null,
+                radius: 100
+            };
+            
+            window.addEventListener('mousemove', function(event) {
+                mouse.x = event.x;
+                mouse.y = event.y;
+            });
+            
+            // Create particle class
+            class Particle {
+                constructor() {
+                    this.x = Math.random() * canvas.width;
+                    this.y = Math.random() * canvas.height;
+                    this.size = Math.random() * 3 + 1;
+                    this.speedX = Math.random() * 3 - 1.5;
+                    this.speedY = Math.random() * 3 - 1.5;
+                    this.color = `rgba(100, ${200 + Math.random() * 55}, 100, ${0.5 + Math.random() * 0.5})`;
+                }
+                
+                update() {
+                    // Move particles
+                    this.x += this.speedX;
+                    this.y += this.speedY;
                     
-                    // Check if WebGL is supported
-                    if (!window.WebGLRenderingContext) {
-                        console.log('WebGL not supported, using CSS fallback');
-                        initCSSFallback();
-                        return;
+                    // Wrap around edges
+                    if (this.x > canvas.width) this.x = 0;
+                    if (this.x < 0) this.x = canvas.width;
+                    if (this.y > canvas.height) this.y = 0;
+                    if (this.y < 0) this.y = canvas.height;
+                    
+                    // Mouse interaction - particles react to mouse
+                    const dx = mouse.x - this.x;
+                    const dy = mouse.y - this.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < mouse.radius) {
+                        const force = (mouse.radius - distance) / mouse.radius;
+                        const forceDirectionX = dx / distance;
+                        const forceDirectionY = dy / distance;
+                        const directionX = forceDirectionX * force * 10;
+                        const directionY = forceDirectionY * force * 10;
+                        
+                        this.speedX -= directionX;
+                        this.speedY -= directionY;
                     }
                     
-                    // Create scene
-                    scene = new THREE.Scene();
-                    
-                    // Create camera
-                    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-                    camera.position.z = 10;
-                    
-                    // Create renderer with error handling
-                    try {
-                        renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-                        renderer.setSize(window.innerWidth, window.innerHeight);
-                        renderer.domElement.style.position = 'fixed';
-                        renderer.domElement.style.top = '0';
-                        renderer.domElement.style.left = '0';
-                        renderer.domElement.style.pointerEvents = 'none';
-                        renderer.domElement.style.zIndex = '1';
-                        document.body.appendChild(renderer.domElement);
-                        console.log('Three.js renderer created and added to DOM');
-                    } catch (e) {
-                        console.error('WebGL renderer failed, falling back to CSS:', e);
-                        initCSSFallback();
-                        return;
-                    }
-                    
-                    // Create simple particle system with tiny dust-like particles
-                    const particleCount = 120;
-                    const geometry = new THREE.CircleGeometry(0.05, 6); // Much smaller particles like dust
-                    
-                    // Create particles with subtle, dust-like materials
-                    const dustColors = [
-                        new THREE.Color(0x888888), // Gray dust
-                        new THREE.Color(0x999999), // Light gray
-                        new THREE.Color(0x777777), // Dark gray
-                        new THREE.Color(0xaaaaaa), // Very light gray
-                        new THREE.Color(0x666666)  // Darker gray
-                    ];
-                    
-                    for (let i = 0; i < particleCount; i++) {
-                        const material = new THREE.MeshBasicMaterial({
-                            color: dustColors[Math.floor(Math.random() * dustColors.length)],
-                            transparent: true,
-                            opacity: 0.3 + Math.random() * 0.2 // Lower opacity for dust effect
-                        });
-                        
-                        const particle = new THREE.Mesh(geometry, material);
-                        
-                        // Random initial position
-                        particle.position.x = (Math.random() - 0.5) * 20;
-                        particle.position.y = (Math.random() - 0.5) * 15;
-                        particle.position.z = (Math.random() - 0.5) * 5;
-                        
-                        // Store boid behavior data
-                        particle.userData = {
-                            originalX: particle.position.x,
-                            originalY: particle.position.y,
-                            velocityX: (Math.random() - 0.5) * 0.02,
-                            velocityY: (Math.random() - 0.5) * 0.02,
-                            age: Math.random() * 100,
-                            baseOpacity: material.opacity,
-                            // Boid behavior properties
-                            separationRadius: 0.5,
-                            alignmentRadius: 1.0,
-                            cohesionRadius: 1.5,
-                            maxSpeed: 0.03,
-                            maxForce: 0.001
-                        };
-                        
-                        particles.push(particle);
-                        scene.add(particle);
-                    }
-                    
-                    console.log(`Created ${particleCount} particles`);
-                    
-                    // Start animation loop
-                    animate();
-                    
-                    console.log('Three.js particle system initialization complete');
-                } catch (error) {
-                    console.error('Error initializing Three.js:', error);
-                    console.log('Falling back to CSS gradient');
-                    initCSSFallback();
+                    // Apply friction
+                    this.speedX *= 0.99;
+                    this.speedY *= 0.99;
+                }
+                
+                draw() {
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.closePath();
+                    ctx.fill();
                 }
             }
             
+            // Initialize particles
+            function initParticles() {
+                particlesArray = [];
+                const numberOfParticles = 150;
+                
+                for (let i = 0; i < numberOfParticles; i++) {
+                    particlesArray.push(new Particle());
+                }
+                console.log(`Canvas particle system initialized with ${numberOfParticles} particles`);
+            }
+            
+            // Animation loop
+            function animateParticles() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                for (let i = 0; i < particlesArray.length; i++) {
+                    particlesArray[i].update();
+                    particlesArray[i].draw();
+                }
+                
+                requestAnimationFrame(animateParticles);
+            }
+            
+            // Reinitialize particles when window is resized
+            window.addEventListener('resize', function() {
+                setCanvasSize();
+                initParticles();
+            });
+            
+            // Remove mouse position when leaving canvas
+            window.addEventListener('mouseout', function() {
+                mouse.x = undefined;
+                mouse.y = undefined;
+            });
+            
             function initCSSFallback() {
-                console.log('Initializing CSS fallback particle effect');
+                console.log('Initializing Enhanced CSS fallback particle effect');
                 
                 // Create CSS particle container
                 const particleContainer = document.createElement('div');
@@ -290,20 +306,36 @@
                 particleContainer.style.overflow = 'hidden';
                 document.body.appendChild(particleContainer);
                 
-                // Create CSS particles with larger, more visible dots
-                const particleCount = 60;
+                // Create enhanced CSS particles with green theme
+                const particleCount = 150;
                 const cssParticles = [];
+                
+                // Green color palette
+                const greenShades = [
+                    'rgba(34, 197, 94, 0.8)',   // Primary green
+                    'rgba(22, 163, 74, 0.7)',  // Dark green
+                    'rgba(74, 222, 128, 0.6)', // Light green
+                    'rgba(5, 150, 105, 0.8)',  // Secondary green
+                    'rgba(132, 204, 22, 0.7)', // Accent green
+                    'rgba(163, 230, 53, 0.6)'  // Bright green
+                ];
                 
                 for (let i = 0; i < particleCount; i++) {
                     const particle = document.createElement('div');
+                    const size = 8 + Math.random() * 12; // Varying sizes
+                    
                     particle.style.position = 'absolute';
-                    particle.style.width = '12px';  // Much larger
-                    particle.style.height = '12px'; // Much larger
+                    particle.style.width = size + 'px';
+                    particle.style.height = size + 'px';
                     particle.style.borderRadius = '50%';
-                    particle.style.backgroundColor = `hsl(${120 + Math.random() * 40}, 90%, ${60 + Math.random() * 20}%)`;
-                    particle.style.opacity = '0.9'; // Higher opacity
-                    particle.style.transition = 'all 0.2s ease-out';
-                    particle.style.boxShadow = '0 0 10px rgba(0, 255, 0, 0.5)'; // Glow effect
+                    particle.style.backgroundColor = greenShades[Math.floor(Math.random() * greenShades.length)];
+                    particle.style.opacity = '0.6';
+                    particle.style.transition = 'all 0.3s ease-out';
+                    particle.style.boxShadow = `0 0 ${size}px rgba(34, 197, 94, 0.4)`;
+                    
+                    // Add irregular shape with CSS clip-path for organic feel
+                    const irregularity = 10 + Math.random() * 20;
+                    particle.style.clipPath = `polygon(${irregularity}% 0%, 100% ${irregularity}%, ${100-irregularity}% 100%, 0% ${100-irregularity}%)`;
                     
                     // Random initial position
                     particle.style.left = Math.random() * window.innerWidth + 'px';
@@ -314,199 +346,118 @@
                         element: particle,
                         x: Math.random() * window.innerWidth,
                         y: Math.random() * window.innerHeight,
-                        vx: 0,
-                        vy: 0
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: (Math.random() - 0.5) * 2,
+                        mass: 0.5 + Math.random() * 0.5,
+                        restitution: 0.7 + Math.random() * 0.2,
+                        noiseOffsetX: Math.random() * 1000,
+                        noiseOffsetY: Math.random() * 1000,
+                        organicSpeed: 0.01 + Math.random() * 0.02,
+                        directionChangeTimer: Math.random() * 200,
+                        baseOpacity: 0.6 + Math.random() * 0.3,
+                        glowIntensity: Math.random(),
+                        repulsionStrength: 0.8 + Math.random() * 0.4
                     });
                 }
                 
-                // Mouse tracking for CSS particles
+                // Enhanced mouse tracking and animation for CSS particles
                 let cssMouseX = 0, cssMouseY = 0;
                 
-                document.addEventListener('mousemove', function(e) {
-                    cssMouseX = e.clientX;
-                    cssMouseY = e.clientY;
+                function animateCSSParticles() {
+                    const time = Date.now() * 0.001;
                     
-                    cssParticles.forEach(particle => {
+                    cssParticles.forEach((particle, index) => {
+                        // Apply gravity
+                        particle.vy += 0.05;
+                        
+                        // Organic movement
+                        particle.noiseOffsetX += particle.organicSpeed;
+                        particle.noiseOffsetY += particle.organicSpeed;
+                        
+                        const noiseX = Math.sin(particle.noiseOffsetX) * 0.5;
+                        const noiseY = Math.cos(particle.noiseOffsetY) * 0.5;
+                        
+                        particle.vx += noiseX;
+                        particle.vy += noiseY;
+                        
+                        // Random direction changes
+                        particle.directionChangeTimer--;
+                        if (particle.directionChangeTimer <= 0) {
+                            particle.vx += (Math.random() - 0.5) * 2;
+                            particle.vy += (Math.random() - 0.5) * 2;
+                            particle.directionChangeTimer = 100 + Math.random() * 200;
+                        }
+                        
+                        // Mouse repulsion
                         const dx = cssMouseX - particle.x;
                         const dy = cssMouseY - particle.y;
                         const distance = Math.sqrt(dx * dx + dy * dy);
                         
-                        if (distance < 200) {
-                            const force = (200 - distance) / 200;
-                            particle.vx += dx * force * 0.01;
-                            particle.vy += dy * force * 0.01;
-                        }
-                        
-                        particle.x += particle.vx;
-                        particle.y += particle.vy;
-                        particle.vx *= 0.95;
-                        particle.vy *= 0.95;
-                        
-                        // Keep within bounds
-                        if (particle.x < 0) particle.x = window.innerWidth;
-                        if (particle.x > window.innerWidth) particle.x = 0;
-                        if (particle.y < 0) particle.y = window.innerHeight;
-                        if (particle.y > window.innerHeight) particle.y = 0;
-                        
-                        particle.element.style.left = particle.x + 'px';
-                        particle.element.style.top = particle.y + 'px';
-                        
-                        // Update opacity based on distance
-                        const opacity = Math.max(0.3, 1 - distance / 300);
-                        particle.element.style.opacity = opacity;
-                    });
-                });
-                
-                console.log('CSS fallback particle effect initialized');
-            }
-            
-            function animate() {
-                requestAnimationFrame(animate);
-                
-                const time = Date.now() * 0.001;
-                
-                if (particles.length > 0) {
-                    // Smooth mouse following
-                    mouseX += (targetMouseX - mouseX) * 0.05;
-                    mouseY += (targetMouseY - mouseY) * 0.05;
-                    
-                    // Convert mouse coordinates to world space
-                    const mouseWorldX = (mouseX / window.innerWidth) * 20 - 10;
-                    const mouseWorldY = -(mouseY / window.innerHeight) * 15 + 7.5;
-                    
-                    // Boid algorithm implementation
-                    particles.forEach((particle, index) => {
-                        const userData = particle.userData;
-                        
-                        // Age the particle
-                        userData.age += 0.5;
-                        
-                        // Boid forces
-                        let separationForceX = 0, separationForceY = 0;
-                        let alignmentForceX = 0, alignmentForceY = 0;
-                        let cohesionForceX = 0, cohesionForceY = 0;
-                        let separationCount = 0, alignmentCount = 0, cohesionCount = 0;
-                        
-                        // Check neighbors for boid behavior
-                        particles.forEach((other, otherIndex) => {
-                            if (index === otherIndex) return;
-                            
-                            const dx = other.position.x - particle.position.x;
-                            const dy = other.position.y - particle.position.y;
-                            const distance = Math.sqrt(dx * dx + dy * dy);
-                            
-                            // Separation - avoid crowding neighbors
-                            if (distance < userData.separationRadius && distance > 0) {
-                                separationForceX -= dx / distance;
-                                separationForceY -= dy / distance;
-                                separationCount++;
-                            }
-                            
-                            // Alignment - steer towards average heading of neighbors
-                            if (distance < userData.alignmentRadius && distance > 0) {
-                                alignmentForceX += other.userData.velocityX;
-                                alignmentForceY += other.userData.velocityY;
-                                alignmentCount++;
-                            }
-                            
-                            // Cohesion - steer towards average position of neighbors
-                            if (distance < userData.cohesionRadius && distance > 0) {
-                                cohesionForceX += dx;
-                                cohesionForceY += dy;
-                                cohesionCount++;
-                            }
-                        });
-                        
-                        // Average the forces
-                        if (separationCount > 0) {
-                            separationForceX /= separationCount;
-                            separationForceY /= separationCount;
-                        }
-                        
-                        if (alignmentCount > 0) {
-                            alignmentForceX /= alignmentCount;
-                            alignmentForceY /= alignmentCount;
-                        }
-                        
-                        if (cohesionCount > 0) {
-                            cohesionForceX /= cohesionCount;
-                            cohesionForceY /= cohesionCount;
-                        }
-                        
-                        // Mouse attraction when hovering - made faster and more responsive
-                        const mouseDistance = Math.sqrt((mouseWorldX - particle.position.x) ** 2 + (mouseWorldY - particle.position.y) ** 2);
-                        let mouseForceX = 0, mouseForceY = 0;
-                        
-                        if (mouseDistance < 5 && mouseDistance > 0.1) {
-                            const mouseAttraction = 0.08 / (1 + mouseDistance * 0.2);
-                            mouseForceX = (mouseWorldX - particle.position.x) * mouseAttraction;
-                            mouseForceY = (mouseWorldY - particle.position.y) * mouseAttraction;
-                        }
-                        
-                        // Random wandering behavior
-                        const wanderForceX = Math.sin(time * 0.5 + userData.age * 0.1) * 0.001;
-                        const wanderForceY = Math.cos(time * 0.3 + userData.age * 0.08) * 0.001;
-                        
-                        // Combine all forces with different weights - increased mouse force weight
-                        const totalForceX = separationForceX * 1.5 + alignmentForceX * 1.0 + cohesionForceX * 0.5 + mouseForceX * 4.0 + wanderForceX;
-                        const totalForceY = separationForceY * 1.5 + alignmentForceY * 1.0 + cohesionForceY * 0.5 + mouseForceY * 4.0 + wanderForceY;
-                        
-                        // Apply forces to velocity
-                        userData.velocityX += totalForceX * userData.maxForce;
-                        userData.velocityY += totalForceY * userData.maxForce;
-                        
-                        // Limit speed
-                        const speed = Math.sqrt(userData.velocityX ** 2 + userData.velocityY ** 2);
-                        if (speed > userData.maxSpeed) {
-                            userData.velocityX = (userData.velocityX / speed) * userData.maxSpeed;
-                            userData.velocityY = (userData.velocityY / speed) * userData.maxSpeed;
+                        if (distance < 150 && distance > 0) {
+                            const repulsionForce = (150 - distance) / 150 * particle.repulsionStrength;
+                            particle.vx -= dx * repulsionForce * 0.1;
+                            particle.vy -= dy * repulsionForce * 0.1;
                         }
                         
                         // Apply velocity
-                        particle.position.x += userData.velocityX;
-                        particle.position.y += userData.velocityY;
+                        particle.x += particle.vx;
+                        particle.y += particle.vy;
                         
-                        // Update opacity based on mouse proximity
-                        const opacity = userData.baseOpacity * (0.4 + 0.6 / (1 + mouseDistance * 0.3));
-                        particle.material.opacity = Math.min(opacity, 0.8);
+                        // Edge bouncing with energy loss
+                        if (particle.x <= 0 || particle.x >= window.innerWidth) {
+                            particle.vx *= -particle.restitution;
+                            particle.x = particle.x <= 0 ? 0 : window.innerWidth;
+                        }
                         
-                        // Subtle rotation
-                        particle.rotation.z = time * 0.1 + userData.age * 0.01;
+                        if (particle.y <= 0 || particle.y >= window.innerHeight) {
+                            particle.vy *= -particle.restitution;
+                            particle.y = particle.y <= 0 ? 0 : window.innerHeight;
+                        }
                         
-                        // Wrap around screen edges
-                        if (particle.position.x > 12) particle.position.x = -12;
-                        if (particle.position.x < -12) particle.position.x = 12;
-                        if (particle.position.y > 9) particle.position.y = -9;
-                        if (particle.position.y < -9) particle.position.y = 9;
+                        // Velocity damping
+                        particle.vx *= 0.995;
+                        particle.vy *= 0.995;
+                        
+                        // Update position
+                        particle.element.style.left = particle.x + 'px';
+                        particle.element.style.top = particle.y + 'px';
+                        
+                        // Glow effect
+                        const glowPulse = Math.sin(time * 2 + particle.glowIntensity * 10) * 0.2 + 0.8;
+                        particle.element.style.opacity = particle.baseOpacity * glowPulse;
+                        
+                        // Particle connections (simplified for CSS)
+                        for (let j = index + 1; j < Math.min(index + 5, cssParticles.length); j++) {
+                            const other = cssParticles[j];
+                            const connectionDistance = Math.sqrt(
+                                (other.x - particle.x) ** 2 + (other.y - particle.y) ** 2
+                            );
+                            
+                            if (connectionDistance < 100) {
+                                // Create temporary connection line (simplified)
+                                const connectionOpacity = (100 - connectionDistance) / 100 * 0.3;
+                                particle.element.style.boxShadow = `0 0 20px rgba(34, 197, 94, ${connectionOpacity})`;
+                            }
+                        }
                     });
+                    
+                    requestAnimationFrame(animateCSSParticles);
                 }
                 
-                if (renderer && scene && camera) {
-                    renderer.render(scene, camera);
-                }
+                document.addEventListener('mousemove', function(e) {
+                    cssMouseX = e.clientX;
+                    cssMouseY = e.clientY;
+                });
+                
+                // Start CSS animation
+                animateCSSParticles();
+                
+                console.log('Enhanced CSS fallback particle effect initialized');
             }
             
-            // Mouse tracking
-            document.addEventListener('mousemove', function(e) {
-                targetMouseX = e.clientX;
-                targetMouseY = e.clientY;
-            });
-            
-            // Handle window resize
-            window.addEventListener('resize', function() {
-                if (camera && renderer) {
-                    camera.aspect = window.innerWidth / window.innerHeight;
-                    camera.updateProjectionMatrix();
-                    renderer.setSize(window.innerWidth, window.innerHeight);
-                }
-            });
-            
-            // Initialize Three.js when page loads
-            if (typeof THREE !== 'undefined') {
-                initThreeJS();
-            } else {
-                console.error('Three.js library not loaded');
-            }
+            // Initialize Canvas particle system when page loads
+            initParticles();
+            animateParticles();
         });
     </script>
     

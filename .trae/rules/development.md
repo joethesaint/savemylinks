@@ -48,3 +48,10 @@ Generate tests that cover both success and failure cases (e.g., 200 OK, 404 Not 
 
 Also, ensure that tests are idempotent and do not depend on the order of execution.
 We are to follow TDD approach as it helps with setting up the build
+
+## Version Control & Commits
+- **Frequent Commits:** Commit changes frequently to maintain a clean development history.
+- **Focused Commits:** Keep commits focused on a single feature, fix, or improvement.
+- **AI-Generated Messages:** Use AI to generate descriptive commit messages that clearly explain the changes.
+- **Commit Structure:** Follow conventional commit format (feat:, fix:, docs:, test:, refactor:, etc.).
+- **Well-Labeled:** Ensure commit messages are descriptive and include bullet points for complex changes.

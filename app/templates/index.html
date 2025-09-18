@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+
+{% block title %}Home - SaveMyLinks{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Search and Filter Section -->
+    <div class="search-container">
+        <div class="columns">
+            <div class="column is-8">
+                <div class="field has-addons">
+                    <div class="control is-expanded has-icons-left">
+                        <input class="input" type="text" id="searchInput" placeholder="Search resources...">
+                        <span class="icon is-small is-left">
+                            <i class="fas fa-search"></i>
+                        </span>
+                    </div>
+                    <div class="control">
+                        <button class="button is-primary" onclick="searchResources()">
+                            <span class="icon">
+                                <i class="fas fa-search"></i>
+                            </span>
+                            <span>Search</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="column is-4">
+                <div class="field">
+                    <div class="control has-icons-left">
+                        <div class="select is-fullwidth">
+                            <select id="categoryFilter" onchange="filterByCategory()">
+                                <option value="">All Categories</option>
+                            </select>
+                        </div>
+                        <span class="icon is-small is-left">
+                            <i class="fas fa-filter"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resources Section -->
+    <div class="columns">
+        <div class="column">
+            <div class="level">
+                <div class="level-left">
+                    <div class="level-item">
+                        <h1 class="title is-4">
+                            <span class="icon">
+                                <i class="fas fa-bookmark"></i>
+                            </span>
+                            My Resources
+                        </h1>
+                    </div>
+                </div>
+                <div class="level-right">
+                    <div class="level-item">
+                        <span class="tag is-info" id="resourceCount">0 resources</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loadingState" class="has-text-centered" style="display: none;">
+                <div class="box">
+                    <span class="icon is-large">
+                        <i class="fas fa-spinner fa-pulse"></i>
+                    </span>
+                    <p>Loading resources...</p>
+                </div>
+            </div>
+
+            <!-- Resources List -->
+            <div id="resourcesList">
+                <!-- Resources will be loaded here -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="empty-state" style="display: none;">
+                <div class="box">
+                    <span class="icon is-large">
+                        <i class="fas fa-bookmark"></i>
+                    </span>
+                    <h3 class="title is-5">No resources found</h3>
+                    <p class="subtitle is-6">Start by adding your first resource!</p>
+                    <a href="/add" class="button is-primary">
+                        <span class="icon">
+                            <i class="fas fa-plus"></i>
+                        </span>
+                        <span>Add Resource</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            <nav class="pagination is-centered" id="pagination" style="display: none;">
+                <a class="pagination-previous" id="prevPage">Previous</a>
+                <a class="pagination-next" id="nextPage">Next page</a>
+                <ul class="pagination-list" id="pageNumbers">
+                    <!-- Page numbers will be generated here -->
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<!-- Resource Card Template -->
+<template id="resourceCardTemplate">
+    <div class="box resource-card mb-4">
+        <div class="columns is-vcentered">
+            <div class="column">
+                <h3 class="title is-5 mb-2">
+                    <a class="resource-url" href="" target="_blank" rel="noopener noreferrer"></a>
+                </h3>
+                <p class="subtitle is-6 mb-2 resource-title"></p>
+                <p class="content resource-description"></p>
+                <div class="tags">
+                    <span class="tag category-tag resource-category"></span>
+                    <span class="tag is-light resource-date"></span>
+                </div>
+            </div>
+            <div class="column is-narrow">
+                <div class="buttons">
+                    <button class="button is-small is-info edit-btn">
+                        <span class="icon">
+                            <i class="fas fa-edit"></i>
+                        </span>
+                    </button>
+                    <button class="button is-small is-danger delete-btn">
+                        <span class="icon">
+                            <i class="fas fa-trash"></i>
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script>
+let currentPage = 1;
+let currentSearch = '';
+let currentCategory = '';
+
+// Load resources on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadCategories();
+    loadResources();
+});
+
+// Load categories for filter
+async function loadCategories() {
+    try {
+        const response = await fetch('/api/resources/categories');
+        const categories = await response.json();
+        
+        const categoryFilter = document.getElementById('categoryFilter');
+        categories.forEach(category => {
+            const option = document.createElement('option');
+            option.value = category;
+            option.textContent = category;
+            categoryFilter.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading categories:', error);
+    }
+}
+
+// Load resources
+async function loadResources(page = 1, search = '', category = '') {
+    const loadingState = document.getElementById('loadingState');
+    const resourcesList = document.getElementById('resourcesList');
+    const emptyState = document.getElementById('emptyState');
+    const pagination = document.getElementById('pagination');
+    
+    loadingState.style.display = 'block';
+    resourcesList.innerHTML = '';
+    emptyState.style.display = 'none';
+    pagination.style.display = 'none';
+    
+    try {
+        const params = new URLSearchParams({
+            page: page,
+            per_page: 10
+        });
+        
+        if (search) params.append('search', search);
+        if (category) params.append('category', category);
+        
+        const response = await fetch(`/api/resources/?${params}`);
+        const data = await response.json();
+        
+        loadingState.style.display = 'none';
+        
+        if (data.resources.length === 0) {
+            emptyState.style.display = 'block';
+        } else {
+            renderResources(data.resources);
+            renderPagination(data);
+        }
+        
+        updateResourceCount(data.total);
+        
+    } catch (error) {
+        console.error('Error loading resources:', error);
+        loadingState.style.display = 'none';
+        showNotification('Error loading resources', 'is-danger');
+    }
+}
+
+// Render resources
+function renderResources(resources) {
+    const resourcesList = document.getElementById('resourcesList');
+    const template = document.getElementById('resourceCardTemplate');
+    
+    resources.forEach(resource => {
+        const card = template.content.cloneNode(true);
+        
+        card.querySelector('.resource-url').href = resource.url;
+        card.querySelector('.resource-url').textContent = resource.url;
+        card.querySelector('.resource-title').textContent = resource.title;
+        card.querySelector('.resource-description').textContent = resource.description || 'No description';
+        
+        if (resource.category) {
+            card.querySelector('.resource-category').textContent = resource.category;
+        } else {
+            card.querySelector('.resource-category').style.display = 'none';
+        }
+        
+        const date = new Date(resource.created_at).toLocaleDateString();
+        card.querySelector('.resource-date').textContent = date;
+        
+        // Add event listeners
+        card.querySelector('.edit-btn').onclick = () => editResource(resource.id);
+        card.querySelector('.delete-btn').onclick = () => deleteResource(resource.id);
+        
+        resourcesList.appendChild(card);
+    });
+}
+
+// Render pagination
+function renderPagination(data) {
+    const pagination = document.getElementById('pagination');
+    const prevPage = document.getElementById('prevPage');
+    const nextPage = document.getElementById('nextPage');
+    const pageNumbers = document.getElementById('pageNumbers');
+    
+    if (data.total <= data.per_page) return;
+    
+    pagination.style.display = 'flex';
+    
+    const totalPages = Math.ceil(data.total / data.per_page);
+    
+    // Previous button
+    if (data.page > 1) {
+        prevPage.onclick = () => loadResources(data.page - 1, currentSearch, currentCategory);
+        prevPage.classList.remove('is-disabled');
+    } else {
+        prevPage.classList.add('is-disabled');
+    }
+    
+    // Next button
+    if (data.page < totalPages) {
+        nextPage.onclick = () => loadResources(data.page + 1, currentSearch, currentCategory);
+        nextPage.classList.remove('is-disabled');
+    } else {
+        nextPage.classList.add('is-disabled');
+    }
+    
+    // Page numbers
+    pageNumbers.innerHTML = '';
+    for (let i = 1; i <= totalPages; i++) {
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.className = `pagination-link ${i === data.page ? 'is-current' : ''}`;
+        a.textContent = i;
+        a.onclick = () => loadResources(i, currentSearch, currentCategory);
+        li.appendChild(a);
+        pageNumbers.appendChild(li);
+    }
+}
+
+// Search resources
+function searchResources() {
+    currentSearch = document.getElementById('searchInput').value;
+    currentPage = 1;
+    loadResources(currentPage, currentSearch, currentCategory);
+}
+
+// Filter by category
+function filterByCategory() {
+    currentCategory = document.getElementById('categoryFilter').value;
+    currentPage = 1;
+    loadResources(currentPage, currentSearch, currentCategory);
+}
+
+// Update resource count
+function updateResourceCount(total) {
+    const resourceCount = document.getElementById('resourceCount');
+    resourceCount.textContent = `${total} resource${total !== 1 ? 's' : ''}`;
+}
+
+// Edit resource
+function editResource(id) {
+    // For now, just show an alert. In a full implementation, this would open an edit modal
+    alert(`Edit resource ${id} - This would open an edit form`);
+}
+
+// Delete resource
+async function deleteResource(id) {
+    if (!confirm('Are you sure you want to delete this resource?')) return;
+    
+    try {
+        const response = await fetch(`/api/resources/${id}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            showNotification('Resource deleted successfully', 'is-success');
+            loadResources(currentPage, currentSearch, currentCategory);
+        } else {
+            showNotification('Error deleting resource', 'is-danger');
+        }
+    } catch (error) {
+        console.error('Error deleting resource:', error);
+        showNotification('Error deleting resource', 'is-danger');
+    }
+}
+
+// Show notification
+function showNotification(message, type = 'is-info') {
+    const notification = document.createElement('div');
+    notification.className = `notification ${type} is-toast`;
+    notification.innerHTML = `
+        <button class="delete" onclick="this.parentElement.remove()"></button>
+        ${message}
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 5000);
+}
+
+// Search on Enter key
+document.getElementById('searchInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        searchResources();
+    }
+});
+</script>
+{% endblock %}

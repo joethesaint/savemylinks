@@ -1,0 +1,175 @@
+/* Custom styles for SaveMyLinks application */
+
+/* Base styling */
+body {
+  background-color: #f8f9fa;
+  color: #333;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Override Bulma variables and add custom styles */
+:root {
+  --primary-color: #3273dc;
+  --success-color: #23d160;
+  --danger-color: #ff3860;
+  --warning-color: #ffdd57;
+  --info-color: #209cee;
+  --light-color: #f5f5f5;
+  --dark-color: #363636;
+}
+
+/* Custom navbar styling */
+.navbar-brand .navbar-item {
+  font-weight: 600;
+  font-size: 1.25rem;
+}
+
+/* Resource card styling */
+.resource-card {
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  border-left: 4px solid var(--primary-color);
+  background-color: white;
+  margin-bottom: 1rem;
+}
+
+.resource-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+.resource-url {
+  word-break: break-all;
+  color: var(--info-color);
+  text-decoration: none;
+}
+
+.resource-url:hover {
+  text-decoration: underline;
+}
+
+/* Category tag styling */
+.category-tag {
+  background-color: var(--light-color);
+  color: var(--dark-color);
+  border-radius: 12px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Form styling */
+.form-container {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.box {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+}
+
+.field .control .input:focus,
+.field .control .textarea:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 0.125em rgba(50, 115, 220, 0.25);
+}
+
+/* Button styling */
+.button.is-primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.button.is-primary:hover {
+  background-color: #2366d1;
+  border-color: #2366d1;
+}
+
+/* Search and filter styling */
+.search-container {
+  background-color: white;
+  border-radius: 6px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+/* Pagination styling */
+.pagination-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+/* Loading states */
+.is-loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Empty state styling */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--dark-color);
+}
+
+.empty-state .icon {
+  font-size: 4rem;
+  color: var(--light-color);
+  margin-bottom: 1rem;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 768px) {
+  .resource-card {
+    margin-bottom: 1rem;
+  }
+  
+  .search-container {
+    padding: 1rem;
+  }
+  
+  .form-container {
+    padding: 0 1rem;
+  }
+}
+
+/* Animation for new resources */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.resource-card.new {
+  animation: slideInUp 0.3s ease-out;
+}
+
+/* Toast notifications */
+.notification.is-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  min-width: 300px;
+  animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

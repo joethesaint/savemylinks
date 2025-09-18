@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+
+{% block title %}Add Resource - SaveMyLinks{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="columns is-centered">
+        <div class="column is-8">
+            <div class="form-container">
+                <div class="box">
+                    <h1 class="title is-4 has-text-centered">
+                        <span class="icon">
+                            <i class="fas fa-plus-circle"></i>
+                        </span>
+                        Add New Resource
+                    </h1>
+                    
+                    <form id="addResourceForm">
+                        <!-- Title Field -->
+                        <div class="field">
+                            <label class="label">Title *</label>
+                            <div class="control has-icons-left">
+                                <input class="input" type="text" id="title" name="title" 
+                                       placeholder="Enter a descriptive title" required>
+                                <span class="icon is-small is-left">
+                                    <i class="fas fa-heading"></i>
+                                </span>
+                            </div>
+                            <p class="help is-danger" id="titleError" style="display: none;"></p>
+                        </div>
+
+                        <!-- URL Field -->
+                        <div class="field">
+                            <label class="label">URL *</label>
+                            <div class="control has-icons-left">
+                                <input class="input" type="url" id="url" name="url" 
+                                       placeholder="https://example.com" required>
+                                <span class="icon is-small is-left">
+                                    <i class="fas fa-link"></i>
+                                </span>
+                            </div>
+                            <p class="help is-danger" id="urlError" style="display: none;"></p>
+                            <p class="help">Enter the full URL including http:// or https://</p>
+                        </div>
+
+                        <!-- Description Field -->
+                        <div class="field">
+                            <label class="label">Description</label>
+                            <div class="control">
+                                <textarea class="textarea" id="description" name="description" 
+                                          placeholder="Optional description of the resource" rows="3"></textarea>
+                            </div>
+                            <p class="help is-danger" id="descriptionError" style="display: none;"></p>
+                        </div>
+
+                        <!-- Category Field -->
+                        <div class="field">
+                            <label class="label">Category</label>
+                            <div class="control has-icons-left">
+                                <div class="select is-fullwidth">
+                                    <select id="category" name="category">
+                                        <option value="">Select a category (optional)</option>
+                                    </select>
+                                </div>
+                                <span class="icon is-small is-left">
+                                    <i class="fas fa-folder"></i>
+                                </span>
+                            </div>
+                            <p class="help">Or type a new category name below</p>
+                        </div>
+
+                        <!-- Custom Category Field -->
+                        <div class="field">
+                            <div class="control has-icons-left">
+                                <input class="input" type="text" id="customCategory" name="customCategory" 
+                                       placeholder="Or enter a new category">
+                                <span class="icon is-small is-left">
+                                    <i class="fas fa-tag"></i>
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Submit Buttons -->
+                        <div class="field is-grouped is-grouped-centered">
+                            <div class="control">
+                                <button type="submit" class="button is-primary is-medium" id="submitBtn">
+                                    <span class="icon">
+                                        <i class="fas fa-save"></i>
+                                    </span>
+                                    <span>Save Resource</span>
+                                </button>
+                            </div>
+                            <div class="control">
+                                <a href="/" class="button is-light is-medium">
+                                    <span class="icon">
+                                        <i class="fas fa-times"></i>
+                                    </span>
+                                    <span>Cancel</span>
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Quick Add Section -->
+                <div class="box mt-5">
+                    <h2 class="title is-5">
+                        <span class="icon">
+                            <i class="fas fa-magic"></i>
+                        </span>
+                        Quick Add from URL
+                    </h2>
+                    <p class="subtitle is-6">Paste a URL and we'll try to extract the title automatically</p>
+                    
+                    <div class="field has-addons">
+                        <div class="control is-expanded">
+                            <input class="input" type="url" id="quickUrl" placeholder="Paste URL here...">
+                        </div>
+                        <div class="control">
+                            <button class="button is-info" onclick="extractFromUrl()">
+                                <span class="icon">
+                                    <i class="fas fa-magic"></i>
+                                </span>
+                                <span>Extract</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Load existing categories on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadCategories();
+});
+
+// Load categories for dropdown
+async function loadCategories() {
+    try {
+        const response = await fetch('/api/resources/categories');
+        const categories = await response.json();
+        
+        const categorySelect = document.getElementById('category');
+        categories.forEach(category => {
+            const option = document.createElement('option');
+            option.value = category;
+            option.textContent = category;
+            categorySelect.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading categories:', error);
+    }
+}
+
+// Handle form submission
+document.getElementById('addResourceForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const submitBtn = document.getElementById('submitBtn');
+    const originalText = submitBtn.innerHTML;
+    
+    // Show loading state
+    submitBtn.innerHTML = '<span class="icon"><i class="fas fa-spinner fa-pulse"></i></span><span>Saving...</span>';
+    submitBtn.disabled = true;
+    
+    // Clear previous errors
+    clearErrors();
+    
+    // Get form data
+    const formData = {
+        title: document.getElementById('title').value.trim(),
+        url: document.getElementById('url').value.trim(),
+        description: document.getElementById('description').value.trim() || null,
+        category: document.getElementById('customCategory').value.trim() || 
+                 document.getElementById('category').value || null
+    };
+    
+    try {
+        const response = await fetch('/api/resources/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        if (response.ok) {
+            showNotification('Resource added successfully!', 'is-success');
+            // Reset form
+            document.getElementById('addResourceForm').reset();
+            // Redirect to home after a short delay
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 1500);
+        } else {
+            const errorData = await response.json();
+            if (response.status === 409) {
+                showFieldError('url', 'A resource with this URL already exists');
+            } else if (response.status === 422) {
+                handleValidationErrors(errorData);
+            } else {
+                showNotification('Error adding resource', 'is-danger');
+            }
+        }
+    } catch (error) {
+        console.error('Error adding resource:', error);
+        showNotification('Network error. Please try again.', 'is-danger');
+    } finally {
+        // Restore button state
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }
+});
+
+// Extract title from URL (simplified version)
+async function extractFromUrl() {
+    const quickUrl = document.getElementById('quickUrl').value.trim();
+    
+    if (!quickUrl) {
+        showNotification('Please enter a URL', 'is-warning');
+        return;
+    }
+    
+    try {
+        // For now, just use the URL as title and populate the form
+        // In a real implementation, you might use a service to extract metadata
+        document.getElementById('url').value = quickUrl;
+        
+        // Try to extract a reasonable title from the URL
+        const url = new URL(quickUrl);
+        const pathParts = url.pathname.split('/').filter(part => part);
+        const title = pathParts.length > 0 ? 
+                     pathParts[pathParts.length - 1].replace(/[-_]/g, ' ') : 
+                     url.hostname;
+        
+        document.getElementById('title').value = title.charAt(0).toUpperCase() + title.slice(1);
+        document.getElementById('quickUrl').value = '';
+        
+        showNotification('URL populated! Please review and adjust the title as needed.', 'is-info');
+        
+        // Focus on title field for editing
+        document.getElementById('title').focus();
+        document.getElementById('title').select();
+        
+    } catch (error) {
+        showNotification('Invalid URL format', 'is-danger');
+    }
+}
+
+// Handle validation errors
+function handleValidationErrors(errorData) {
+    if (errorData.detail && Array.isArray(errorData.detail)) {
+        errorData.detail.forEach(error => {
+            const field = error.loc[error.loc.length - 1];
+            showFieldError(field, error.msg);
+        });
+    }
+}
+
+// Show field-specific error
+function showFieldError(fieldName, message) {
+    const errorElement = document.getElementById(fieldName + 'Error');
+    const inputElement = document.getElementById(fieldName);
+    
+    if (errorElement && inputElement) {
+        errorElement.textContent = message;
+        errorElement.style.display = 'block';
+        inputElement.classList.add('is-danger');
+    }
+}
+
+// Clear all errors
+function clearErrors() {
+    const errorElements = document.querySelectorAll('.help.is-danger');
+    const inputElements = document.querySelectorAll('.input, .textarea');
+    
+    errorElements.forEach(el => {
+        el.style.display = 'none';
+        el.textContent = '';
+    });
+    
+    inputElements.forEach(el => {
+        el.classList.remove('is-danger');
+    });
+}
+
+// Show notification
+function showNotification(message, type = 'is-info') {
+    const notification = document.createElement('div');
+    notification.className = `notification ${type} is-toast`;
+    notification.innerHTML = `
+        <button class="delete" onclick="this.parentElement.remove()"></button>
+        ${message}
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 5000);
+}
+
+// Clear custom category when selecting from dropdown
+document.getElementById('category').addEventListener('change', function() {
+    if (this.value) {
+        document.getElementById('customCategory').value = '';
+    }
+});
+
+// Clear dropdown when typing custom category
+document.getElementById('customCategory').addEventListener('input', function() {
+    if (this.value) {
+        document.getElementById('category').value = '';
+    }
+});
+
+// Auto-focus on title field
+document.getElementById('title').focus();
+</script>
+{% endblock %}

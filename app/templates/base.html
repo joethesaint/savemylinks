@@ -3,53 +3,440 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SaveMyLinks - Your personal link curator and bookmark manager">
+    <meta name="theme-color" content="#667eea">
     <title>{% block title %}SaveMyLinks{% endblock %}</title>
+    
+    <!-- Preload critical resources -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Modern CSS Framework -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', path='/style.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', path='/style.css') }}">
+    
+    <!-- Three.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.144.0/build/three.min.js"></script>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔗</text></svg>">
 </head>
-<body>
+<body class="has-navbar-fixed-top">
     <!-- Navigation -->
-    <nav class="navbar is-link" role="navigation" aria-label="main navigation">
-        <div class="navbar-brand">
-            <a class="navbar-item" href="/">
-                <strong>SaveMyLinks</strong>
-            </a>
-        </div>
-        
-        <div class="navbar-menu">
-            <div class="navbar-start">
-                <a class="navbar-item" href="/">
-                    <span class="icon">
-                        <i class="fas fa-home"></i>
+    <nav class="navbar is-fixed-top has-shadow" role="navigation" aria-label="main navigation">
+        <div class="container">
+            <div class="navbar-brand">
+                <a class="navbar-item brand-logo" href="/">
+                    <span class="icon is-medium">
+                        <i class="fas fa-link"></i>
                     </span>
-                    <span>Home</span>
+                    <strong class="ml-2">SaveMyLinks</strong>
                 </a>
-                <a class="navbar-item" href="/add">
-                    <span class="icon">
-                        <i class="fas fa-plus"></i>
-                    </span>
-                    <span>Add Link</span>
+                
+                <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarBasic">
+                    <span aria-hidden="true"></span>
+                    <span aria-hidden="true"></span>
+                    <span aria-hidden="true"></span>
                 </a>
+            </div>
+            
+            <div id="navbarBasic" class="navbar-menu">
+                <div class="navbar-start">
+                    <a class="navbar-item" href="/">
+                        <span class="icon">
+                            <i class="fas fa-home"></i>
+                        </span>
+                        <span>Home</span>
+                    </a>
+                    <a class="navbar-item" href="/add">
+                        <span class="icon">
+                            <i class="fas fa-plus"></i>
+                        </span>
+                        <span>Add Link</span>
+                    </a>
+                </div>
+                
+                <div class="navbar-end">
+                    <div class="navbar-item">
+                        <button id="theme-toggle" class="button is-ghost theme-toggle" title="Toggle theme">
+                            <span class="icon">
+                                <i id="theme-icon" class="fas fa-sun"></i>
+                            </span>
+                        </button>
+                    </div>
+                    <div class="navbar-item">
+                        <div class="buttons">
+                            <a class="button is-primary is-light" href="/add">
+                                <strong>Add New Link</strong>
+                            </a>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </nav>
 
     <!-- Main Content -->
-    <main class="section">
+    <main class="main-content">
         <div class="container">
             {% block content %}{% endblock %}
         </div>
     </main>
 
     <!-- Footer -->
-    <footer class="footer">
-        <div class="content has-text-centered">
-            <p>
-                <strong>SaveMyLinks</strong> - Your personal link curator.
-            </p>
+    <footer class="footer mt-6">
+        <div class="container">
+            <div class="content has-text-centered">
+                <div class="columns is-vcentered">
+                    <div class="column">
+                        <p class="is-size-6">
+                            <strong>SaveMyLinks</strong> - Your personal link curator
+                        </p>
+                        <p class="is-size-7 has-text-grey">
+                            Organize, search, and manage your bookmarks with ease
+                        </p>
+                    </div>
+                    <div class="column is-narrow">
+                        <div class="field is-grouped">
+                            <p class="control">
+                                <a class="button is-small is-outlined" href="https://github.com" target="_blank">
+                                    <span class="icon">
+                                        <i class="fab fa-github"></i>
+                                    </span>
+                                    <span>GitHub</span>
+                                </a>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </footer>
+
+    <!-- JavaScript for mobile menu -->
+    <script>
+        // Mobile menu functionality
+        document.addEventListener('DOMContentLoaded', () => {
+            const $navbarBurgers = Array.prototype.slice.call(document.querySelectorAll('.navbar-burger'), 0);
+            
+            if ($navbarBurgers.length > 0) {
+                $navbarBurgers.forEach(el => {
+                    el.addEventListener('click', () => {
+                        const target = el.dataset.target;
+                        const $target = document.getElementById(target);
+                        
+                        el.classList.toggle('is-active');
+                        $target.classList.toggle('is-active');
+                    });
+                });
+            }
+        });
+
+        // Theme switching functionality
+        document.addEventListener('DOMContentLoaded', () => {
+            const themeToggle = document.getElementById('theme-toggle');
+            const themeIcon = document.getElementById('theme-icon');
+            const html = document.documentElement;
+            
+            // Check for saved theme preference or default to 'light'
+            const currentTheme = localStorage.getItem('theme') || 'light';
+            html.setAttribute('data-theme', currentTheme);
+            updateThemeIcon(currentTheme);
+            
+            themeToggle.addEventListener('click', () => {
+                const currentTheme = html.getAttribute('data-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                
+                // Add animation class
+                themeToggle.classList.add(newTheme === 'dark' ? 'dimming' : 'lighting');
+                
+                // Change theme after a short delay for animation
+                setTimeout(() => {
+                    html.setAttribute('data-theme', newTheme);
+                    localStorage.setItem('theme', newTheme);
+                    updateThemeIcon(newTheme);
+                    
+                    // Remove animation class after animation completes
+                    setTimeout(() => {
+                        themeToggle.classList.remove('dimming', 'lighting');
+                    }, 600);
+                }, 100);
+            });
+            
+            function updateThemeIcon(theme) {
+                if (theme === 'dark') {
+                    themeIcon.className = 'fas fa-moon';
+                } else {
+                    themeIcon.className = 'fas fa-sun';
+                }
+            }
+            
+            // Three.js Mouse-Following Particle Effect
+            let scene, camera, renderer, particles = [];
+            let mouseX = 0, mouseY = 0;
+            let targetMouseX = 0, targetMouseY = 0;
+            
+            function initThreeJS() {
+                try {
+                    console.log('Initializing Three.js particle system...');
+                    
+                    // Check if WebGL is supported
+                    if (!window.WebGLRenderingContext) {
+                        console.log('WebGL not supported, using CSS fallback');
+                        initCSSFallback();
+                        return;
+                    }
+                    
+                    // Create scene
+                    scene = new THREE.Scene();
+                    
+                    // Create camera
+                    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                    camera.position.z = 10;
+                    
+                    // Create renderer with error handling
+                    try {
+                        renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+                        renderer.setSize(window.innerWidth, window.innerHeight);
+                        renderer.domElement.style.position = 'fixed';
+                        renderer.domElement.style.top = '0';
+                        renderer.domElement.style.left = '0';
+                        renderer.domElement.style.pointerEvents = 'none';
+                        renderer.domElement.style.zIndex = '-1';
+                        document.body.appendChild(renderer.domElement);
+                        console.log('Three.js renderer created and added to DOM');
+                    } catch (e) {
+                        console.error('WebGL renderer failed, falling back to CSS:', e);
+                        initCSSFallback();
+                        return;
+                    }
+                    
+                    // Create simple particle system with larger, more visible particles
+                    const particleCount = 80;
+                    const geometry = new THREE.CircleGeometry(0.3, 12); // Much larger particles
+                    
+                    // Create particles with bright, vibrant green materials
+                    const greenColors = [
+                        new THREE.Color(0x00ff00), // Bright green
+                        new THREE.Color(0x32ff32), // Light green
+                        new THREE.Color(0x00cc00), // Medium green
+                        new THREE.Color(0x66ff66), // Pale green
+                        new THREE.Color(0x00aa00)  // Dark green
+                    ];
+                    
+                    for (let i = 0; i < particleCount; i++) {
+                        const material = new THREE.MeshBasicMaterial({
+                            color: greenColors[Math.floor(Math.random() * greenColors.length)],
+                            transparent: true,
+                            opacity: 0.8 + Math.random() * 0.2 // Higher opacity
+                        });
+                        
+                        const particle = new THREE.Mesh(geometry, material);
+                        
+                        // Random initial position
+                        particle.position.x = (Math.random() - 0.5) * 20;
+                        particle.position.y = (Math.random() - 0.5) * 15;
+                        particle.position.z = (Math.random() - 0.5) * 5;
+                        
+                        // Store original position and velocity
+                        particle.userData = {
+                            originalX: particle.position.x,
+                            originalY: particle.position.y,
+                            velocityX: 0,
+                            velocityY: 0,
+                            age: Math.random() * 100,
+                            baseOpacity: material.opacity
+                        };
+                        
+                        particles.push(particle);
+                        scene.add(particle);
+                    }
+                    
+                    console.log(`Created ${particleCount} particles`);
+                    
+                    // Start animation loop
+                    animate();
+                    
+                    console.log('Three.js particle system initialization complete');
+                } catch (error) {
+                    console.error('Error initializing Three.js:', error);
+                    console.log('Falling back to CSS gradient');
+                    initCSSFallback();
+                }
+            }
+            
+            function initCSSFallback() {
+                console.log('Initializing CSS fallback particle effect');
+                
+                // Create CSS particle container
+                const particleContainer = document.createElement('div');
+                particleContainer.style.position = 'fixed';
+                particleContainer.style.top = '0';
+                particleContainer.style.left = '0';
+                particleContainer.style.width = '100%';
+                particleContainer.style.height = '100%';
+                particleContainer.style.pointerEvents = 'none';
+                particleContainer.style.zIndex = '-1';
+                particleContainer.style.overflow = 'hidden';
+                document.body.appendChild(particleContainer);
+                
+                // Create CSS particles with larger, more visible dots
+                const particleCount = 60;
+                const cssParticles = [];
+                
+                for (let i = 0; i < particleCount; i++) {
+                    const particle = document.createElement('div');
+                    particle.style.position = 'absolute';
+                    particle.style.width = '12px';  // Much larger
+                    particle.style.height = '12px'; // Much larger
+                    particle.style.borderRadius = '50%';
+                    particle.style.backgroundColor = `hsl(${120 + Math.random() * 40}, 90%, ${60 + Math.random() * 20}%)`;
+                    particle.style.opacity = '0.9'; // Higher opacity
+                    particle.style.transition = 'all 0.2s ease-out';
+                    particle.style.boxShadow = '0 0 10px rgba(0, 255, 0, 0.5)'; // Glow effect
+                    
+                    // Random initial position
+                    particle.style.left = Math.random() * window.innerWidth + 'px';
+                    particle.style.top = Math.random() * window.innerHeight + 'px';
+                    
+                    particleContainer.appendChild(particle);
+                    cssParticles.push({
+                        element: particle,
+                        x: Math.random() * window.innerWidth,
+                        y: Math.random() * window.innerHeight,
+                        vx: 0,
+                        vy: 0
+                    });
+                }
+                
+                // Mouse tracking for CSS particles
+                let cssMouseX = 0, cssMouseY = 0;
+                
+                document.addEventListener('mousemove', function(e) {
+                    cssMouseX = e.clientX;
+                    cssMouseY = e.clientY;
+                    
+                    cssParticles.forEach(particle => {
+                        const dx = cssMouseX - particle.x;
+                        const dy = cssMouseY - particle.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < 200) {
+                            const force = (200 - distance) / 200;
+                            particle.vx += dx * force * 0.01;
+                            particle.vy += dy * force * 0.01;
+                        }
+                        
+                        particle.x += particle.vx;
+                        particle.y += particle.vy;
+                        particle.vx *= 0.95;
+                        particle.vy *= 0.95;
+                        
+                        // Keep within bounds
+                        if (particle.x < 0) particle.x = window.innerWidth;
+                        if (particle.x > window.innerWidth) particle.x = 0;
+                        if (particle.y < 0) particle.y = window.innerHeight;
+                        if (particle.y > window.innerHeight) particle.y = 0;
+                        
+                        particle.element.style.left = particle.x + 'px';
+                        particle.element.style.top = particle.y + 'px';
+                        
+                        // Update opacity based on distance
+                        const opacity = Math.max(0.3, 1 - distance / 300);
+                        particle.element.style.opacity = opacity;
+                    });
+                });
+                
+                console.log('CSS fallback particle effect initialized');
+            }
+            
+            function animate() {
+                requestAnimationFrame(animate);
+                
+                const time = Date.now() * 0.001;
+                
+                if (particles.length > 0) {
+                    // Smooth mouse following
+                    mouseX += (targetMouseX - mouseX) * 0.05;
+                    mouseY += (targetMouseY - mouseY) * 0.05;
+                    
+                    // Convert mouse coordinates to world space
+                    const mouseWorldX = (mouseX / window.innerWidth) * 20 - 10;
+                    const mouseWorldY = -(mouseY / window.innerHeight) * 15 + 7.5;
+                    
+                    // Update each particle
+                    particles.forEach((particle, index) => {
+                        const userData = particle.userData;
+                        
+                        // Age the particle
+                        userData.age += 0.5;
+                        
+                        // Calculate distance to mouse
+                        const dx = mouseWorldX - particle.position.x;
+                        const dy = mouseWorldY - particle.position.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        // Mouse attraction with stronger force
+                        if (distance > 0.5) {
+                            const attraction = 0.08 / (1 + distance * 0.05); // Stronger attraction
+                            userData.velocityX += dx * attraction;
+                            userData.velocityY += dy * attraction;
+                        }
+                        
+                        // Add more dynamic floating motion
+                        userData.velocityX += Math.sin(time * 0.8 + userData.age * 0.15) * 0.003;
+                        userData.velocityY += Math.cos(time * 0.6 + userData.age * 0.12) * 0.003;
+                        
+                        // Apply velocity with less damping for more movement
+                        particle.position.x += userData.velocityX;
+                        particle.position.y += userData.velocityY;
+                        userData.velocityX *= 0.96; // Less damping
+                        userData.velocityY *= 0.96; // Less damping
+                        
+                        // Update opacity based on distance to mouse with more dramatic effect
+                        const opacity = userData.baseOpacity * (0.5 + 1.5 / (1 + distance * 0.1));
+                        particle.material.opacity = Math.min(opacity, 1.0);
+                        
+                        // Add more noticeable rotation
+                        particle.rotation.z = time * 0.3 + userData.age * 0.02;
+                        
+                        // Keep particles within bounds
+                        if (particle.position.x > 12) particle.position.x = -12;
+                        if (particle.position.x < -12) particle.position.x = 12;
+                        if (particle.position.y > 9) particle.position.y = -9;
+                        if (particle.position.y < -9) particle.position.y = 9;
+                    });
+                }
+                
+                if (renderer && scene && camera) {
+                    renderer.render(scene, camera);
+                }
+            }
+            
+            // Mouse tracking
+            document.addEventListener('mousemove', function(e) {
+                targetMouseX = e.clientX;
+                targetMouseY = e.clientY;
+            });
+            
+            // Handle window resize
+            window.addEventListener('resize', function() {
+                if (camera && renderer) {
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                }
+            });
+            
+            // Initialize Three.js when page loads
+            if (typeof THREE !== 'undefined') {
+                initThreeJS();
+            } else {
+                console.error('Three.js library not loaded');
+            }
+        });
+    </script>
 </body>
 </html>

@@ -40,14 +40,15 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         AsyncSession: Database session for dependency injection.
     """
     async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+        yield session
 
 
 async def create_tables():
-    """Create all database tables."""
+    """
+    Create all database tables declared on the ORM `Base`.
+    
+    This asynchronous function opens a connection to the configured async engine and creates any missing tables for all models registered on `Base.metadata`. It should be awaited (e.g., during startup or migrations). Changes are executed within a database transaction against the configured DATABASE_URL.
+    """
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

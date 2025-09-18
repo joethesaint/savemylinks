@@ -478,6 +478,47 @@ Document any database migrations or configuration changes required when upgradin
 
 ---
 
+## 🔄 Regular Update Process
+
+### **Automated Updates**
+This document should be updated automatically as part of the development workflow:
+
+#### **When to Update**
+- ✅ **After each feature completion** - Add entry to changelog section
+- ✅ **Before merging to enhancements** - Update status and add completion notes
+- ✅ **During sprint planning** - Add new roadmap items and adjust priorities
+- ✅ **After production releases** - Update version information and metrics
+
+#### **Update Workflow**
+1. **Feature Development**: Update roadmap item status to "🔄 In Progress"
+2. **Feature Completion**: Move to changelog with completion details
+3. **Production Release**: Update version numbers and deployment notes
+4. **Sprint Planning**: Add new hex-indexed items to roadmap
+
+#### **Maintenance Schedule**
+- **Daily**: Status updates for active development items
+- **Weekly**: Review and prioritize roadmap items
+- **Monthly**: Archive completed items and add new quarterly goals
+- **Quarterly**: Major roadmap revision and version planning
+
+### **Git Integration**
+This document follows the branching strategy outlined in `.trae/rules/branching_strategy.md`:
+
+- **Updates on `dev`**: Feature status and progress updates
+- **Updates on `enhancements`**: Final feature documentation and integration notes
+- **Updates on `main`**: Production release notes and version history
+
+### **Hex Index Management**
+- **Next Available Index**: `0x12` (update this as new items are added)
+- **Reserved Ranges**:
+  - `0x01-0x11`: Current development cycle (completed/in-progress)
+  - `0x12-0x1F`: Next sprint items
+  - `0x20-0x2F`: Future quarter planning
+  - `0x30+`: Long-term roadmap items
+
+---
+
 *Last Updated: Current Development Cycle*
-*Document Version: 1.0*
+*Document Version: 1.1*
 *Maintained by: Development Team*
+*Next Update: Weekly during sprint planning*

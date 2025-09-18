@@ -43,10 +43,14 @@ app = FastAPI(
 # Configure CORS origins from environment variable
 def get_cors_origins() -> list[str]:
     """
-    Get CORS allowed origins from environment variable.
+    Return the list of allowed CORS origins based on the ALLOWED_ORIGINS environment variable.
     
-    Returns:
-        List of allowed origins. Defaults to localhost only for development.
+    If ALLOWED_ORIGINS is unset or empty, returns a development-safe default:
+    ["http://localhost:8000", "http://127.0.0.1:8000"].
+    
+    ALLOWED_ORIGINS, when set, must be a comma-separated list of origins (whitespace is trimmed).
+    Raises ValueError if the list contains the wildcard "*" because wildcard origins are not allowed
+    when credentials are enabled.
     """
     origins_env = os.getenv("ALLOWED_ORIGINS", "")
     if not origins_env:

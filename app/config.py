@@ -15,8 +15,27 @@ Key Features:
 
 import os
 from functools import lru_cache
-from typing import List, Optional, Literal
-from pydantic import BaseSettings, validator, Field
+from typing import List, Optional, Literal, Any
+from pydantic import field_validator, Field, ConfigDict, AliasChoices
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings.sources import EnvSettingsSource
+from pydantic.fields import FieldInfo
+
+
+class CustomEnvSettingsSource(EnvSettingsSource):
+    """Custom environment settings source that handles comma-separated lists."""
+    
+    def prepare_field_value(
+        self, field_name: str, field: FieldInfo, value: Any, value_is_complex: bool
+    ) -> Any:
+        """Prepare field value, handling comma-separated lists for specific fields."""
+        # Handle comma-separated list fields
+        if field_name in ("cors_origins", "allowed_origins", "allowed_hosts") and isinstance(value, str):
+            if not value.strip():
+                return []
+            return [item.strip() for item in value.split(",") if item.strip()]
+        
+        return super().prepare_field_value(field_name, field, value, value_is_complex)
 
 
 class Settings(BaseSettings):
@@ -34,7 +53,7 @@ class Settings(BaseSettings):
         default="development", 
         description="Application environment"
     )
-    debug: bool = Field(default=True, description="Enable debug mode")
+    debug: bool = Field(default=False, description="Enable debug mode")
     
     # Server Settings
     host: str = Field(default="127.0.0.1", description="Server host address")
@@ -43,7 +62,7 @@ class Settings(BaseSettings):
     
     # Database Settings
     database_url: str = Field(
-        default="sqlite:///./savemylinks.db",
+        default="sqlite+aiosqlite:///./savemylinks.db",
         description="Database connection URL"
     )
     database_echo: bool = Field(
@@ -54,7 +73,18 @@ class Settings(BaseSettings):
     # CORS Settings
     allowed_origins: List[str] = Field(
         default=["http://localhost:8000", "http://127.0.0.1:8000"],
+        validation_alias=AliasChoices("allowed_origins", "ALLOWED_ORIGINS"),
         description="List of allowed CORS origins"
+    )
+    cors_origins: List[str] = Field(
+        default=["*"],
+        validation_alias=AliasChoices("cors_origins", "CORS_ORIGINS"),
+        description="CORS origins (alias for allowed_origins)"
+    )
+    allowed_hosts: List[str] = Field(
+        default=["*"],
+        validation_alias=AliasChoices("allowed_hosts", "ALLOWED_HOSTS"),
+        description="List of allowed host headers"
     )
     allow_credentials: bool = Field(
         default=False,
@@ -69,9 +99,31 @@ class Settings(BaseSettings):
         description="Allowed headers for CORS requests"
     )
     
+    # Content Validation Settings
+    max_url_length: int = Field(
+        default=2048,
+        gt=0,
+        description="Maximum URL length allowed"
+    )
+    max_title_length: int = Field(
+        default=200,
+        gt=0,
+        description="Maximum title length allowed"
+    )
+    max_description_length: int = Field(
+        default=1000,
+        gt=0,
+        description="Maximum description length allowed"
+    )
+    max_category_length: int = Field(
+        default=100,
+        gt=0,
+        description="Maximum category length allowed"
+    )
+    
     # Security Settings
     secret_key: str = Field(
-        default="your-secret-key-change-in-production",
+        default_factory=lambda: os.urandom(32).hex(),
         description="Secret key for cryptographic operations"
     )
     access_token_expire_minutes: int = Field(
@@ -85,11 +137,13 @@ class Settings(BaseSettings):
         description="Enable rate limiting middleware"
     )
     rate_limit_requests: int = Field(
-        default=1000,
+        default=100,
+        gt=0,
         description="Number of requests allowed per window"
     )
     rate_limit_window: int = Field(
-        default=3600,
+        default=60,
+        gt=0,
         description="Rate limiting window in seconds"
     )
     
@@ -124,6 +178,10 @@ class Settings(BaseSettings):
         default=300,
         description="Default cache TTL in seconds"
     )
+    cache_ttl: int = Field(
+        default=3600,
+        description="Cache TTL in seconds (alias for cache_default_ttl)"
+    )
     cache_max_size: int = Field(
         default=1000,
         description="Maximum number of cache entries"
@@ -145,32 +203,42 @@ class Settings(BaseSettings):
         description="Templates directory"
     )
     
-    @validator("allowed_origins", pre=True)
-    def parse_cors_origins(cls, v):
-        """
-        Parse CORS origins from environment variable.
-        
-        Supports both comma-separated strings and lists.
-        """
+    @field_validator("allowed_origins", "cors_origins", "allowed_hosts", mode="before")
+    @classmethod
+    def parse_string_lists(cls, v: Any) -> Any:
+        """Parse comma-separated strings into lists."""
         if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
-        return v
+            # Handle empty strings
+            if not v.strip():
+                return []
+            # Split by comma and strip whitespace
+            return [item.strip() for item in v.split(",") if item.strip()]
+        elif isinstance(v, list):
+            return v
+        elif v is None:
+            return []
+        else:
+            # Convert other types to string first, then parse
+            return cls.parse_string_lists(str(v))
     
-    @validator("allowed_origins")
-    def validate_cors_security(cls, v, values):
+    @field_validator("allowed_origins")
+    @classmethod
+    def validate_cors_security(cls, v, info):
         """
         Validate CORS configuration for security.
         
         Prevents wildcard origins when credentials are enabled.
         """
-        if values.get("allow_credentials", False) and "*" in v:
+        # Get other field values from validation info
+        if hasattr(info, 'data') and info.data.get("allow_credentials", False) and "*" in v:
             raise ValueError(
                 "Cannot use wildcard CORS origins when credentials are enabled. "
                 "This is a security vulnerability. Please specify explicit origins."
             )
         return v
     
-    @validator("environment")
+    @field_validator("environment")
+    @classmethod
     def validate_environment(cls, v):
         """Validate environment setting."""
         valid_environments = ["development", "staging", "production"]
@@ -178,7 +246,8 @@ class Settings(BaseSettings):
             raise ValueError(f"Environment must be one of: {valid_environments}")
         return v
     
-    @validator("log_level")
+    @field_validator("log_level")
+    @classmethod
     def validate_log_level(cls, v):
         """Validate log level setting."""
         valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
@@ -187,10 +256,15 @@ class Settings(BaseSettings):
             raise ValueError(f"Log level must be one of: {valid_levels}")
         return v
     
-    @validator("secret_key")
-    def validate_secret_key(cls, v, values):
-        """Validate secret key in production."""
-        if (values.get("environment") == "production" and 
+    @field_validator("secret_key")
+    @classmethod
+    def validate_secret_key(cls, v, info):
+        """Validate secret key length and production requirements."""
+        if len(v) < 32:
+            raise ValueError("Secret key must be at least 32 characters long")
+        
+        # Get other field values from validation info
+        if (hasattr(info, 'data') and info.data.get("environment") == "production" and 
             v == "your-secret-key-change-in-production"):
             raise ValueError(
                 "You must set a secure SECRET_KEY in production environment"
@@ -216,21 +290,32 @@ class Settings(BaseSettings):
             return ["http://localhost:8000", "http://127.0.0.1:8000"]
         return self.allowed_origins
     
-    class Config:
-        """Pydantic configuration."""
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
-        
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings,
+        env_settings,
+        dotenv_settings,
+        file_secret_settings,
+    ):
+        """Customize settings sources to use our custom environment source."""
+        return (
+            init_settings,
+            CustomEnvSettingsSource(settings_cls),
+            dotenv_settings,
+            file_secret_settings,
+        )
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
         # Environment variable prefixes
-        env_prefix = ""
-        
+        env_prefix="",
         # Field aliases for common environment variable names
-        fields = {
-            "database_url": {"env": ["DATABASE_URL", "DB_URL"]},
-            "secret_key": {"env": ["SECRET_KEY", "APP_SECRET"]},
-            "allowed_origins": {"env": ["ALLOWED_ORIGINS", "CORS_ORIGINS"]},
-        }
+        extra="ignore"
+    )
 
 
 @lru_cache()

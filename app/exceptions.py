@@ -111,7 +111,10 @@ class DatabaseError(SaveMyLinksException):
     """Exception raised for database-related errors."""
     
     def __init__(self, message: str, operation: Optional[str] = None, **kwargs):
-        super().__init__(message, status_code=500, **kwargs)
+        # Set default status_code if not provided in kwargs
+        if 'status_code' not in kwargs:
+            kwargs['status_code'] = 500
+        super().__init__(message, **kwargs)
         if operation:
             self.details["operation"] = operation
 
@@ -127,7 +130,9 @@ class DatabaseIntegrityError(DatabaseError):
     """Exception raised for database integrity constraint violations."""
     
     def __init__(self, message: str, constraint: Optional[str] = None, **kwargs):
-        super().__init__(message, status_code=409, **kwargs)
+        # Set status_code in kwargs before calling super to avoid conflict
+        kwargs['status_code'] = 409
+        super().__init__(message, **kwargs)
         if constraint:
             self.details["constraint"] = constraint
 
@@ -237,7 +242,7 @@ def format_error_response(
         response.update({
             "message": error.message,
             "error_code": error.error_code,
-            "details": error.details if include_details else {}
+            "details": error.details if include_details and error.details is not None else {}
         })
     
     # Handle HTTP exceptions

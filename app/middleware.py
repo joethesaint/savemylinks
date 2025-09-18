@@ -19,13 +19,12 @@ import uuid
 import asyncio
 from typing import Dict, Optional, Callable, Any
 from collections import defaultdict, deque
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 
 from fastapi import Request, Response
-from fastapi.middleware.base import BaseHTTPMiddleware
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware as StarletteBaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 from app.config import get_settings
@@ -303,7 +302,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         # Generate request ID
         request_id = str(uuid.uuid4())
         request.state.request_id = request_id
-        request.state.timestamp = datetime.utcnow()
+        request.state.timestamp = datetime.now(timezone.utc)
         
         # Record start time
         start_time = time.time()
@@ -334,7 +333,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         
         # Add response headers
         response.headers["X-Request-ID"] = request_id
-        response.headers["X-Response-Time"] = f"{duration:.3f}s"
+        response.headers["X-Response-Time"] = f"{duration * 1000:.3f}ms"
         
         # Log successful requests
         log_api_request(

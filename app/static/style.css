@@ -635,6 +635,35 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* Main content containers */
+.container, .section, .card, .box, .panel, .navbar, .hero, .footer {
+  position: relative;
+  z-index: 1;
+}
+
+/* Navigation and header elements */
+.navbar, .navbar-brand, .navbar-menu, .navbar-item {
+  position: relative;
+  z-index: 2;
+}
+
+/* Interactive elements */
+.button, .input, .textarea, .select, .dropdown, .modal {
+  position: relative;
+  z-index: 3;
+}
+
+/* Particle canvas */
+#particle-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+}
+
 /* Dark theme toggle styles */
 [data-theme="dark"] .theme-toggle {
   border-color: var(--primary-light);

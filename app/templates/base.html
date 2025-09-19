@@ -26,8 +26,11 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔗</text></svg>">
 </head>
 <body class="has-navbar-fixed-top">
+    <!-- Skip to main content link for accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    
     <!-- Particle Canvas -->
-    <canvas id="particle-canvas"></canvas>
+    <canvas id="particle-canvas" aria-hidden="true"></canvas>
     
     <!-- Navigation -->
     <nav class="navbar is-fixed-top has-shadow" role="navigation" aria-label="main navigation">
@@ -49,14 +52,14 @@
             
             <div id="navbarBasic" class="navbar-menu">
                 <div class="navbar-start">
-                    <a class="navbar-item" href="/">
-                        <span class="icon">
+                    <a class="navbar-item" href="/" aria-label="Go to homepage">
+                        <span class="icon" aria-hidden="true">
                             <i class="fas fa-home"></i>
                         </span>
                         <span>Home</span>
                     </a>
-                    <a class="navbar-item" href="/add">
-                        <span class="icon">
+                    <a class="navbar-item" href="/add" aria-label="Add new link">
+                        <span class="icon" aria-hidden="true">
                             <i class="fas fa-plus"></i>
                         </span>
                         <span>Add Link</span>
@@ -65,15 +68,16 @@
                 
                 <div class="navbar-end">
                     <div class="navbar-item">
-                        <button id="theme-toggle" class="button is-ghost theme-toggle" title="Toggle theme">
-                            <span class="icon">
+                        <button id="theme-toggle" class="button is-ghost theme-toggle" 
+                                title="Toggle theme" aria-label="Toggle between light and dark theme">
+                            <span class="icon" aria-hidden="true">
                                 <i id="theme-icon" class="fas fa-sun"></i>
                             </span>
                         </button>
                     </div>
                     <div class="navbar-item">
                         <div class="buttons">
-                            <a class="button is-primary is-light" href="/add">
+                            <a class="button is-primary is-light" href="/add" aria-label="Add new link">
                                 <strong>Add New Link</strong>
                             </a>
                         </div>
@@ -84,7 +88,7 @@
     </nav>
 
     <!-- Main Content -->
-    <main class="main-content">
+    <main class="main-content" id="main-content">
         <div class="container">
             {% block content %}{% endblock %}
         </div>

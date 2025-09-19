@@ -122,6 +122,10 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Example files and temporary code
+deepseek_html_*.html
+temp-modern-clippy/
+
 # Database files
 *.db
 *.sqlite

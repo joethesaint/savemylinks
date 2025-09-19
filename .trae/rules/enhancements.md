@@ -57,6 +57,18 @@
 - Security headers preventing common vulnerabilities
 - Performance alerts for slow requests
 
+### 7. Link Previews
+#### Overview
+- **Automatic Metadata Fetching**: When a new link is added, automatically fetch metadata like title, description, and a preview image from the URL.
+- **Background Processing**: Use a background task runner (like `background-tasks` in FastAPI) to fetch the metadata without blocking the API response.
+- **Graceful Fallbacks**: If metadata cannot be fetched, use the user-provided title and a default placeholder image.
+
+#### Key Features
+- Integration with a library like `beautifulsoup4` and `requests` to scrape the metadata from the URL.
+- A new `metadata` JSON field in the `Resource` model to store the fetched data.
+- A background task that is triggered after a new resource is created.
+- The frontend will be updated to display the preview image and fetched metadata in the resource cards.
+
 ## ⚡ Low Priority Enhancements
 
 ### 5. Caching System (`app/cache.py`)

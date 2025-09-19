@@ -26,6 +26,12 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔗</text></svg>">
 </head>
 <body class="has-navbar-fixed-top">
+    <!-- Skip to main content link for accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    
+    <!-- Particle Canvas -->
+    <canvas id="particle-canvas" aria-hidden="true"></canvas>
+    
     <!-- Navigation -->
     <nav class="navbar is-fixed-top has-shadow" role="navigation" aria-label="main navigation">
         <div class="container">
@@ -46,14 +52,14 @@
             
             <div id="navbarBasic" class="navbar-menu">
                 <div class="navbar-start">
-                    <a class="navbar-item" href="/">
-                        <span class="icon">
+                    <a class="navbar-item" href="/" aria-label="Go to homepage">
+                        <span class="icon" aria-hidden="true">
                             <i class="fas fa-home"></i>
                         </span>
                         <span>Home</span>
                     </a>
-                    <a class="navbar-item" href="/add">
-                        <span class="icon">
+                    <a class="navbar-item" href="/add" aria-label="Add new link">
+                        <span class="icon" aria-hidden="true">
                             <i class="fas fa-plus"></i>
                         </span>
                         <span>Add Link</span>
@@ -62,15 +68,16 @@
                 
                 <div class="navbar-end">
                     <div class="navbar-item">
-                        <button id="theme-toggle" class="button is-ghost theme-toggle" title="Toggle theme">
-                            <span class="icon">
+                        <button id="theme-toggle" class="button is-ghost theme-toggle" 
+                                title="Toggle theme" aria-label="Toggle between light and dark theme">
+                            <span class="icon" aria-hidden="true">
                                 <i id="theme-icon" class="fas fa-sun"></i>
                             </span>
                         </button>
                     </div>
                     <div class="navbar-item">
                         <div class="buttons">
-                            <a class="button is-primary is-light" href="/add">
+                            <a class="button is-primary is-light" href="/add" aria-label="Add new link">
                                 <strong>Add New Link</strong>
                             </a>
                         </div>
@@ -84,7 +91,7 @@
     <canvas id="particle-canvas" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none;"></canvas>
 
     <!-- Main Content -->
-    <main class="main-content">
+    <main class="main-content" id="main-content">
         <div class="container">
             {% block content %}{% endblock %}
         </div>
@@ -178,137 +185,92 @@
                 }
             }
             
-            // Canvas-based Green Dust Particle Effect
+            // Enhanced Particle system with green dust effects
             const canvas = document.getElementById('particle-canvas');
             const ctx = canvas.getContext('2d');
-            let particlesArray = [];
             
-            // Set canvas size
+            let particles = [];
+            let mouse = { x: 0, y: 0 };
+            
+            // Particle class with enhanced green effects
+            class Particle {
+                constructor(x, y) {
+                    this.x = x;
+                    this.y = y;
+                    this.vx = (Math.random() - 0.5) * 0.5;
+                    this.vy = (Math.random() - 0.5) * 0.5;
+                    this.size = Math.random() * 3 + 1;
+                    this.opacity = Math.random() * 0.8 + 0.2;
+                    this.hue = 120 + Math.random() * 60; // Green spectrum
+                    this.life = Math.random() * 200 + 100;
+                    this.maxLife = this.life;
+                }
+                
+                update() {
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    
+                    // Mouse interaction - stronger repulsion
+                    const dx = this.x - mouse.x;
+                    const dy = this.y - mouse.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < 120) {
+                        const force = (120 - distance) / 120;
+                        this.vx += (dx / distance) * force * 0.3;
+                        this.vy += (dy / distance) * force * 0.3;
+                    }
+                    
+                    // Boundary bouncing
+                    if (this.x < 0 || this.x > canvas.width) this.vx *= -0.8;
+                    if (this.y < 0 || this.y > canvas.height) this.vy *= -0.8;
+                    
+                    // Keep particles in bounds
+                    this.x = Math.max(0, Math.min(canvas.width, this.x));
+                    this.y = Math.max(0, Math.min(canvas.height, this.y));
+                    
+                    // Friction
+                    this.vx *= 0.99;
+                    this.vy *= 0.99;
+                    
+                    // Life cycle
+                    this.life--;
+                    this.opacity = (this.life / this.maxLife) * 0.8;
+                }
+                
+                draw() {
+                    ctx.save();
+                    ctx.globalAlpha = this.opacity;
+                    
+                    // Glowing effect
+                    const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 3);
+                    gradient.addColorStop(0, `hsla(${this.hue}, 70%, 60%, 0.8)`);
+                    gradient.addColorStop(0.5, `hsla(${this.hue}, 60%, 50%, 0.4)`);
+                    gradient.addColorStop(1, `hsla(${this.hue}, 50%, 40%, 0)`);
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size * 3, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Core particle
+                    ctx.fillStyle = `hsla(${this.hue}, 80%, 70%, ${this.opacity})`;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.restore();
+                }
+            }
+            
             function setCanvasSize() {
                 canvas.width = window.innerWidth;
                 canvas.height = window.innerHeight;
             }
             
-            setCanvasSize();
-            window.addEventListener('resize', setCanvasSize);
-            
-            // Mouse position
-            let mouse = {
-                x: null,
-                y: null,
-                radius: 100
-            };
-            
-            window.addEventListener('mousemove', function(event) {
-                mouse.x = event.x;
-                mouse.y = event.y;
-            });
-            
-            // Create particle class
-            class Particle {
-                constructor() {
-                    this.x = Math.random() * canvas.width;
-                    this.y = Math.random() * canvas.height;
-                    this.size = Math.random() * 3 + 1;
-                    this.speedX = Math.random() * 3 - 1.5;
-                    this.speedY = Math.random() * 3 - 1.5;
-                    this.color = `rgba(100, ${200 + Math.random() * 55}, 100, ${0.5 + Math.random() * 0.5})`;
-                }
-                
-                update() {
-                    // Move particles
-                    this.x += this.speedX;
-                    this.y += this.speedY;
-                    
-                    // Wrap around edges
-                    if (this.x > canvas.width) this.x = 0;
-                    if (this.x < 0) this.x = canvas.width;
-                    if (this.y > canvas.height) this.y = 0;
-                    if (this.y < 0) this.y = canvas.height;
-                    
-                    // Mouse interaction - particles react to mouse
-                    const dx = mouse.x - this.x;
-                    const dy = mouse.y - this.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    
-                    if (distance < mouse.radius) {
-                        const force = (mouse.radius - distance) / mouse.radius;
-                        const forceDirectionX = dx / distance;
-                        const forceDirectionY = dy / distance;
-                        const directionX = forceDirectionX * force * 10;
-                        const directionY = forceDirectionY * force * 10;
-                        
-                        this.speedX -= directionX;
-                        this.speedY -= directionY;
-                    }
-                    
-                    // Apply friction
-                    this.speedX *= 0.99;
-                    this.speedY *= 0.99;
-                }
-                
-                draw() {
-                    ctx.fillStyle = this.color;
-                    ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                    ctx.closePath();
-                    ctx.fill();
-                }
-            }
-            
-            // Initialize particles
             function initParticles() {
-                particlesArray = [];
-                const numberOfParticles = 150;
-                
-                for (let i = 0; i < numberOfParticles; i++) {
-                    particlesArray.push(new Particle());
-                }
-                console.log(`Canvas particle system initialized with ${numberOfParticles} particles`);
-            }
-            
-            // Animation loop
-            function animateParticles() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                
-                for (let i = 0; i < particlesArray.length; i++) {
-                    particlesArray[i].update();
-                    particlesArray[i].draw();
-                }
-                
-                requestAnimationFrame(animateParticles);
-            }
-            
-            // Reinitialize particles when window is resized
-            window.addEventListener('resize', function() {
-                setCanvasSize();
-                initParticles();
-            });
-            
-            // Remove mouse position when leaving canvas
-            window.addEventListener('mouseout', function() {
-                mouse.x = undefined;
-                mouse.y = undefined;
-            });
-            
-            function initCSSFallback() {
-                console.log('Initializing Enhanced CSS fallback particle effect');
-                
-                // Create CSS particle container
-                const particleContainer = document.createElement('div');
-                particleContainer.style.position = 'fixed';
-                particleContainer.style.top = '0';
-                particleContainer.style.left = '0';
-                particleContainer.style.width = '100%';
-                particleContainer.style.height = '100%';
-                particleContainer.style.pointerEvents = 'none';
-                particleContainer.style.zIndex = '1';
-                particleContainer.style.overflow = 'hidden';
-                document.body.appendChild(particleContainer);
-                
-                // Create enhanced CSS particles with green theme
-                const particleCount = 150;
-                const cssParticles = [];
+                particles = [];
+                const particleCount = Math.min(80, Math.floor((canvas.width * canvas.height) / 15000));
                 
                 // Green color palette
                 const greenShades = [
@@ -321,143 +283,77 @@
                 ];
                 
                 for (let i = 0; i < particleCount; i++) {
-                    const particle = document.createElement('div');
-                    const size = 8 + Math.random() * 12; // Varying sizes
-                    
-                    particle.style.position = 'absolute';
-                    particle.style.width = size + 'px';
-                    particle.style.height = size + 'px';
-                    particle.style.borderRadius = '50%';
-                    particle.style.backgroundColor = greenShades[Math.floor(Math.random() * greenShades.length)];
-                    particle.style.opacity = '0.6';
-                    particle.style.transition = 'all 0.3s ease-out';
-                    particle.style.boxShadow = `0 0 ${size}px rgba(34, 197, 94, 0.4)`;
-                    
-                    // Add irregular shape with CSS clip-path for organic feel
-                    const irregularity = 10 + Math.random() * 20;
-                    particle.style.clipPath = `polygon(${irregularity}% 0%, 100% ${irregularity}%, ${100-irregularity}% 100%, 0% ${100-irregularity}%)`;
-                    
-                    // Random initial position
-                    particle.style.left = Math.random() * window.innerWidth + 'px';
-                    particle.style.top = Math.random() * window.innerHeight + 'px';
-                    
-                    particleContainer.appendChild(particle);
-                    cssParticles.push({
-                        element: particle,
-                        x: Math.random() * window.innerWidth,
-                        y: Math.random() * window.innerHeight,
-                        vx: (Math.random() - 0.5) * 2,
-                        vy: (Math.random() - 0.5) * 2,
-                        mass: 0.5 + Math.random() * 0.5,
-                        restitution: 0.7 + Math.random() * 0.2,
-                        noiseOffsetX: Math.random() * 1000,
-                        noiseOffsetY: Math.random() * 1000,
-                        organicSpeed: 0.01 + Math.random() * 0.02,
-                        directionChangeTimer: Math.random() * 200,
-                        baseOpacity: 0.6 + Math.random() * 0.3,
-                        glowIntensity: Math.random(),
-                        repulsionStrength: 0.8 + Math.random() * 0.4
-                    });
+                    particles.push(new Particle(
+                        Math.random() * canvas.width,
+                        Math.random() * canvas.height
+                    ));
                 }
-                
-                // Enhanced mouse tracking and animation for CSS particles
-                let cssMouseX = 0, cssMouseY = 0;
-                
-                function animateCSSParticles() {
-                    const time = Date.now() * 0.001;
-                    
-                    cssParticles.forEach((particle, index) => {
-                        // Apply gravity
-                        particle.vy += 0.05;
-                        
-                        // Organic movement
-                        particle.noiseOffsetX += particle.organicSpeed;
-                        particle.noiseOffsetY += particle.organicSpeed;
-                        
-                        const noiseX = Math.sin(particle.noiseOffsetX) * 0.5;
-                        const noiseY = Math.cos(particle.noiseOffsetY) * 0.5;
-                        
-                        particle.vx += noiseX;
-                        particle.vy += noiseY;
-                        
-                        // Random direction changes
-                        particle.directionChangeTimer--;
-                        if (particle.directionChangeTimer <= 0) {
-                            particle.vx += (Math.random() - 0.5) * 2;
-                            particle.vy += (Math.random() - 0.5) * 2;
-                            particle.directionChangeTimer = 100 + Math.random() * 200;
-                        }
-                        
-                        // Mouse repulsion
-                        const dx = cssMouseX - particle.x;
-                        const dy = cssMouseY - particle.y;
-                        const distance = Math.sqrt(dx * dx + dy * dy);
-                        
-                        if (distance < 150 && distance > 0) {
-                            const repulsionForce = (150 - distance) / 150 * particle.repulsionStrength;
-                            particle.vx -= dx * repulsionForce * 0.1;
-                            particle.vy -= dy * repulsionForce * 0.1;
-                        }
-                        
-                        // Apply velocity
-                        particle.x += particle.vx;
-                        particle.y += particle.vy;
-                        
-                        // Edge bouncing with energy loss
-                        if (particle.x <= 0 || particle.x >= window.innerWidth) {
-                            particle.vx *= -particle.restitution;
-                            particle.x = particle.x <= 0 ? 0 : window.innerWidth;
-                        }
-                        
-                        if (particle.y <= 0 || particle.y >= window.innerHeight) {
-                            particle.vy *= -particle.restitution;
-                            particle.y = particle.y <= 0 ? 0 : window.innerHeight;
-                        }
-                        
-                        // Velocity damping
-                        particle.vx *= 0.995;
-                        particle.vy *= 0.995;
-                        
-                        // Update position
-                        particle.element.style.left = particle.x + 'px';
-                        particle.element.style.top = particle.y + 'px';
-                        
-                        // Glow effect
-                        const glowPulse = Math.sin(time * 2 + particle.glowIntensity * 10) * 0.2 + 0.8;
-                        particle.element.style.opacity = particle.baseOpacity * glowPulse;
-                        
-                        // Particle connections (simplified for CSS)
-                        for (let j = index + 1; j < Math.min(index + 5, cssParticles.length); j++) {
-                            const other = cssParticles[j];
-                            const connectionDistance = Math.sqrt(
-                                (other.x - particle.x) ** 2 + (other.y - particle.y) ** 2
-                            );
-                            
-                            if (connectionDistance < 100) {
-                                // Create temporary connection line (simplified)
-                                const connectionOpacity = (100 - connectionDistance) / 100 * 0.3;
-                                particle.element.style.boxShadow = `0 0 20px rgba(34, 197, 94, ${connectionOpacity})`;
-                            }
-                        }
-                    });
-                    
-                    requestAnimationFrame(animateCSSParticles);
-                }
-                
-                document.addEventListener('mousemove', function(e) {
-                    cssMouseX = e.clientX;
-                    cssMouseY = e.clientY;
-                });
-                
-                // Start CSS animation
-                animateCSSParticles();
-                
-                console.log('Enhanced CSS fallback particle effect initialized');
             }
             
-            // Initialize Canvas particle system when page loads
+            function drawConnections() {
+                for (let i = 0; i < particles.length; i++) {
+                    for (let j = i + 1; j < particles.length; j++) {
+                        const dx = particles[i].x - particles[j].x;
+                        const dy = particles[i].y - particles[j].y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < 100) {
+                            const opacity = (1 - distance / 100) * 0.3;
+                            ctx.strokeStyle = `rgba(34, 197, 94, ${opacity})`;
+                            ctx.lineWidth = 1;
+                            ctx.beginPath();
+                            ctx.moveTo(particles[i].x, particles[i].y);
+                            ctx.lineTo(particles[j].x, particles[j].y);
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+            
+            function animateParticles() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Update and draw particles
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    particles[i].update();
+                    particles[i].draw();
+                    
+                    // Remove dead particles
+                    if (particles[i].life <= 0) {
+                        particles.splice(i, 1);
+                    }
+                }
+                
+                // Add new particles to maintain count
+                while (particles.length < Math.min(80, Math.floor((canvas.width * canvas.height) / 15000))) {
+                    particles.push(new Particle(
+                        Math.random() * canvas.width,
+                        Math.random() * canvas.height
+                    ));
+                }
+                
+                // Draw connections
+                drawConnections();
+                
+                requestAnimationFrame(animateParticles);
+            }
+            
+            // Mouse tracking with enhanced interaction
+            document.addEventListener('mousemove', (e) => {
+                mouse.x = e.clientX;
+                mouse.y = e.clientY;
+            });
+            
+            // Initialize particle system
+            setCanvasSize();
             initParticles();
             animateParticles();
+            
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                setCanvasSize();
+                initParticles();
+            });
         });
     </script>
     

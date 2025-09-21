@@ -80,6 +80,20 @@
                             </div>
                         </div>
 
+                        <!-- Metadata Extraction Option -->
+                        <div class="field">
+                            <div class="control">
+                                <label class="checkbox">
+                                    <input type="checkbox" id="extractMetadata" name="extractMetadata" checked>
+                                    <span class="icon is-small">
+                                        <i class="fas fa-eye"></i>
+                                    </span>
+                                    Extract link preview (title, description, image)
+                                </label>
+                            </div>
+                            <p class="help">Automatically fetch preview information from the URL</p>
+                        </div>
+
                         <!-- Submit Buttons -->
                         <div class="field is-grouped is-grouped-centered">
                             <div class="control">
@@ -155,16 +169,12 @@ async function loadCategories() {
     }
 }
 
-// Handle form submission
+// Enhanced form submission with better error handling
 document.getElementById('addResourceForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     
     const submitBtn = document.getElementById('submitBtn');
     const originalText = submitBtn.innerHTML;
-    
-    // Show loading state
-    submitBtn.innerHTML = '<span class="icon"><i class="fas fa-spinner fa-pulse"></i></span><span>Saving...</span>';
-    submitBtn.disabled = true;
     
     // Clear previous errors
     clearErrors();
@@ -178,14 +188,53 @@ document.getElementById('addResourceForm').addEventListener('submit', async func
                  document.getElementById('category').value || null
     };
     
+    // Basic client-side validation
+    if (!formData.title) {
+        showFieldError('title', 'Title is required');
+        return;
+    }
+    
+    if (!formData.url) {
+        showFieldError('url', 'URL is required');
+        return;
+    }
+    
+    // URL validation
     try {
-        const response = await fetch('/api/resources/', {
+        new URL(formData.url);
+    } catch {
+        showFieldError('url', 'Please enter a valid URL');
+        return;
+    }
+    
+    // Show loading state
+    submitBtn.innerHTML = '<span class="icon"><i class="fas fa-spinner fa-pulse"></i></span><span>Adding Resource...</span>';
+    submitBtn.disabled = true;
+    
+    // Add extract_metadata parameter
+    const extractMetadata = document.getElementById('extractMetadata').checked;
+    
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+        
+        const params = new URLSearchParams();
+        if (extractMetadata) {
+            params.append('extract_metadata', 'true');
+        }
+        
+        const url = `/api/resources/${params.toString() ? '?' + params.toString() : ''}`;
+        
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(formData)
+            body: JSON.stringify(formData),
+            signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
         
         if (response.ok) {
             showNotification('Resource added successfully!', 'is-success');
@@ -196,18 +245,30 @@ document.getElementById('addResourceForm').addEventListener('submit', async func
                 window.location.href = '/';
             }, 1500);
         } else {
-            const errorData = await response.json();
+            const errorData = await response.json().catch(() => ({}));
             if (response.status === 409) {
                 showFieldError('url', 'A resource with this URL already exists');
-            } else if (response.status === 422) {
+            } else if (response.status === 422 && errorData.detail) {
                 handleValidationErrors(errorData);
             } else {
-                showNotification('Error adding resource', 'is-danger');
+                throw {
+                    response: {
+                        status: response.status,
+                        statusText: response.statusText
+                    },
+                    data: errorData
+                };
             }
         }
     } catch (error) {
-        console.error('Error adding resource:', error);
-        showNotification('Network error. Please try again.', 'is-danger');
+        if (error.name === 'AbortError') {
+            showNotification('Request timed out. Please try again.', 'is-warning');
+        } else if (!navigator.onLine) {
+            showNotification('No internet connection. Please check your network and try again.', 'is-warning');
+        } else {
+            console.error('Error adding resource:', error);
+            showNotification('Network error. Please try again.', 'is-danger');
+        }
     } finally {
         // Restore button state
         submitBtn.innerHTML = originalText;
@@ -215,38 +276,119 @@ document.getElementById('addResourceForm').addEventListener('submit', async func
     }
 });
 
-// Extract title from URL (simplified version)
+// Enhanced URL extraction with better error handling
 async function extractFromUrl() {
     const quickUrl = document.getElementById('quickUrl').value.trim();
+    const extractBtn = document.querySelector('button[onclick="extractFromUrl()"]');
     
     if (!quickUrl) {
         showNotification('Please enter a URL', 'is-warning');
         return;
     }
     
+    // Validate URL format
     try {
-        // For now, just use the URL as title and populate the form
-        // In a real implementation, you might use a service to extract metadata
-        document.getElementById('url').value = quickUrl;
+        new URL(quickUrl);
+    } catch {
+        showNotification('Please enter a valid URL', 'is-warning');
+        return;
+    }
+    
+    try {
+        // Show loading state
+        const originalText = extractBtn.innerHTML;
+        extractBtn.innerHTML = '<span class="icon"><i class="fas fa-spinner fa-pulse"></i></span><span>Extracting...</span>';
+        extractBtn.disabled = true;
         
-        // Try to extract a reasonable title from the URL
-        const url = new URL(quickUrl);
-        const pathParts = url.pathname.split('/').filter(part => part);
-        const title = pathParts.length > 0 ? 
-                     pathParts[pathParts.length - 1].replace(/[-_]/g, ' ') : 
-                     url.hostname;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout for extraction
         
-        document.getElementById('title').value = title.charAt(0).toUpperCase() + title.slice(1);
-        document.getElementById('quickUrl').value = '';
+        // Use the metadata extraction API to get preview information
+        showNotification('Extracting preview information...', 'is-info');
         
-        showNotification('URL populated! Please review and adjust the title as needed.', 'is-info');
+        const response = await fetch('/api/resources/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                title: 'Temporary Title',
+                url: quickUrl,
+                description: null,
+                category: null
+            }),
+            signal: controller.signal
+        });
         
-        // Focus on title field for editing
-        document.getElementById('title').focus();
-        document.getElementById('title').select();
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+            const resource = await response.json();
+            
+            // Populate form with extracted data
+            document.getElementById('url').value = quickUrl;
+            
+            if (resource.link_metadata && resource.link_metadata.title) {
+                 document.getElementById('title').value = resource.link_metadata.title;
+            } else {
+                // Fallback to URL-based title extraction
+                const url = new URL(quickUrl);
+                const pathParts = url.pathname.split('/').filter(part => part);
+                const title = pathParts.length > 0 ? 
+                             pathParts[pathParts.length - 1].replace(/[-_]/g, ' ') : 
+                             url.hostname;
+                document.getElementById('title').value = title.charAt(0).toUpperCase() + title.slice(1);
+            }
+            
+            if (resource.link_metadata && resource.link_metadata.description) {
+                 document.getElementById('description').value = resource.link_metadata.description;
+            }
+            
+            document.getElementById('quickUrl').value = '';
+            showNotification('Preview information extracted! Please review and save.', 'is-success');
+            
+            // Focus on title field for editing
+            document.getElementById('title').focus();
+            document.getElementById('title').select();
+            
+            // Delete the temporary resource
+            await fetch(`/api/resources/${resource.id}`, { method: 'DELETE' });
+            
+        } else {
+            // Fallback to simple URL parsing
+            document.getElementById('url').value = quickUrl;
+            const url = new URL(quickUrl);
+            const pathParts = url.pathname.split('/').filter(part => part);
+            const title = pathParts.length > 0 ? 
+                         pathParts[pathParts.length - 1].replace(/[-_]/g, ' ') : 
+                         url.hostname;
+            
+            document.getElementById('title').value = title.charAt(0).toUpperCase() + title.slice(1);
+            document.getElementById('quickUrl').value = '';
+            
+            showNotification('URL populated! Metadata extraction failed, please review the title.', 'is-warning');
+            document.getElementById('title').focus();
+            document.getElementById('title').select();
+        }
+        
+        // Restore button
+        extractBtn.innerHTML = originalText;
+        extractBtn.disabled = false;
         
     } catch (error) {
-        showNotification('Invalid URL format', 'is-danger');
+        // Restore button
+        const originalText = '<span class="icon"><i class="fas fa-magic"></i></span><span>Extract</span>';
+        extractBtn.innerHTML = originalText;
+        extractBtn.disabled = false;
+        
+        if (error.name === 'AbortError') {
+            showNotification('Preview extraction timed out. You can still add the resource manually.', 'is-warning');
+        } else if (!navigator.onLine) {
+            showNotification('No internet connection. Preview extraction requires internet access.', 'is-warning');
+        } else {
+            console.error('Error extracting from URL:', error);
+            showNotification('Error extracting preview. Please enter details manually.', 'is-danger');
+        }
     }
 }
 
@@ -287,20 +429,39 @@ function clearErrors() {
     });
 }
 
-// Show notification
-function showNotification(message, type = 'is-info') {
+// Enhanced notification system with retry functionality
+function showNotification(message, type = 'is-info', options = {}) {
     const notification = document.createElement('div');
     notification.className = `notification ${type} is-toast`;
-    notification.innerHTML = `
+    
+    let content = `
         <button class="delete" onclick="this.parentElement.remove()"></button>
         ${message}
     `;
     
+    if (options.showRetry && options.retryCallback) {
+        content += `
+            <div class="buttons is-right mt-2">
+                <button class="button is-small is-white" onclick="this.parentElement.parentElement.remove(); (${options.retryCallback.toString()})();">
+                    <span class="icon is-small">
+                        <i class="fas fa-redo"></i>
+                    </span>
+                    <span>Retry</span>
+                </button>
+            </div>
+        `;
+    }
+    
+    notification.innerHTML = content;
     document.body.appendChild(notification);
     
+    // Auto-remove after delay (longer for error messages)
+    const delay = type === 'is-danger' || type === 'is-warning' ? 8000 : 5000;
     setTimeout(() => {
-        notification.remove();
-    }, 5000);
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, delay);
 }
 
 // Clear custom category when selecting from dropdown

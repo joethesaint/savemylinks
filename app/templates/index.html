@@ -4,13 +4,13 @@
 
 {% block content %}
 <div class="container">
-    <!-- Search and Filter Section -->
+    <!-- Enhanced Search and Filter Section -->
     <div class="search-container">
         <div class="columns">
             <div class="column is-8">
                 <div class="field has-addons">
                     <div class="control is-expanded has-icons-left">
-                        <input class="input" type="text" id="searchInput" placeholder="Search resources...">
+                        <input class="input" type="text" id="searchInput" placeholder="Search resources... (Ctrl+K)">
                         <span class="icon is-small is-left">
                             <i class="fas fa-search"></i>
                         </span>
@@ -22,6 +22,14 @@
                                 <i class="fas fa-search"></i>
                             </span>
                             <span>Search</span>
+                        </button>
+                    </div>
+                    <div class="control">
+                        <button class="button is-light" onclick="clearSearch()" 
+                                aria-label="Clear search">
+                            <span class="icon" aria-hidden="true">
+                                <i class="fas fa-times"></i>
+                            </span>
                         </button>
                     </div>
                 </div>
@@ -37,6 +45,78 @@
                         <span class="icon is-small is-left">
                             <i class="fas fa-filter"></i>
                         </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Advanced Search Panel -->
+        <div class="columns">
+            <div class="column">
+                <button class="button is-small is-text" id="advancedSearchToggle">
+                    <span class="icon">
+                        <i class="fas fa-cog"></i>
+                    </span>
+                    <span>Advanced Search</span>
+                </button>
+            </div>
+        </div>
+        
+        <div id="advancedSearchPanel" style="display: none;" class="box">
+            <div class="columns">
+                <div class="column is-4">
+                    <div class="field">
+                        <label class="label">Sort By</label>
+                        <div class="control">
+                            <div class="select is-fullwidth">
+                                <select id="sortSelect">
+                                    <option value="created_at_desc">Newest First</option>
+                                    <option value="created_at_asc">Oldest First</option>
+                                    <option value="title_asc">Title A-Z</option>
+                                    <option value="title_desc">Title Z-A</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="column is-4">
+                    <div class="field">
+                        <label class="label">Bulk Actions</label>
+                        <div class="control">
+                            <label class="checkbox">
+                                <input type="checkbox" id="selectAll">
+                                Select All
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Actions Bar -->
+    <div id="bulkActions" class="notification is-info is-light" style="display: none;">
+        <div class="level">
+            <div class="level-left">
+                <div class="level-item">
+                    <span id="selectedCount">0</span> resources selected
+                </div>
+            </div>
+            <div class="level-right">
+                <div class="level-item">
+                    <div class="buttons">
+                        <button class="button is-small is-danger" id="bulkDelete">
+                            <span class="icon">
+                                <i class="fas fa-trash"></i>
+                            </span>
+                            <span>Delete Selected</span>
+                        </button>
+                        <button class="button is-small is-info" onclick="exportResources()">
+                            <span class="icon">
+                                <i class="fas fa-download"></i>
+                            </span>
+                            <span>Export Selected</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -58,10 +138,28 @@
                     </div>
                 </div>
                 <div class="level-right">
-                    <div class="level-item">
-                        <span class="tag is-info" id="resourceCount">0 resources</span>
+                <div class="level-item">
+                    <div class="field is-grouped">
+                        <div class="control">
+                            <div class="buttons has-addons">
+                                <button class="button is-small view-mode-btn is-active" data-mode="grid" title="Grid View">
+                                    <span class="icon">
+                                        <i class="fas fa-th"></i>
+                                    </span>
+                                </button>
+                                <button class="button is-small view-mode-btn" data-mode="list" title="List View">
+                                    <span class="icon">
+                                        <i class="fas fa-list"></i>
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="control">
+                            <span class="tag is-info" id="resourceCount">0 resources</span>
+                        </div>
                     </div>
                 </div>
+            </div>
             </div>
 
             <!-- Loading State -->
@@ -75,7 +173,7 @@
             </div>
 
             <!-- Resources List -->
-            <div id="resourcesList">
+            <div id="resourcesList" class="resources-grid">
                 <!-- Resources will be loaded here -->
             </div>
 
@@ -111,31 +209,54 @@
 <!-- Resource Card Template -->
 <template id="resourceCardTemplate">
     <div class="box resource-card mb-4">
-        <div class="columns is-vcentered">
-            <div class="column">
-                <h3 class="title is-5 mb-1">
-                    <a class="resource-url" href="" target="_blank" rel="noopener noreferrer"></a>
-                </h3>
-                <p class="subtitle is-6 mb-3 resource-title"></p>
-                <p class="content resource-description"></p>
-                <div class="tags">
-                    <span class="tag category-tag resource-category"></span>
-                    <span class="tag is-light resource-date"></span>
-                </div>
+        <!-- Preview Image Column (if available) -->
+        <div class="preview-image-column" style="display: none;">
+            <figure class="image">
+                <img class="preview-image" src="" alt="Preview" style="object-fit: cover;">
+            </figure>
+        </div>
+        
+        <!-- Content Column -->
+        <div class="column">
+            <h3 class="title is-5 mb-1">
+                <a class="resource-url" href="" target="_blank" rel="noopener noreferrer"></a>
+            </h3>
+            <p class="subtitle is-6 mb-3 resource-title"></p>
+            <p class="content resource-description"></p>
+            
+            <!-- Metadata info -->
+            <div class="metadata-info" style="display: none;">
+                <p class="is-size-7 has-text-grey-light metadata-site"></p>
             </div>
-            <div class="column is-narrow">
-                <div class="buttons">
-                    <button class="button is-small is-info edit-btn">
-                        <span class="icon">
-                            <i class="fas fa-edit"></i>
-                        </span>
-                    </button>
-                    <button class="button is-small is-danger delete-btn">
-                        <span class="icon">
-                            <i class="fas fa-trash"></i>
-                        </span>
-                    </button>
-                </div>
+            
+            <div class="tags">
+                <span class="tag category-tag resource-category"></span>
+                <span class="tag is-light resource-date"></span>
+                <span class="tag is-success metadata-status" style="display: none;">
+                    <span class="icon is-small">
+                        <i class="fas fa-check"></i>
+                    </span>
+                    <span>Preview</span>
+                </span>
+            </div>
+            
+            <!-- Actions -->
+            <div class="buttons">
+                <button class="button is-small is-link refresh-metadata-btn" title="Refresh preview" style="display: none;">
+                    <span class="icon">
+                        <i class="fas fa-sync-alt"></i>
+                    </span>
+                </button>
+                <button class="button is-small is-info edit-btn">
+                    <span class="icon">
+                        <i class="fas fa-edit"></i>
+                    </span>
+                </button>
+                <button class="button is-small is-danger delete-btn">
+                    <span class="icon">
+                        <i class="fas fa-trash"></i>
+                    </span>
+                </button>
             </div>
         </div>
     </div>
@@ -225,6 +346,58 @@ function renderResources(resources) {
         card.querySelector('.resource-title').textContent = resource.title;
         card.querySelector('.resource-description').textContent = resource.description || 'No description';
         
+        // Handle metadata and preview
+        if (resource.link_metadata) {
+            const metadata = resource.link_metadata;
+            
+            // Show preview image if available
+            if (metadata.image) {
+                const imageColumn = card.querySelector('.preview-image-column');
+                const previewImage = card.querySelector('.preview-image');
+                
+                // Add error handling for failed image loads
+                previewImage.onerror = function() {
+                    console.warn('Failed to load image:', metadata.image);
+                    imageColumn.style.display = 'none';
+                    // Optionally show a placeholder or default image
+                    // previewImage.src = '/static/placeholder-image.svg';
+                };
+                
+                previewImage.onload = function() {
+                    imageColumn.style.display = 'block';
+                };
+                
+                previewImage.src = metadata.image;
+                previewImage.alt = metadata.title || 'Preview';
+            }
+            
+            // Update title and description with metadata if available
+            if (metadata.title && metadata.title !== resource.title) {
+                card.querySelector('.resource-title').textContent = metadata.title;
+            }
+            
+            if (metadata.description && (!resource.description || resource.description === 'No description')) {
+                card.querySelector('.resource-description').textContent = metadata.description;
+            }
+            
+            // Show site info
+            if (metadata.site_name || metadata.url) {
+                const metadataInfo = card.querySelector('.metadata-info');
+                const metadataSite = card.querySelector('.metadata-site');
+                const siteText = metadata.site_name || new URL(metadata.url || resource.url).hostname;
+                metadataSite.textContent = `Source: ${siteText}`;
+                metadataInfo.style.display = 'block';
+            }
+            
+            // Show metadata status tag
+            if (metadata.status === 'success') {
+                card.querySelector('.metadata-status').style.display = 'inline-flex';
+            }
+            
+            // Show refresh button
+            card.querySelector('.refresh-metadata-btn').style.display = 'inline-flex';
+        }
+        
         if (resource.category) {
             card.querySelector('.resource-category').textContent = resource.category;
         } else {
@@ -237,47 +410,59 @@ function renderResources(resources) {
         // Add event listeners
         card.querySelector('.edit-btn').onclick = () => editResource(resource.id);
         card.querySelector('.delete-btn').onclick = () => deleteResource(resource.id);
+        card.querySelector('.refresh-metadata-btn').onclick = () => refreshMetadata(resource.id);
         
         resourcesList.appendChild(card);
     });
 }
 
-// Render pagination
+// JavaScript function to handle pagination rendering
+// Takes a data object containing pagination info like total items, current page, etc.
 function renderPagination(data) {
+    // Get references to pagination DOM elements
     const pagination = document.getElementById('pagination');
     const prevPage = document.getElementById('prevPage');
     const nextPage = document.getElementById('nextPage');
     const pageNumbers = document.getElementById('pageNumbers');
     
+    // Hide pagination if there's only 1 page or less of results
     if (data.total <= data.per_page) return;
     
+    // Show pagination controls
     pagination.style.display = 'flex';
     
+    // Calculate total number of pages
     const totalPages = Math.ceil(data.total / data.per_page);
     
-    // Previous button
+    // Handle previous page button
     if (data.page > 1) {
+        // Enable button and add click handler if not on first page
         prevPage.onclick = () => loadResources(data.page - 1, currentSearch, currentCategory);
         prevPage.classList.remove('is-disabled');
     } else {
+        // Disable button if on first page
         prevPage.classList.add('is-disabled');
     }
     
-    // Next button
+    // Handle next page button
     if (data.page < totalPages) {
+        // Enable button and add click handler if not on last page
         nextPage.onclick = () => loadResources(data.page + 1, currentSearch, currentCategory);
         nextPage.classList.remove('is-disabled');
     } else {
+        // Disable button if on last page
         nextPage.classList.add('is-disabled');
     }
     
-    // Page numbers
+    // Generate numbered page buttons
     pageNumbers.innerHTML = '';
     for (let i = 1; i <= totalPages; i++) {
         const li = document.createElement('li');
         const a = document.createElement('a');
+        // Highlight current page
         a.className = `pagination-link ${i === data.page ? 'is-current' : ''}`;
         a.textContent = i;
+        // Add click handler for page number
         a.onclick = () => loadResources(i, currentSearch, currentCategory);
         li.appendChild(a);
         pageNumbers.appendChild(li);
@@ -331,6 +516,30 @@ async function deleteResource(id) {
     }
 }
 
+// Refresh metadata for a resource
+async function refreshMetadata(id) {
+    try {
+        showNotification('Refreshing preview metadata...', 'is-info');
+        
+        const response = await fetch(`/api/resources/${id}/refresh-metadata`, {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            showNotification('Preview metadata refreshed successfully', 'is-success');
+            // Reload resources to show updated metadata
+            setTimeout(() => {
+                loadResources(currentPage, currentSearch, currentCategory);
+            }, 1000);
+        } else {
+            showNotification('Error refreshing metadata', 'is-warning');
+        }
+    } catch (error) {
+        console.error('Error refreshing metadata:', error);
+        showNotification('Error refreshing metadata', 'is-danger');
+    }
+}
+
 // Show notification
 function showNotification(message, type = 'is-info') {
     const notification = document.createElement('div');
@@ -348,10 +557,13 @@ function showNotification(message, type = 'is-info') {
 }
 
 // Search on Enter key
-document.getElementById('searchInput').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        searchResources();
-    }
-});
+const searchInput = document.getElementById('searchInput');
+if (searchInput) {
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            searchResources();
+        }
+    });
+}
 </script>
 {% endblock %}

@@ -35,9 +35,67 @@ async def lifespan(app: FastAPI):
 # Initialize FastAPI application
 app = FastAPI(
     title="SaveMyLinks",
-    description="A simple and elegant link management application",
+    description="""
+    ## SaveMyLinks - Link Management API
+    
+    A comprehensive link management application that allows you to save, organize, and manage your favorite links with automatic metadata extraction.
+    
+    ### Features
+    - **Link Management**: Create, read, update, and delete links
+    - **Automatic Metadata**: Extract titles, descriptions, and images from URLs
+    - **Categorization**: Organize links with categories and tags
+    - **Search & Filter**: Find links by title, description, category, or tags
+    - **Bulk Operations**: Import/export and bulk delete functionality
+    - **Link Preview**: Rich metadata display with thumbnails
+    
+    ### Authentication
+    This API currently operates without authentication. In production, consider implementing proper authentication and authorization.
+    
+    ### Rate Limiting
+    No rate limiting is currently implemented. Consider adding rate limiting for production use.
+    
+    ### Error Handling
+    The API uses standard HTTP status codes and returns structured error responses with detailed messages.
+    """,
     version="1.0.0",
-    lifespan=lifespan
+    contact={
+        "name": "SaveMyLinks Support",
+        "email": "support@savemylinks.com",
+    },
+    license_info={
+        "name": "MIT License",
+        "url": "https://opensource.org/licenses/MIT",
+    },
+    openapi_tags=[
+        {
+            "name": "resources",
+            "description": "Operations with links/resources. Create, read, update, delete, and manage your saved links.",
+        },
+        {
+            "name": "metadata",
+            "description": "Link metadata operations. Extract and refresh metadata from URLs.",
+        },
+        {
+            "name": "categories",
+            "description": "Category management. Get available categories for organizing links.",
+        },
+        {
+            "name": "tags",
+            "description": "Tag management. Get available tags for organizing links.",
+        },
+        {
+            "name": "export",
+            "description": "Data export operations. Export your links in various formats.",
+        },
+        {
+            "name": "health",
+            "description": "Health check and system status endpoints.",
+        }
+    ],
+    lifespan=lifespan,
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json"
 )
 
 # Configure CORS origins from environment variable
@@ -125,15 +183,15 @@ async def add_resource_page(request: Request):
     )
 
 
-@app.get("/health")
+@app.get("/health", tags=["health"])
 async def health_check():
     """
     Health check endpoint.
     
     Returns:
-        Simple health status
+        Simple health status with service information
     """
-    return {"status": "healthy", "service": "SaveMyLinks"}
+    return {"status": "healthy", "service": "SaveMyLinks", "version": "1.0.0"}
 
 
 if __name__ == "__main__":

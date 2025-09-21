@@ -105,6 +105,133 @@ class TestResourceRoutes:
         assert "already exists" in response2.json()["detail"]
 
     @pytest.mark.asyncio
+    async def test_bulk_delete_resources_success(self, client: AsyncClient):
+        """Test successful bulk deletion of resources."""
+        # Create test resources
+        resources = []
+        for i in range(3):
+            resource_data = {
+                "title": f"Test Resource {i}",
+                "url": f"https://example{i}.com",
+                "description": f"Test resource {i}",
+                "category": "Testing"
+            }
+            response = await client.post("/api/resources/", json=resource_data)
+            assert response.status_code == 201
+            resources.append(response.json())
+        
+        # Bulk delete
+        resource_ids = [r["id"] for r in resources]
+        response = await client.post("/api/resources/bulk/delete", json=resource_ids)
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "Successfully deleted 3 resource(s)" in data["message"]
+        
+        # Verify resources are deleted
+        for resource_id in resource_ids:
+            response = await client.get(f"/api/resources/{resource_id}")
+            assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_bulk_delete_empty_list(self, client: AsyncClient):
+        """Test bulk delete with empty resource list fails."""
+        response = await client.post("/api/resources/bulk/delete", json=[])
+        
+        assert response.status_code == 400
+        assert "No resource IDs provided" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_bulk_delete_nonexistent_resources(self, client: AsyncClient):
+        """Test bulk delete with non-existent resource IDs."""
+        response = await client.post("/api/resources/bulk/delete", json=[999, 1000])
+        
+        assert response.status_code == 404
+        assert "Resources not found" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_export_resources_json(self, client: AsyncClient):
+        """Test exporting resources in JSON format."""
+        # Create test resources
+        for i in range(2):
+            resource_data = {
+                "title": f"Export Test {i}",
+                "url": f"https://export{i}.com",
+                "description": f"Export test resource {i}",
+                "category": "Export"
+            }
+            response = await client.post("/api/resources/", json=resource_data)
+            assert response.status_code == 201
+        
+        # Export resources
+        response = await client.get("/api/resources/export?format=json")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "export_info" in data
+        assert "resources" in data
+        assert data["export_info"]["total_resources"] >= 2
+        assert data["export_info"]["export_format"] == "json"
+        assert len(data["resources"]) >= 2
+
+    @pytest.mark.asyncio
+    async def test_export_resources_csv(self, client: AsyncClient):
+        """Test exporting resources in CSV format."""
+        # Create test resource
+        resource_data = {
+            "title": "CSV Export Test",
+            "url": "https://csvexport.com",
+            "description": "CSV export test resource",
+            "category": "CSV"
+        }
+        response = await client.post("/api/resources/", json=resource_data)
+        assert response.status_code == 201
+        
+        # Export resources
+        response = await client.get("/api/resources/export?format=csv")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "csv_data" in data
+        csv_content = data["csv_data"]
+        assert "ID,Title,URL,Description,Category,Tags,Created At,Updated At" in csv_content
+        assert "CSV Export Test" in csv_content
+
+    @pytest.mark.asyncio
+    async def test_export_invalid_format(self, client: AsyncClient):
+        """Test export with invalid format fails."""
+        response = await client.get("/api/resources/export?format=xml")
+        
+        assert response.status_code == 400
+        assert "Invalid format" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_export_with_filters(self, client: AsyncClient):
+        """Test export with category and search filters."""
+        # Create test resources with different categories
+        resources_data = [
+            {"title": "Filter Test 1", "url": "https://filter1.com", "category": "FilterA"},
+            {"title": "Filter Test 2", "url": "https://filter2.com", "category": "FilterB"},
+            {"title": "Search Test", "url": "https://search.com", "category": "FilterA"}
+        ]
+        
+        for resource_data in resources_data:
+            response = await client.post("/api/resources/", json=resource_data)
+            assert response.status_code == 201
+        
+        # Export with category filter
+        response = await client.get("/api/resources/export?format=json&category=FilterA")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["export_info"]["category_filter"] == "FilterA"
+        # Should have 2 resources with FilterA category
+        filtered_resources = [r for r in data["resources"] if r["category"] == "FilterA"]
+        assert len(filtered_resources) >= 2
+
+
+
+    @pytest.mark.asyncio
     async def test_create_resource_invalid_url(self, client: AsyncClient):
         """Test creating resource with invalid URL fails."""
         resource_data = {

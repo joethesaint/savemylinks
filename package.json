@@ -1,0 +1,32 @@
+{
+  "name": "savemylinks",
+  "version": "1.0.0",
+  "description": "A modern bookmark manager with TypeScript and Playwright testing",
+  "main": "app/static/script.js",
+  "dependencies": {
+    "playwright": "^1.55.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^24.5.2",
+    "typescript": "^5.9.2"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "dev": "tsc --watch",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "install-browsers": "playwright install"
+  },
+  "keywords": [
+    "bookmark",
+    "manager",
+    "typescript",
+    "playwright",
+    "testing"
+  ],
+  "author": "",
+  "license": "MIT"
+}

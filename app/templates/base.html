@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="SaveMyLinks - Your personal link curator and bookmark manager">
     <meta name="theme-color" content="#667eea">
+    <meta name="color-scheme" content="light dark">
     <title>{% block title %}SaveMyLinks{% endblock %}</title>
     
     <!-- Preload critical resources -->
@@ -48,7 +49,8 @@
                     <strong class="ml-2">SaveMyLinks</strong>
                 </a>
                 
-                <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarBasic">
+                <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" 
+                   data-target="navbarBasic" tabindex="0">
                     <span aria-hidden="true"></span>
                     <span aria-hidden="true"></span>
                     <span aria-hidden="true"></span>
@@ -118,12 +120,13 @@
                     <div class="column is-narrow">
                         <div class="field is-grouped">
                             <p class="control">
-                                <a class="button is-small is-outlined" href="https://github.com" target="_blank">
-                                    <span class="icon">
-                                        <i class="fab fa-github"></i>
-                                    </span>
-                                    <span>GitHub</span>
-                                </a>
+                        <a class="button is-small is-outlined" href="https://github.com" target="_blank" 
+                           rel="noopener noreferrer" aria-label="Visit our GitHub repository (opens in new tab)">
+                            <span class="icon" aria-hidden="true">
+                                <i class="fab fa-github"></i>
+                            </span>
+                            <span>GitHub</span>
+                        </a>
                             </p>
                         </div>
                     </div>
@@ -134,19 +137,41 @@
 
     <!-- JavaScript for mobile menu -->
     <script>
-        // Mobile menu functionality
+        // Mobile menu functionality with keyboard support
         document.addEventListener('DOMContentLoaded', () => {
             const $navbarBurgers = Array.prototype.slice.call(document.querySelectorAll('.navbar-burger'), 0);
             
             if ($navbarBurgers.length > 0) {
                 $navbarBurgers.forEach(el => {
-                    el.addEventListener('click', () => {
-                        const target = el.dataset.target;
-                        const $target = document.getElementById(target);
-                        
-                        el.classList.toggle('is-active');
-                        $target.classList.toggle('is-active');
+                    // Click handler
+                    el.addEventListener('click', toggleMenu);
+                    
+                    // Keyboard handler for Enter and Space
+                    el.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            toggleMenu.call(el);
+                        }
                     });
+                    
+                    function toggleMenu() {
+                        const target = this.dataset.target;
+                        const $target = document.getElementById(target);
+                        const isExpanded = this.classList.contains('is-active');
+                        
+                        this.classList.toggle('is-active');
+                        $target.classList.toggle('is-active');
+                        
+                        // Update aria-expanded for accessibility
+                        this.setAttribute('aria-expanded', !isExpanded);
+                        
+                        // Focus management
+                        if (!isExpanded) {
+                            // Menu opened - focus first menu item
+                            const firstMenuItem = $target.querySelector('.navbar-item');
+                            if (firstMenuItem) firstMenuItem.focus();
+                        }
+                    }
                 });
             }
         });

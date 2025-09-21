@@ -208,22 +208,28 @@ def _generate_cache_key(func: Callable, args: tuple, kwargs: dict) -> str:
 
 def cached(ttl: Optional[int] = None, key_prefix: str = ""):
     """
-    Decorator for caching function results.
+    Decorator for caching async function results with LRU cache and TTL support.
     
     Args:
-        ttl: Time to live in seconds. If None, uses cache default.
-        key_prefix: Optional prefix for cache keys.
-    
+        ttl: Time to live in seconds. If None, uses cache default TTL
+        key_prefix: Optional prefix for cache keys
+        
     Example:
         @cached(ttl=300)  # Cache for 5 minutes
         async def get_user_links(user_id: int):
-            # Expensive database operation
             return await db.query(Link).filter(Link.user_id == user_id).all()
+    
+    Note:
+        This decorator only supports async functions. For sync functions,
+        use cached_database_query() directly.
     """
     def decorator(func: Callable) -> Callable:
+        if not asyncio.iscoroutinefunction(func):
+            raise ValueError(f"@cached decorator only supports async functions. "
+                           f"Function '{func.__name__}' is not async.")
+        
         @functools.wraps(func)
         async def async_wrapper(*args, **kwargs):
-            # Check if caching is enabled
             settings = get_settings()
             if not getattr(settings, 'CACHE_ENABLED', True):
                 return await func(*args, **kwargs)
@@ -241,25 +247,9 @@ def cached(ttl: Optional[int] = None, key_prefix: str = ""):
             logger.debug(f"Cache miss for {func.__name__}: {cache_key}")
             result = await func(*args, **kwargs)
             await cache.set(cache_key, result, ttl)
-            
             return result
         
-        @functools.wraps(func)
-        def sync_wrapper(*args, **kwargs):
-            # For synchronous functions, we need to handle async cache operations
-            settings = get_settings()
-            if not getattr(settings, 'CACHE_ENABLED', True):
-                return func(*args, **kwargs)
-            
-            # This is a simplified version for sync functions
-            # In a real application, you might want to use a sync cache for sync functions
-            return func(*args, **kwargs)
-        
-        # Return appropriate wrapper based on function type
-        if asyncio.iscoroutinefunction(func):
-            return async_wrapper
-        else:
-            return sync_wrapper
+        return async_wrapper
     
     return decorator
 
@@ -305,28 +295,27 @@ async def invalidate_cache_pattern(pattern: str) -> int:
 
 async def warm_cache(func: Callable, *args_list: Tuple[tuple, dict]) -> None:
     """
-    Pre-populate cache with function results.
+    Pre-populate cache with results from multiple function calls.
     
     Args:
-        func: Function to cache results for.
-        args_list: List of (args, kwargs) tuples to pre-compute.
-    
+        func: The async function to warm cache for
+        args_list: List of (args, kwargs) tuples to call the function with
+        
     Example:
         await warm_cache(
             get_user_links,
-            ((1,), {}),
-            ((2,), {}),
-            ((3,), {})
+            ([1], {}),
+            ([2], {}),
+            ([3], {})
         )
     """
-    logger.info(f"Warming cache for {func.__name__} with {len(args_list)} entries")
+    if not asyncio.iscoroutinefunction(func):
+        raise ValueError(f"warm_cache only supports async functions. "
+                       f"Function '{func.__name__}' is not async.")
     
     for args, kwargs in args_list:
         try:
-            if asyncio.iscoroutinefunction(func):
-                await func(*args, **kwargs)
-            else:
-                func(*args, **kwargs)
+            await func(*args, **kwargs)
         except Exception as e:
             logger.warning(f"Failed to warm cache for {func.__name__}: {e}")
 

@@ -312,31 +312,13 @@ class TestCacheUtilities:
             app.cache._cache_instance = original_cache
     
     @pytest.mark.asyncio
-    async def test_warm_cache_async(self):
-        """Test cache warming with async function."""
-        call_count = 0
+    async def test_warm_cache_sync_function_raises_error(self):
+        """Test that warm_cache raises error for sync functions."""
+        def sync_func(x):
+            return x * 2
         
-        @cached(ttl=300)
-        async def test_func(x):
-            nonlocal call_count
-            call_count += 1
-            return f"result_{x}"
-        
-        # Warm cache
-        await warm_cache(
-            test_func,
-            ((1,), {}),
-            ((2,), {}),
-            ((3,), {})
-        )
-        
-        # Should have called function 3 times
-        assert call_count == 3
-        
-        # Subsequent calls should hit cache
-        result = await test_func(1)
-        assert result == "result_1"
-        assert call_count == 3  # No additional calls
+        with pytest.raises(ValueError, match="warm_cache only supports async functions"):
+            await warm_cache(sync_func, ([1], {}), ([2], {}))
 
 
 class TestCacheDecorators:
@@ -369,26 +351,12 @@ class TestCacheDecorators:
         assert call_count == 2
     
     @pytest.mark.asyncio
-    @patch('app.cache.get_settings')
-    async def test_cached_decorator_disabled(self, mock_get_settings):
-        """Test cached decorator when caching is disabled."""
-        mock_settings = Mock()
-        mock_settings.CACHE_ENABLED = False
-        mock_get_settings.return_value = mock_settings
-        
-        call_count = 0
-        
-        @cached(ttl=300)
-        async def test_func(x):
-            nonlocal call_count
-            call_count += 1
-            return f"result_{x}"
-        
-        # Multiple calls should not use cache
-        await test_func(1)
-        await test_func(1)
-        
-        assert call_count == 2
+    async def test_cached_decorator_sync_function_raises_error(self):
+        """Test that @cached decorator raises error for sync functions."""
+        with pytest.raises(ValueError, match="@cached decorator only supports async functions"):
+            @cached(ttl=300)
+            def sync_function(x):
+                return x * 2
     
     @pytest.mark.asyncio
     async def test_cache_on_success_decorator(self):

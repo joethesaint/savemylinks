@@ -92,7 +92,7 @@ async def lifespan(app: FastAPI):
             {
                 "environment": settings.ENVIRONMENT,
                 "debug_mode": settings.DEBUG,
-                "cors_origins": settings.ALLOWED_ORIGINS,
+                "cors_origins": settings.allowed_origins,
                 "rate_limiting": settings.RATE_LIMIT_ENABLED
             }
         )
@@ -419,7 +419,29 @@ async def test_error_endpoint(settings: Settings = Depends(get_settings)):
 if __name__ == "__main__":
     settings = get_settings()
     
-    # Enhanced uvicorn configuration
+    # Validate environment for enhanced features
+    if settings.ENVIRONMENT == "production":
+        logger.info("🛡️  Running in PRODUCTION mode with enhanced security features")
+        
+        # Validate required production settings
+        required_settings = []
+        if not settings.SECRET_KEY or settings.SECRET_KEY == "dev-secret-key":
+            required_settings.append("SECRET_KEY")
+        if not settings.ALLOWED_ORIGINS or settings.ALLOWED_ORIGINS == ["*"]:
+            required_settings.append("ALLOWED_ORIGINS")
+            
+        if required_settings:
+            logger.error(f"❌ Missing required production settings: {', '.join(required_settings)}")
+            logger.error("Please set proper values for production deployment")
+            exit(1)
+            
+        logger.info("✅ Production security validation passed")
+    else:
+        logger.warning(f"⚠️  Running in {settings.ENVIRONMENT.upper()} mode")
+        if settings.ENVIRONMENT == "development":
+            logger.info("🔧 Debug endpoints and API docs are enabled")
+    
+    # Configure uvicorn based on environment
     uvicorn_config = {
         "app": "app.main_enhanced:app",
         "host": settings.HOST,
@@ -434,13 +456,13 @@ if __name__ == "__main__":
     if settings.ENVIRONMENT == "production":
         # SSL configuration would go here
         # uvicorn_config.update({
-        #     "ssl_keyfile": "/path/to/keyfile.pem",
-        #     "ssl_certfile": "/path/to/certfile.pem",
+        #     "ssl_keyfile": "/path/to/key.pem",
+        #     "ssl_certfile": "/path/to/cert.pem",
         # })
         pass
-    
+
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Server: {settings.HOST}:{settings.PORT}")
-    
+
     uvicorn.run(**uvicorn_config)

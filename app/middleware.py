@@ -29,6 +29,7 @@ from starlette.responses import JSONResponse
 
 from app.exceptions import RateLimitError
 from app.logging_config import log_api_request, log_security_event
+from app.config import get_settings
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -65,8 +66,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         Returns:
             Response: HTTP response
         """
-        # Import here to allow proper mocking in tests
-        from app.config import get_settings
         settings = get_settings()
         
         # Skip rate limiting if disabled

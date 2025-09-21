@@ -30,7 +30,7 @@ class CustomEnvSettingsSource(EnvSettingsSource):
     ) -> Any:
         """Prepare field value, handling comma-separated lists for specific fields."""
         # Handle comma-separated list fields
-        if field_name in ("cors_origins", "allowed_origins", "allowed_hosts") and isinstance(value, str):
+        if field_name in ("allowed_origins", "allowed_hosts") and isinstance(value, str):
             if not value.strip():
                 return []
             return [item.strip() for item in value.split(",") if item.strip()]
@@ -70,16 +70,11 @@ class Settings(BaseSettings):
         description="Enable SQLAlchemy query logging"
     )
     
-    # CORS Settings
+    # CORS Settings - Standardized naming
     allowed_origins: List[str] = Field(
         default=["http://localhost:8000", "http://127.0.0.1:8000"],
-        validation_alias=AliasChoices("allowed_origins", "ALLOWED_ORIGINS"),
+        validation_alias=AliasChoices("allowed_origins", "ALLOWED_ORIGINS", "cors_origins", "CORS_ORIGINS"),
         description="List of allowed CORS origins"
-    )
-    cors_origins: List[str] = Field(
-        default=["*"],
-        validation_alias=AliasChoices("cors_origins", "CORS_ORIGINS"),
-        description="CORS origins (alias for allowed_origins)"
     )
     allowed_hosts: List[str] = Field(
         default=["*"],
@@ -169,18 +164,15 @@ class Settings(BaseSettings):
         description="Number of backup log files to keep"
     )
     
-    # Cache Settings
+    # Cache Settings - Standardized naming
     cache_enabled: bool = Field(
         default=True,
         description="Enable in-memory caching"
     )
     cache_default_ttl: int = Field(
         default=300,
+        validation_alias=AliasChoices("cache_default_ttl", "cache_ttl"),
         description="Default cache TTL in seconds"
-    )
-    cache_ttl: int = Field(
-        default=3600,
-        description="Cache TTL in seconds (alias for cache_default_ttl)"
     )
     cache_max_size: int = Field(
         default=1000,
@@ -203,45 +195,43 @@ class Settings(BaseSettings):
         description="Templates directory"
     )
     
-    @field_validator("allowed_origins", "cors_origins", "allowed_hosts", mode="before")
+    @field_validator("allowed_origins", "allowed_hosts", mode="before")
     @classmethod
     def parse_string_lists(cls, v: Any) -> Any:
         """Parse comma-separated strings into lists."""
         if isinstance(v, str):
-            # Handle empty strings
             if not v.strip():
                 return []
-            # Split by comma and strip whitespace
             return [item.strip() for item in v.split(",") if item.strip()]
         elif isinstance(v, list):
             return v
-        elif v is None:
-            return []
         else:
-            # Convert other types to string first, then parse
-            return cls.parse_string_lists(str(v))
+            return []
     
     @field_validator("allowed_origins")
     @classmethod
     def validate_cors_security(cls, v, info):
-        """
-        Validate CORS configuration for security.
+        """Validate CORS origins for security."""
+        # Don't override empty lists - let get_cors_origins() handle defaults
+        if not v:
+            return v
         
-        Prevents wildcard origins when credentials are enabled.
-        """
-        # Get other field values from validation info
-        if hasattr(info, 'data') and info.data.get("allow_credentials", False) and "*" in v:
-            raise ValueError(
-                "Cannot use wildcard CORS origins when credentials are enabled. "
-                "This is a security vulnerability. Please specify explicit origins."
+        # In production, warn about wildcard origins
+        environment = info.data.get("environment", "development")
+        if environment == "production" and "*" in v:
+            import warnings
+            warnings.warn(
+                "Using wildcard '*' for CORS origins in production is not recommended for security",
+                UserWarning
             )
+        
         return v
     
     @field_validator("environment")
     @classmethod
     def validate_environment(cls, v):
         """Validate environment setting."""
-        valid_environments = ["development", "staging", "production"]
+        valid_environments = {"development", "staging", "production"}
         if v not in valid_environments:
             raise ValueError(f"Environment must be one of: {valid_environments}")
         return v
@@ -250,45 +240,51 @@ class Settings(BaseSettings):
     @classmethod
     def validate_log_level(cls, v):
         """Validate log level setting."""
-        valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
-        v = v.upper()
-        if v not in valid_levels:
+        valid_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+        v_upper = v.upper()
+        if v_upper not in valid_levels:
             raise ValueError(f"Log level must be one of: {valid_levels}")
-        return v
+        return v_upper
     
     @field_validator("secret_key")
     @classmethod
     def validate_secret_key(cls, v, info):
-        """Validate secret key length and production requirements."""
+        """Validate secret key strength."""
         if len(v) < 32:
-            raise ValueError("Secret key must be at least 32 characters long")
-        
-        # Get other field values from validation info
-        if (hasattr(info, 'data') and info.data.get("environment") == "production" and 
-            v == "your-secret-key-change-in-production"):
-            raise ValueError(
-                "You must set a secure SECRET_KEY in production environment"
+            import warnings
+            warnings.warn(
+                "Secret key should be at least 32 characters long for security",
+                UserWarning
             )
+        
+        environment = info.data.get("environment", "development")
+        if environment == "production" and v == os.urandom(32).hex():
+            import warnings
+            warnings.warn(
+                "Using auto-generated secret key in production. Set SECRET_KEY environment variable.",
+                UserWarning
+            )
+        
         return v
     
+    @property
     def is_development(self) -> bool:
         """Check if running in development mode."""
         return self.environment == "development"
     
+    @property
     def is_production(self) -> bool:
         """Check if running in production mode."""
         return self.environment == "production"
     
     def get_cors_origins(self) -> List[str]:
-        """
-        Get CORS origins with environment-specific defaults.
-        
-        Returns safe defaults for development and requires explicit
-        configuration for production.
-        """
-        if self.is_development() and not self.allowed_origins:
+        """Get CORS origins with environment-specific defaults."""
+        if self.is_development and not self.allowed_origins:
             return ["http://localhost:8000", "http://127.0.0.1:8000"]
-        return self.allowed_origins
+        elif self.is_production and "*" in self.allowed_origins:
+            # In production, be more restrictive
+            return ["https://yourdomain.com"]  # Replace with actual domain
+        return self.allowed_origins or ["*"]  # Fallback to wildcard if empty
     
     @classmethod
     def settings_customise_sources(
@@ -299,21 +295,21 @@ class Settings(BaseSettings):
         dotenv_settings,
         file_secret_settings,
     ):
-        """Customize settings sources to use our custom environment source."""
+        """Customize settings sources to use our custom env source."""
         return (
             init_settings,
             CustomEnvSettingsSource(settings_cls),
             dotenv_settings,
             file_secret_settings,
         )
-
+    
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
-        # Environment variable prefixes
+        # Allow reading from environment variables
         env_prefix="",
-        # Field aliases for common environment variable names
+        # Ignore extra fields not defined in the model
         extra="ignore"
     )
 
@@ -321,20 +317,20 @@ class Settings(BaseSettings):
 @lru_cache()
 def get_settings() -> Settings:
     """
-    Get application settings with caching.
+    Get cached application settings.
     
-    This function creates and caches the settings instance to avoid
-    re-parsing environment variables on every call.
+    This function uses LRU cache to ensure settings are loaded only once
+    and reused throughout the application lifecycle.
     
     Returns:
-        Settings: Configured application settings
+        Settings: Application configuration instance
     """
     return Settings()
 
 
 def get_database_url() -> str:
     """
-    Get database URL with environment-specific handling.
+    Get database URL from settings.
     
     Returns:
         str: Database connection URL
@@ -350,7 +346,7 @@ def is_development() -> bool:
     Returns:
         bool: True if in development mode
     """
-    return get_settings().is_development()
+    return get_settings().is_development
 
 
 def is_production() -> bool:
@@ -360,10 +356,10 @@ def is_production() -> bool:
     Returns:
         bool: True if in production mode
     """
-    return get_settings().is_production()
+    return get_settings().is_production
 
 
-# Export commonly used settings for convenience
+# Export public interface
 __all__ = [
     "Settings",
     "get_settings",

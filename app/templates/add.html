@@ -8,138 +8,170 @@
         <div class="column is-8">
             <div class="form-container">
                 <div class="box">
-                    <h1 class="title is-4 has-text-centered">
-                        <span class="icon">
-                            <i class="fas fa-plus-circle"></i>
-                        </span>
-                        Add New Resource
-                    </h1>
+                    <header>
+                        <h1 class="title is-4 has-text-centered" id="form-title">
+                            <span class="icon" aria-hidden="true">
+                                <i class="fas fa-plus-circle"></i>
+                            </span>
+                            Add New Resource
+                        </h1>
+                    </header>
                     
-                    <form id="addResourceForm">
+                    <form id="addResourceForm" role="form" aria-labelledby="form-title" novalidate>
                         <!-- Title Field -->
                         <div class="field">
-                            <label class="label">Title *</label>
+                            <label class="label" for="title">Title *</label>
                             <div class="control has-icons-left">
                                 <input class="input" type="text" id="title" name="title" 
-                                       placeholder="Enter a descriptive title" required>
-                                <span class="icon is-small is-left">
+                                       placeholder="Enter a descriptive title" required
+                                       aria-describedby="title-help title-error"
+                                       aria-invalid="false">
+                                <span class="icon is-small is-left" aria-hidden="true">
                                     <i class="fas fa-heading"></i>
                                 </span>
                             </div>
-                            <p class="help is-danger" id="titleError" style="display: none;"></p>
+                            <p class="help" id="title-help">Provide a clear, descriptive title for the resource</p>
+                            <p class="help is-danger" id="title-error" style="display: none;" role="alert"></p>
                         </div>
 
                         <!-- URL Field -->
                         <div class="field">
-                            <label class="label">URL *</label>
+                            <label class="label" for="url">URL *</label>
                             <div class="control has-icons-left">
                                 <input class="input" type="url" id="url" name="url" 
-                                       placeholder="https://example.com" required>
-                                <span class="icon is-small is-left">
+                                       placeholder="https://example.com" required
+                                       aria-describedby="url-help url-error"
+                                       aria-invalid="false">
+                                <span class="icon is-small is-left" aria-hidden="true">
                                     <i class="fas fa-link"></i>
                                 </span>
                             </div>
-                            <p class="help is-danger" id="urlError" style="display: none;"></p>
-                            <p class="help">Enter the full URL including http:// or https://</p>
+                            <p class="help" id="url-help">Enter the full URL including http:// or https://</p>
+                            <p class="help is-danger" id="url-error" style="display: none;" role="alert"></p>
                         </div>
 
                         <!-- Description Field -->
                         <div class="field">
-                            <label class="label">Description</label>
+                            <label class="label" for="description">Description</label>
                             <div class="control">
                                 <textarea class="textarea" id="description" name="description" 
-                                          placeholder="Optional description of the resource" rows="3"></textarea>
+                                          placeholder="Optional description of the resource" rows="3"
+                                          aria-describedby="description-help description-error"
+                                          aria-invalid="false"></textarea>
                             </div>
-                            <p class="help is-danger" id="descriptionError" style="display: none;"></p>
+                            <p class="help" id="description-help">Provide additional context about this resource</p>
+                            <p class="help is-danger" id="description-error" style="display: none;" role="alert"></p>
                         </div>
 
                         <!-- Category Field -->
                         <div class="field">
-                            <label class="label">Category</label>
+                            <label class="label" for="category">Category</label>
                             <div class="control has-icons-left">
                                 <div class="select is-fullwidth">
-                                    <select id="category" name="category">
+                                    <select id="category" name="category" aria-describedby="category-help">
                                         <option value="">Select a category (optional)</option>
                                     </select>
                                 </div>
-                                <span class="icon is-small is-left">
+                                <span class="icon is-small is-left" aria-hidden="true">
                                     <i class="fas fa-folder"></i>
                                 </span>
                             </div>
-                            <p class="help">Or type a new category name below</p>
+                            <p class="help" id="category-help">Choose an existing category or create a new one below</p>
                         </div>
 
                         <!-- Custom Category Field -->
                         <div class="field">
+                            <label class="label" for="customCategory">New Category</label>
                             <div class="control has-icons-left">
                                 <input class="input" type="text" id="customCategory" name="customCategory" 
-                                       placeholder="Or enter a new category">
-                                <span class="icon is-small is-left">
+                                       placeholder="Enter a new category name"
+                                       aria-describedby="custom-category-help">
+                                <span class="icon is-small is-left" aria-hidden="true">
                                     <i class="fas fa-tag"></i>
                                 </span>
                             </div>
+                            <p class="help" id="custom-category-help">Create a new category if none of the existing ones fit</p>
                         </div>
 
                         <!-- Metadata Extraction Option -->
-                        <div class="field">
+                        <fieldset class="field">
+                            <legend class="label">Preview Options</legend>
                             <div class="control">
                                 <label class="checkbox">
-                                    <input type="checkbox" id="extractMetadata" name="extractMetadata" checked>
-                                    <span class="icon is-small">
+                                    <input type="checkbox" id="extractMetadata" name="extractMetadata" checked
+                                           aria-describedby="metadata-help">
+                                    <span class="icon is-small" aria-hidden="true">
                                         <i class="fas fa-eye"></i>
                                     </span>
                                     Extract link preview (title, description, image)
                                 </label>
                             </div>
-                            <p class="help">Automatically fetch preview information from the URL</p>
-                        </div>
+                            <p class="help" id="metadata-help">Automatically fetch preview information from the URL</p>
+                        </fieldset>
 
                         <!-- Submit Buttons -->
                         <div class="field is-grouped is-grouped-centered">
                             <div class="control">
-                                <button type="submit" class="button is-primary is-medium" id="submitBtn">
-                                    <span class="icon">
+                                <button type="submit" class="button is-primary is-medium" id="submitBtn"
+                                        aria-describedby="submit-help">
+                                    <span class="icon" aria-hidden="true">
                                         <i class="fas fa-save"></i>
                                     </span>
                                     <span>Save Resource</span>
                                 </button>
                             </div>
                             <div class="control">
-                                <a href="/" class="button is-light is-medium">
-                                    <span class="icon">
+                                <a href="/" class="button is-light is-medium" role="button"
+                                   aria-label="Cancel and return to home page">
+                                    <span class="icon" aria-hidden="true">
                                         <i class="fas fa-times"></i>
                                     </span>
                                     <span>Cancel</span>
                                 </a>
                             </div>
                         </div>
+                        <p class="help has-text-centered" id="submit-help">
+                            <span class="icon is-small" aria-hidden="true">
+                                <i class="fas fa-info-circle"></i>
+                            </span>
+                            Required fields are marked with *
+                        </p>
                     </form>
                 </div>
 
                 <!-- Quick Add Section -->
-                <div class="box mt-5">
-                    <h2 class="title is-5">
-                        <span class="icon">
-                            <i class="fas fa-magic"></i>
-                        </span>
-                        Quick Add from URL
-                    </h2>
-                    <p class="subtitle is-6">Paste a URL and we'll try to extract the title automatically</p>
+                <section class="box mt-5" role="region" aria-labelledby="quick-add-title">
+                    <header>
+                        <h2 class="title is-5" id="quick-add-title">
+                            <span class="icon" aria-hidden="true">
+                                <i class="fas fa-magic"></i>
+                            </span>
+                            Quick Add from URL
+                        </h2>
+                        <p class="subtitle is-6">Paste a URL and we'll try to extract the title automatically</p>
+                    </header>
                     
                     <div class="field has-addons">
                         <div class="control is-expanded">
-                            <input class="input" type="url" id="quickUrl" placeholder="Paste URL here...">
+                            <label for="quickUrl" class="is-sr-only">Quick URL input</label>
+                            <input class="input" type="url" id="quickUrl" 
+                                   placeholder="Paste URL here..."
+                                   aria-describedby="quick-url-help">
                         </div>
                         <div class="control">
-                            <button class="button is-info" onclick="extractFromUrl()">
-                                <span class="icon">
+                            <button class="button is-info" onclick="extractFromUrl()"
+                                    aria-describedby="quick-url-help">
+                                <span class="icon" aria-hidden="true">
                                     <i class="fas fa-magic"></i>
                                 </span>
                                 <span>Extract</span>
                             </button>
                         </div>
                     </div>
-                </div>
+                    <p class="help" id="quick-url-help">
+                        This will automatically fill the form above with extracted information
+                    </p>
+                </section>
             </div>
         </div>
     </div>

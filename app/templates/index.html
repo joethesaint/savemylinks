@@ -5,13 +5,16 @@
 {% block content %}
 <div class="container">
     <!-- Enhanced Search and Filter Section -->
-    <div class="search-container">
+    <section class="search-container" role="search" aria-label="Search and filter resources">
         <div class="columns">
             <div class="column is-8">
                 <div class="field has-addons">
                     <div class="control is-expanded has-icons-left">
-                        <input class="input" type="text" id="searchInput" placeholder="Search resources... (Ctrl+K)">
-                        <span class="icon is-small is-left">
+                        <input class="input" type="text" id="searchInput" 
+                               placeholder="Search resources... (Ctrl+K)"
+                               aria-label="Search resources"
+                               aria-describedby="search-help">
+                        <span class="icon is-small is-left" aria-hidden="true">
                             <i class="fas fa-search"></i>
                         </span>
                     </div>
@@ -33,16 +36,19 @@
                         </button>
                     </div>
                 </div>
+                <div id="search-help" class="help">Use Ctrl+K to quickly focus the search box</div>
             </div>
             <div class="column is-4">
                 <div class="field">
+                    <label for="categoryFilter" class="label is-sr-only">Filter by category</label>
                     <div class="control has-icons-left">
                         <div class="select is-fullwidth">
-                            <select id="categoryFilter" onchange="filterByCategory()">
+                            <select id="categoryFilter" onchange="filterByCategory()" 
+                                    aria-label="Filter by category">
                                 <option value="">All Categories</option>
                             </select>
                         </div>
-                        <span class="icon is-small is-left">
+                        <span class="icon is-small is-left" aria-hidden="true">
                             <i class="fas fa-filter"></i>
                         </span>
                     </div>
@@ -53,8 +59,9 @@
         <!-- Advanced Search Panel -->
         <div class="columns">
             <div class="column">
-                <button class="button is-small is-text" id="advancedSearchToggle">
-                    <span class="icon">
+                <button class="button is-small is-text" id="advancedSearchToggle"
+                        aria-expanded="false" aria-controls="advancedSearchPanel">
+                    <span class="icon" aria-hidden="true">
                         <i class="fas fa-cog"></i>
                     </span>
                     <span>Advanced Search</span>
@@ -62,14 +69,15 @@
             </div>
         </div>
         
-        <div id="advancedSearchPanel" style="display: none;" class="box">
+        <div id="advancedSearchPanel" style="display: none;" class="box" 
+             role="region" aria-label="Advanced search options">
             <div class="columns">
                 <div class="column is-4">
                     <div class="field">
-                        <label class="label">Sort By</label>
+                        <label class="label" for="sortSelect">Sort By</label>
                         <div class="control">
                             <div class="select is-fullwidth">
-                                <select id="sortSelect">
+                                <select id="sortSelect" aria-label="Sort resources by">
                                     <option value="created_at_desc">Newest First</option>
                                     <option value="created_at_asc">Oldest First</option>
                                     <option value="title_asc">Title A-Z</option>
@@ -84,15 +92,17 @@
                         <label class="label">Bulk Actions</label>
                         <div class="control">
                             <label class="checkbox">
-                                <input type="checkbox" id="selectAll">
+                                <input type="checkbox" id="selectAll" 
+                                       aria-describedby="select-all-help">
                                 Select All
                             </label>
+                            <div id="select-all-help" class="help">Select all visible resources for bulk actions</div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
+    </section>
 
     <!-- Bulk Actions Bar -->
     <div id="bulkActions" class="notification is-info is-light" style="display: none;">

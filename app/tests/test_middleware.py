@@ -344,7 +344,7 @@ class TestRateLimitMiddleware:
         remaining = rate_limit_middleware._get_remaining_requests(client_ip)
         assert remaining == 0
     
-    @patch('app.config.get_settings')
+    @patch('app.middleware.get_settings')
     def test_rate_limit_disabled(self, mock_get_settings, client):
         """Test rate limiting is bypassed when disabled."""
         # Mock settings to disable rate limiting
@@ -357,7 +357,7 @@ class TestRateLimitMiddleware:
             response = client.get("/test")
             assert response.status_code == 200
     
-    @patch('app.config.get_settings')
+    @patch('app.middleware.get_settings')
     def test_rate_limit_exceeded_response(self, mock_get_settings, client):
         """Test response when rate limit is exceeded."""
         # Mock settings to enable rate limiting
@@ -375,9 +375,9 @@ class TestRateLimitMiddleware:
         assert response.status_code == 429
         assert "rate limit exceeded" in response.json()["detail"].lower()
     
-    @patch('app.config.get_settings')
+    @patch('app.middleware.get_settings')
     def test_rate_limit_headers_present(self, mock_get_settings, client):
-        """Test that rate limit headers are present in responses."""
+        """Test that rate limit headers are present in response."""
         # Mock settings to enable rate limiting
         mock_settings = Mock()
         mock_settings.rate_limit_enabled = True
@@ -395,9 +395,9 @@ class TestRateLimitMiddleware:
         assert int(response.headers["X-RateLimit-Remaining"]) <= 5
         assert int(response.headers["X-RateLimit-Reset"]) > 0
     
-    @patch('app.config.get_settings')
+    @patch('app.middleware.get_settings')
     def test_rate_limit_different_ips(self, mock_get_settings, app):
-        """Test that rate limiting is per-IP."""
+        """Test that rate limiting is per IP address."""
         # Mock settings to enable rate limiting
         mock_settings = Mock()
         mock_settings.rate_limit_enabled = True

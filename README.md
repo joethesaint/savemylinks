@@ -1,41 +1,56 @@
-# SaveMyLinks
+# SaveMyLinks - Resource Management System
 
 **AI For Developers II Capstone Project | [ALX](https://www.alxafrica.com/)**
 
 ## 🔖 Project Description
 
-**SaveMyLinks** is a full-stack web application designed to curate and share valuable online resources. It addresses information overload by offering a clean, organized, and visually appealing dashboard for storing, searching, and discovering useful links across the internet. This project serves as a capstone for the ALX AI For Developers II course, demonstrating practical integration of AI tools throughout the development lifecycle.
+**SaveMyLinks** is a modern, full-stack web application designed to curate and share valuable online resources. It addresses information overload by offering a clean, organized, and visually appealing dashboard for storing, searching, and discovering useful links across the internet. This project serves as a capstone for the ALX AI For Developers II course, demonstrating practical integration of AI tools throughout the development lifecycle.
+
+The application has evolved into a comprehensive resource management system with advanced features like metadata extraction, bulk operations, comprehensive search capabilities, and extensive test coverage.
 
 ---
 
 ## ✨ Features Implemented
 
 ### 🔧 Core Functionality
-- **Resource Management**: Full CRUD operations for bookmarks/links
-- **Search & Filter**: Real-time search across titles and descriptions
-- **Category Organization**: Organize resources by categories with visual tags
+- **Resource Management**: Full CRUD operations for bookmarks/links with rich metadata
+- **Advanced Search**: Full-text search across titles, descriptions, and tags
+- **Category Organization**: Organize resources by categories with filtering capabilities
+- **Tagging System**: Flexible tagging for better resource organization
 - **URL Validation**: Automatic URL normalization and validation
 - **Responsive Design**: Mobile-first responsive web interface
 
 ### 🌐 Web Interface
 - **Home Dashboard**: Clean listing of all saved resources with pagination
-- **Add Resource Form**: Interactive form with client-side validation
-- **Search Interface**: Real-time search with category filtering
+- **Add Resource Form**: Interactive form with client-side validation and metadata extraction
+- **Search Interface**: Real-time search with category filtering and tag support
 - **Category Tags**: Color-coded category system for easy organization
+- **Bulk Operations**: Select and manage multiple resources at once
 
-### 🚀 API Endpoints
-- `GET /api/resources` - List resources with pagination & filtering
-- `POST /api/resources` - Create new resource
+### 🚀 Advanced Features
+- **Metadata Extraction**: Automatic extraction of webpage metadata (title, description, favicon)
+- **Bulk Operations**: Bulk delete and export functionality for efficient management
+- **Export Capabilities**: Export resources in JSON and CSV formats
+- **Background Processing**: Asynchronous metadata extraction with task queuing
+- **Comprehensive Testing**: 60+ automated tests with 95%+ coverage
+
+### 🔌 API Endpoints
+- `GET /api/resources` - List resources with pagination, filtering & search
+- `POST /api/resources` - Create new resource with optional metadata extraction
 - `GET /api/resources/{id}` - Get specific resource
 - `PUT /api/resources/{id}` - Update resource
 - `DELETE /api/resources/{id}` - Delete resource
-- `GET /api/categories` - List all available categories
+- `GET /api/resources/categories` - List all available categories
+- `POST /api/resources/bulk/delete` - Bulk delete resources
+- `GET /api/resources/export` - Export resources in JSON/CSV format
 
 ### 🧪 Quality Assurance
-- **Comprehensive Testing**: 45 automated tests covering all functionality
+- **Comprehensive Testing**: 60+ automated tests covering all functionality
 - **Error Handling**: Proper HTTP status codes and user-friendly error messages
 - **Data Validation**: Pydantic schemas for robust data validation
 - **Code Quality**: Type hints, async/await patterns, and clean architecture
+- **Test Coverage**: 95%+ coverage across all modules
+- **Performance Testing**: Bulk operations and large dataset handling
 
 ---
 

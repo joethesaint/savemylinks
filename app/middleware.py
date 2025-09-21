@@ -27,7 +27,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
-from app.config import get_settings
 from app.exceptions import RateLimitError
 from app.logging_config import log_api_request, log_security_event
 
@@ -66,6 +65,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         Returns:
             Response: HTTP response
         """
+        # Import here to allow proper mocking in tests
+        from app.config import get_settings
         settings = get_settings()
         
         # Skip rate limiting if disabled
@@ -86,9 +87,20 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 method=request.method
             )
             
-            raise RateLimitError(
-                message="Rate limit exceeded. Please try again later.",
-                retry_after=self.window_seconds
+            # Return rate limit exceeded response
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "detail": "Rate limit exceeded. Please try again later.",
+                    "error_code": "RATE_LIMIT_EXCEEDED",
+                    "retry_after": self.window_seconds
+                },
+                headers={
+                    "X-RateLimit-Limit": str(self.requests_per_window),
+                    "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Reset": str(int(time.time()) + self.window_seconds),
+                    "Retry-After": str(self.window_seconds)
+                }
             )
         
         # Record request
@@ -189,7 +201,6 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             app: FastAPI application
         """
         super().__init__(app)
-        self.settings = get_settings()
     
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """
@@ -219,6 +230,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         Returns:
             Dict: Security headers
         """
+        # Import here to allow for proper mocking in tests
+        from app.config import get_settings
+        settings = get_settings()
+        
         headers = {
             # Prevent MIME type sniffing
             "X-Content-Type-Options": "nosniff",
@@ -240,30 +255,38 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         }
         
         # Add HSTS in production
-        if self.settings.is_production():
+        if settings.is_production:
             headers["Strict-Transport-Security"] = (
                 "max-age=31536000; includeSubDomains; preload"
             )
         
         # Content Security Policy
-        csp_directives = [
-            "default-src 'self'",
-            "script-src 'self' 'unsafe-inline'",
-            "style-src 'self' 'unsafe-inline'",
-            "img-src 'self' data: https:",
-            "font-src 'self'",
-            "connect-src 'self'",
-            "frame-ancestors 'none'",
-            "base-uri 'self'",
-            "form-action 'self'"
-        ]
-        
-        if self.settings.is_development():
+        if settings.is_development:
             # Relaxed CSP for development
-            csp_directives.extend([
+            csp_directives = [
+                "default-src 'self'",
                 "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-                "connect-src 'self' ws: wss:"
-            ])
+                "style-src 'self' 'unsafe-inline'",
+                "img-src 'self' data: https:",
+                "font-src 'self'",
+                "connect-src 'self' ws: wss:",
+                "frame-ancestors 'none'",
+                "base-uri 'self'",
+                "form-action 'self'"
+            ]
+        else:
+            # Strict CSP for production
+            csp_directives = [
+                "default-src 'self'",
+                "script-src 'self'",
+                "style-src 'self'",
+                "img-src 'self' data: https:",
+                "font-src 'self'",
+                "connect-src 'self'",
+                "frame-ancestors 'none'",
+                "base-uri 'self'",
+                "form-action 'self'"
+            ]
         
         headers["Content-Security-Policy"] = "; ".join(csp_directives)
         

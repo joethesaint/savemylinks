@@ -14,6 +14,11 @@ from sqlalchemy.exc import IntegrityError
 import json
 import csv
 import io
+import socket
+import ipaddress
+from urllib.parse import urlparse, urljoin
+import httpx
+from bs4 import BeautifulSoup
 
 from app.database import get_db
 from app.crud import resource_crud
@@ -24,7 +29,9 @@ from app.schemas import (
     ResourceList, 
     MessageResponse,
     LinkPreviewMetadata,
-    ErrorResponse
+    ErrorResponse,
+    URLRequest,
+    MetadataResponse
 )
 from app.services.background_tasks import extract_metadata_background, refresh_metadata_background
 
@@ -576,3 +583,205 @@ async def delete_resource(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while deleting the resource"
         )
+
+
+async def is_safe_url(url: str) -> bool:
+    """
+    Check if a URL is safe to fetch (prevents SSRF attacks).
+    
+    Args:
+        url: URL to validate
+        
+    Returns:
+        True if URL is safe to fetch, False otherwise
+    """
+    try:
+        parsed = urlparse(url)
+        hostname = parsed.hostname
+        
+        if not hostname:
+            return False
+            
+        # Resolve hostname to IP address
+        try:
+            ip = socket.gethostbyname(hostname)
+            ip_obj = ipaddress.ip_address(ip)
+            
+            # Check if IP is private, reserved, or loopback
+            if (ip_obj.is_private or 
+                ip_obj.is_reserved or 
+                ip_obj.is_loopback or 
+                ip_obj.is_multicast or
+                ip_obj.is_link_local):
+                return False
+                
+        except (socket.gaierror, ValueError):
+            return False
+            
+        # Additional hostname checks
+        hostname_lower = hostname.lower()
+        blocked_hosts = [
+            'localhost', '127.0.0.1', '0.0.0.0',
+            'metadata.google.internal',  # GCP metadata
+            '169.254.169.254',  # AWS/Azure metadata
+        ]
+        
+        if hostname_lower in blocked_hosts:
+            return False
+            
+        return True
+        
+    except Exception:
+        return False
+
+
+async def fetch_metadata(url: str) -> dict:
+    """
+    Fetch and extract metadata from a URL with security checks.
+    
+    Args:
+        url: URL to extract metadata from
+        
+    Returns:
+        Dictionary containing extracted metadata
+        
+    Raises:
+        HTTPException: If URL is unsafe or extraction fails
+    """
+    # Security check
+    if not await is_safe_url(url):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="URL is not allowed for security reasons"
+        )
+    
+    try:
+        async with httpx.AsyncClient(
+            headers={
+                "User-Agent": "Mozilla/5.0 (compatible; SaveMyLinks/1.0; +https://github.com/joethesaint/savemylinks)"
+            },
+            follow_redirects=True,
+            timeout=10.0
+        ) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            
+            # Parse HTML content
+            soup = BeautifulSoup(response.content, 'lxml')
+            
+            # Extract metadata with fallback hierarchy
+            metadata = {}
+            
+            # Title extraction: og:title -> twitter:title -> <title>
+            title = None
+            og_title = soup.find('meta', property='og:title')
+            if og_title:
+                title = og_title.get('content')
+            else:
+                twitter_title = soup.find('meta', attrs={'name': 'twitter:title'})
+                if twitter_title:
+                    title = twitter_title.get('content')
+                else:
+                    title_tag = soup.find('title')
+                    if title_tag:
+                        title = title_tag.get_text().strip()
+            
+            metadata['title'] = title
+            
+            # Description extraction: og:description -> twitter:description -> meta description
+            description = None
+            og_desc = soup.find('meta', property='og:description')
+            if og_desc:
+                description = og_desc.get('content')
+            else:
+                twitter_desc = soup.find('meta', attrs={'name': 'twitter:description'})
+                if twitter_desc:
+                    description = twitter_desc.get('content')
+                else:
+                    meta_desc = soup.find('meta', attrs={'name': 'description'})
+                    if meta_desc:
+                        description = meta_desc.get('content')
+            
+            metadata['description'] = description
+            
+            # Image extraction: og:image -> twitter:image
+            image = None
+            og_image = soup.find('meta', property='og:image')
+            if og_image:
+                image = og_image.get('content')
+            else:
+                twitter_image = soup.find('meta', attrs={'name': 'twitter:image'})
+                if twitter_image:
+                    image = twitter_image.get('content')
+            
+            # Convert relative URLs to absolute
+            if image:
+                image = urljoin(url, image)
+            metadata['image'] = image
+            
+            # Favicon extraction: link rel="icon" -> link rel="shortcut icon" -> /favicon.ico
+            favicon = None
+            icon_link = soup.find('link', rel='icon')
+            if icon_link:
+                favicon = icon_link.get('href')
+            else:
+                shortcut_icon = soup.find('link', rel='shortcut icon')
+                if shortcut_icon:
+                    favicon = shortcut_icon.get('href')
+                else:
+                    # Fallback to /favicon.ico
+                    parsed_url = urlparse(url)
+                    favicon = f"{parsed_url.scheme}://{parsed_url.netloc}/favicon.ico"
+            
+            # Convert relative URLs to absolute
+            if favicon:
+                favicon = urljoin(url, favicon)
+            metadata['favicon'] = favicon
+            
+            return metadata
+            
+    except httpx.TimeoutException:
+        raise HTTPException(
+            status_code=status.HTTP_408_REQUEST_TIMEOUT,
+            detail="Request timeout while fetching URL"
+        )
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"HTTP error {e.response.status_code} while fetching URL"
+        )
+    except Exception as e:
+        logger.error(f"Error extracting metadata from {url}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to extract metadata from URL"
+        )
+
+
+@router.post(
+    "/extract-metadata",
+    response_model=MetadataResponse,
+    status_code=status.HTTP_200_OK,
+    responses={
+        400: {"model": ErrorResponse, "description": "Invalid URL or security restriction"},
+        408: {"model": ErrorResponse, "description": "Request timeout"},
+        500: {"model": ErrorResponse, "description": "Internal server error"}
+    },
+    summary="Extract metadata from URL",
+    description="Extract title, description, image, and favicon from a given URL with security protections against SSRF attacks."
+)
+async def extract_url_metadata(request: URLRequest) -> MetadataResponse:
+    """
+    Extract metadata from a URL for link preview functionality.
+    
+    Args:
+        request: URL request containing the URL to extract metadata from
+        
+    Returns:
+        Extracted metadata including title, description, image, and favicon
+        
+    Raises:
+        HTTPException: If URL is unsafe, unreachable, or extraction fails
+    """
+    metadata = await fetch_metadata(str(request.url))
+    return MetadataResponse(**metadata)

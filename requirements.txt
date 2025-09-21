@@ -14,5 +14,6 @@ isort
 flake8
 mypy
 beautifulsoup4
+lxml
 requests
 gunicorn

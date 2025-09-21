@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Form</title>
+</head>
+<body>
+    <h1>Test Form Submission</h1>
+    <form id="testForm">
+        <input type="text" id="title" placeholder="Title" value="Test Title">
+        <input type="url" id="url" placeholder="URL" value="https://test-form-submission.example.com">
+        <textarea id="description" placeholder="Description">Test description</textarea>
+        <button type="submit" id="submitBtn">Submit</button>
+    </form>
+
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('testForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                title: document.getElementById('title').value.trim(),
+                url: document.getElementById('url').value.trim(),
+                description: document.getElementById('description').value.trim() || null
+            };
+            
+            console.log('Submitting:', formData);
+            
+            try {
+                const response = await fetch('/api/resources/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                console.log('Response status:', response.status);
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                if (response.ok) {
+                    document.getElementById('result').innerHTML = '<p style="color: green;">Success! Resource created with ID: ' + data.id + '</p>';
+                } else {
+                    document.getElementById('result').innerHTML = '<p style="color: red;">Error: ' + JSON.stringify(data) + '</p>';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = '<p style="color: red;">Network error: ' + error.message + '</p>';
+            }
+        });
+    </script>
+</body>
+</html>

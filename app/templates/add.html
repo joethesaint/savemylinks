@@ -139,37 +139,46 @@
                     </form>
                 </div>
 
-                <!-- Quick Add Section -->
-                <section class="box mt-5" role="region" aria-labelledby="quick-add-title">
+                <!-- Auto-fill from URL Section -->
+                <section class="box mt-5" role="region" aria-labelledby="auto-fill-title">
                     <header>
-                        <h2 class="title is-5" id="quick-add-title">
+                        <h2 class="title is-5" id="auto-fill-title">
                             <span class="icon" aria-hidden="true">
                                 <i class="fas fa-magic"></i>
                             </span>
-                            Quick Add from URL
+                            Auto-fill from URL
                         </h2>
-                        <p class="subtitle is-6">Paste a URL and we'll try to extract the title automatically</p>
+                        <p class="subtitle is-6">Paste a URL and we'll automatically extract metadata to fill the form</p>
                     </header>
                     
-                    <div class="field has-addons">
+                    <div class="field">
                         <div class="control is-expanded">
-                            <label for="quickUrl" class="is-sr-only">Quick URL input</label>
+                            <label for="quickUrl" class="is-sr-only">Auto-fill URL input</label>
                             <input class="input" type="url" id="quickUrl" 
                                    placeholder="Paste URL here..."
-                                   aria-describedby="quick-url-help">
-                        </div>
-                        <div class="control">
-                            <button class="button is-info" onclick="extractFromUrl()"
-                                    aria-describedby="quick-url-help">
-                                <span class="icon" aria-hidden="true">
-                                    <i class="fas fa-magic"></i>
-                                </span>
-                                <span>Extract</span>
-                            </button>
+                                   aria-describedby="auto-fill-help">
                         </div>
                     </div>
-                    <p class="help" id="quick-url-help">
-                        This will automatically fill the form above with extracted information
+                    
+                    <!-- Image Preview Container -->
+                    <div id="image-preview" class="mt-3" style="display: none;">
+                        <div class="media">
+                            <div class="media-left">
+                                <figure class="image is-64x64">
+                                    <img id="preview-image" src="" alt="Link preview" class="is-rounded">
+                                </figure>
+                            </div>
+                            <div class="media-content">
+                                <div class="content">
+                                    <p id="preview-title" class="has-text-weight-semibold"></p>
+                                    <p id="preview-description" class="is-size-7 has-text-grey"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <p class="help" id="auto-fill-help">
+                        Metadata extraction happens automatically when you paste a URL or when the field loses focus
                     </p>
                 </section>
             </div>
@@ -181,7 +190,122 @@
 // Load existing categories on page load
 document.addEventListener('DOMContentLoaded', function() {
     loadCategories();
+    
+    // Add event listeners for auto-fill functionality
+    const quickUrlInput = document.getElementById('quickUrl');
+    
+    // Auto-fill on paste
+    quickUrlInput.addEventListener('paste', function(e) {
+        setTimeout(() => {
+            const url = e.target.value.trim();
+            if (url && isValidUrl(url)) {
+                extractMetadata(url);
+            }
+        }, 100); // Small delay to ensure paste content is available
+    });
+    
+    // Auto-fill on blur (when field loses focus)
+    quickUrlInput.addEventListener('blur', function(e) {
+        const url = e.target.value.trim();
+        if (url && isValidUrl(url)) {
+            extractMetadata(url);
+        }
+    });
 });
+
+// Validate URL format
+function isValidUrl(string) {
+    try {
+        new URL(string);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+// Extract metadata from URL using the new API endpoint
+async function extractMetadata(url) {
+    const imagePreview = document.getElementById('image-preview');
+    const previewImage = document.getElementById('preview-image');
+    const previewTitle = document.getElementById('preview-title');
+    const previewDescription = document.getElementById('preview-description');
+    
+    try {
+        // Show loading state
+        showNotification('Extracting metadata...', 'is-info');
+        
+        const response = await fetch('/api/resources/extract-metadata', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ url: url })
+        });
+        
+        if (response.ok) {
+            const metadata = await response.json();
+            
+            // Populate main form fields
+            document.getElementById('url').value = url;
+            
+            if (metadata.title) {
+                document.getElementById('title').value = metadata.title;
+                previewTitle.textContent = metadata.title;
+            }
+            
+            if (metadata.description) {
+                document.getElementById('description').value = metadata.description;
+                previewDescription.textContent = metadata.description;
+            } else {
+                previewDescription.textContent = '';
+            }
+            
+            // Show image preview if available
+            if (metadata.image) {
+                previewImage.src = metadata.image;
+                previewImage.onerror = function() {
+                    // Show placeholder image if original fails to load
+                    this.src = '/static/placeholder-image.svg';
+                    this.alt = 'No preview available';
+                    this.onerror = null; // Prevent infinite loop
+                };
+                previewImage.style.display = 'block';
+                imagePreview.style.display = 'block';
+            } else {
+                // Show placeholder image when no image is available
+                previewImage.src = '/static/placeholder-image.svg';
+                previewImage.alt = 'No preview available';
+                previewImage.style.display = 'block';
+                imagePreview.style.display = 'block';
+            }
+            
+            // Clear the quick URL input
+            document.getElementById('quickUrl').value = '';
+            
+            showNotification('Metadata extracted successfully!', 'is-success');
+            
+            // Focus on title field for editing
+            document.getElementById('title').focus();
+            document.getElementById('title').select();
+            
+        } else {
+            const errorData = await response.json();
+            showNotification(errorData.detail || 'Could not fetch metadata from this URL.', 'is-warning');
+            
+            // Fallback: just populate the URL field
+            document.getElementById('url').value = url;
+            document.getElementById('quickUrl').value = '';
+        }
+        
+    } catch (error) {
+        console.error('Error extracting metadata:', error);
+        showNotification('Could not fetch metadata from this URL.', 'is-warning');
+        
+        // Fallback: just populate the URL field
+        document.getElementById('url').value = url;
+        document.getElementById('quickUrl').value = '';
+    }
+}
 
 // Load categories for dropdown
 async function loadCategories() {
@@ -198,6 +322,49 @@ async function loadCategories() {
         });
     } catch (error) {
         console.error('Error loading categories:', error);
+    }
+}
+
+// Helper functions for form validation and error handling
+function clearErrors() {
+    const errorElements = document.querySelectorAll('.help.is-danger');
+    errorElements.forEach(el => {
+        el.style.display = 'none';
+        el.textContent = '';
+    });
+    
+    const inputElements = document.querySelectorAll('.input.is-danger');
+    inputElements.forEach(el => {
+        el.classList.remove('is-danger');
+        el.setAttribute('aria-invalid', 'false');
+    });
+}
+
+function showFieldError(fieldId, message) {
+    const field = document.getElementById(fieldId);
+    const errorElement = document.getElementById(fieldId + '-error');
+    
+    if (field) {
+        field.classList.add('is-danger');
+        field.setAttribute('aria-invalid', 'true');
+    }
+    
+    if (errorElement) {
+        errorElement.textContent = message;
+        errorElement.style.display = 'block';
+    }
+}
+
+function handleValidationErrors(errorData) {
+    if (errorData.detail && Array.isArray(errorData.detail)) {
+        errorData.detail.forEach(error => {
+            const field = error.loc && error.loc.length > 1 ? error.loc[1] : null;
+            if (field) {
+                showFieldError(field, error.msg);
+            }
+        });
+    } else if (errorData.detail) {
+        showNotification(errorData.detail, 'is-danger');
     }
 }
 
@@ -283,13 +450,13 @@ document.getElementById('addResourceForm').addEventListener('submit', async func
             } else if (response.status === 422 && errorData.detail) {
                 handleValidationErrors(errorData);
             } else {
-                throw {
-                    response: {
-                        status: response.status,
-                        statusText: response.statusText
-                    },
-                    data: errorData
+                const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
+                error.response = {
+                    status: response.status,
+                    statusText: response.statusText
                 };
+                error.data = errorData;
+                throw error;
             }
         }
     } catch (error) {
@@ -307,159 +474,6 @@ document.getElementById('addResourceForm').addEventListener('submit', async func
         submitBtn.disabled = false;
     }
 });
-
-// Enhanced URL extraction with better error handling
-async function extractFromUrl() {
-    const quickUrl = document.getElementById('quickUrl').value.trim();
-    const extractBtn = document.querySelector('button[onclick="extractFromUrl()"]');
-    
-    if (!quickUrl) {
-        showNotification('Please enter a URL', 'is-warning');
-        return;
-    }
-    
-    // Validate URL format
-    try {
-        new URL(quickUrl);
-    } catch {
-        showNotification('Please enter a valid URL', 'is-warning');
-        return;
-    }
-    
-    try {
-        // Show loading state
-        const originalText = extractBtn.innerHTML;
-        extractBtn.innerHTML = '<span class="icon"><i class="fas fa-spinner fa-pulse"></i></span><span>Extracting...</span>';
-        extractBtn.disabled = true;
-        
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout for extraction
-        
-        // Use the metadata extraction API to get preview information
-        showNotification('Extracting preview information...', 'is-info');
-        
-        const response = await fetch('/api/resources/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                title: 'Temporary Title',
-                url: quickUrl,
-                description: null,
-                category: null
-            }),
-            signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (response.ok) {
-            const resource = await response.json();
-            
-            // Populate form with extracted data
-            document.getElementById('url').value = quickUrl;
-            
-            if (resource.link_metadata && resource.link_metadata.title) {
-                 document.getElementById('title').value = resource.link_metadata.title;
-            } else {
-                // Fallback to URL-based title extraction
-                const url = new URL(quickUrl);
-                const pathParts = url.pathname.split('/').filter(part => part);
-                const title = pathParts.length > 0 ? 
-                             pathParts[pathParts.length - 1].replace(/[-_]/g, ' ') : 
-                             url.hostname;
-                document.getElementById('title').value = title.charAt(0).toUpperCase() + title.slice(1);
-            }
-            
-            if (resource.link_metadata && resource.link_metadata.description) {
-                 document.getElementById('description').value = resource.link_metadata.description;
-            }
-            
-            document.getElementById('quickUrl').value = '';
-            showNotification('Preview information extracted! Please review and save.', 'is-success');
-            
-            // Focus on title field for editing
-            document.getElementById('title').focus();
-            document.getElementById('title').select();
-            
-            // Delete the temporary resource
-            await fetch(`/api/resources/${resource.id}`, { method: 'DELETE' });
-            
-        } else {
-            // Fallback to simple URL parsing
-            document.getElementById('url').value = quickUrl;
-            const url = new URL(quickUrl);
-            const pathParts = url.pathname.split('/').filter(part => part);
-            const title = pathParts.length > 0 ? 
-                         pathParts[pathParts.length - 1].replace(/[-_]/g, ' ') : 
-                         url.hostname;
-            
-            document.getElementById('title').value = title.charAt(0).toUpperCase() + title.slice(1);
-            document.getElementById('quickUrl').value = '';
-            
-            showNotification('URL populated! Metadata extraction failed, please review the title.', 'is-warning');
-            document.getElementById('title').focus();
-            document.getElementById('title').select();
-        }
-        
-        // Restore button
-        extractBtn.innerHTML = originalText;
-        extractBtn.disabled = false;
-        
-    } catch (error) {
-        // Restore button
-        const originalText = '<span class="icon"><i class="fas fa-magic"></i></span><span>Extract</span>';
-        extractBtn.innerHTML = originalText;
-        extractBtn.disabled = false;
-        
-        if (error.name === 'AbortError') {
-            showNotification('Preview extraction timed out. You can still add the resource manually.', 'is-warning');
-        } else if (!navigator.onLine) {
-            showNotification('No internet connection. Preview extraction requires internet access.', 'is-warning');
-        } else {
-            console.error('Error extracting from URL:', error);
-            showNotification('Error extracting preview. Please enter details manually.', 'is-danger');
-        }
-    }
-}
-
-// Handle validation errors
-function handleValidationErrors(errorData) {
-    if (errorData.detail && Array.isArray(errorData.detail)) {
-        errorData.detail.forEach(error => {
-            const field = error.loc[error.loc.length - 1];
-            showFieldError(field, error.msg);
-        });
-    }
-}
-
-// Show field-specific error
-function showFieldError(fieldName, message) {
-    const errorElement = document.getElementById(fieldName + 'Error');
-    const inputElement = document.getElementById(fieldName);
-    
-    if (errorElement && inputElement) {
-        errorElement.textContent = message;
-        errorElement.style.display = 'block';
-        inputElement.classList.add('is-danger');
-    }
-}
-
-// Clear all errors
-function clearErrors() {
-    const errorElements = document.querySelectorAll('.help.is-danger');
-    const inputElements = document.querySelectorAll('.input, .textarea');
-    
-    errorElements.forEach(el => {
-        el.style.display = 'none';
-        el.textContent = '';
-    });
-    
-    inputElements.forEach(el => {
-        el.classList.remove('is-danger');
-    });
-}
 
 // Enhanced notification system with retry functionality
 function showNotification(message, type = 'is-info', options = {}) {

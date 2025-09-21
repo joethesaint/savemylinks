@@ -151,18 +151,11 @@
                 <div class="level-item">
                     <div class="field is-grouped">
                         <div class="control">
-                            <div class="buttons has-addons">
-                                <button class="button is-small view-mode-btn is-active" data-mode="grid" title="Grid View">
-                                    <span class="icon">
-                                        <i class="fas fa-th"></i>
-                                    </span>
-                                </button>
-                                <button class="button is-small view-mode-btn" data-mode="list" title="List View">
-                                    <span class="icon">
-                                        <i class="fas fa-list"></i>
-                                    </span>
-                                </button>
-                            </div>
+                            <button class="button is-small view-mode-toggle" id="viewModeToggle" title="Switch to List View">
+                                <span class="icon">
+                                    <i class="fas fa-list"></i>
+                                </span>
+                            </button>
                         </div>
                         <div class="control">
                             <span class="tag is-info" id="resourceCount">0 resources</span>
@@ -219,54 +212,67 @@
 <!-- Resource Card Template -->
 <template id="resourceCardTemplate">
     <div class="box resource-card mb-4">
-        <!-- Preview Image Column (if available) -->
-        <div class="preview-image-column" style="display: none;">
-            <figure class="image">
-                <img class="preview-image" src="" alt="Preview" style="object-fit: cover;">
-            </figure>
-        </div>
-        
-        <!-- Content Column -->
-        <div class="column">
-            <h3 class="title is-5 mb-1">
-                <a class="resource-url" href="" target="_blank" rel="noopener noreferrer"></a>
-            </h3>
-            <p class="subtitle is-6 mb-3 resource-title"></p>
-            <p class="content resource-description"></p>
-            
-            <!-- Metadata info -->
-            <div class="metadata-info" style="display: none;">
-                <p class="is-size-7 has-text-grey-light metadata-site"></p>
+        <!-- Card Content Wrapper for List View -->
+        <div class="card-content">
+            <!-- Preview Image Column (if available) -->
+            <div class="preview-image-column" style="display: none;">
+                <figure class="image">
+                    <img class="preview-image" src="" alt="Preview" style="object-fit: cover;">
+                </figure>
             </div>
             
-            <div class="tags">
-                <span class="tag category-tag resource-category"></span>
-                <span class="tag is-light resource-date"></span>
-                <span class="tag is-success metadata-status" style="display: none;">
-                    <span class="icon is-small">
-                        <i class="fas fa-check"></i>
-                    </span>
-                    <span>Preview</span>
-                </span>
+            <!-- Content Column -->
+            <div class="content-column">
+                <h3 class="title is-5 mb-1 resource-title"></h3>
+                <p class="subtitle is-6 mb-2">
+                    <a class="resource-url" href="" target="_blank" rel="noopener noreferrer"></a>
+                </p>
+                <p class="content resource-description"></p>
+                
+                <!-- Metadata info -->
+                <div class="metadata-info" style="display: none;">
+                    <p class="is-size-7 has-text-grey-light metadata-site"></p>
+                </div>
+                
+                <!-- Meta Info Container for List View -->
+                <div class="meta-info">
+                    <div class="tags">
+                        <span class="tag category-tag resource-category"></span>
+                        <span class="tag is-light resource-date"></span>
+                        <span class="tag is-success metadata-status" style="display: none;">
+                            <span class="icon is-small">
+                                <i class="fas fa-check"></i>
+                            </span>
+                            <span>Preview</span>
+                        </span>
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div class="buttons">
+                        <button class="button is-small is-link refresh-metadata-btn" title="Refresh preview" style="display: none;">
+                            <span class="icon">
+                                <i class="fas fa-sync-alt"></i>
+                            </span>
+                        </button>
+                        <button class="button is-small is-info edit-btn">
+                            <span class="icon">
+                                <i class="fas fa-edit"></i>
+                            </span>
+                        </button>
+                        <button class="button is-small is-danger delete-btn">
+                            <span class="icon">
+                                <i class="fas fa-trash"></i>
+                            </span>
+                        </button>
+                    </div>
+                </div>
             </div>
             
-            <!-- Actions -->
-            <div class="buttons">
-                <button class="button is-small is-link refresh-metadata-btn" title="Refresh preview" style="display: none;">
-                    <span class="icon">
-                        <i class="fas fa-sync-alt"></i>
-                    </span>
-                </button>
-                <button class="button is-small is-info edit-btn">
-                    <span class="icon">
-                        <i class="fas fa-edit"></i>
-                    </span>
-                </button>
-                <button class="button is-small is-danger delete-btn">
-                    <span class="icon">
-                        <i class="fas fa-trash"></i>
-                    </span>
-                </button>
+            <!-- Actions Column for List View -->
+            <div class="actions-column">
+                <div class="checkbox-wrapper">
+                    <!-- Checkbox will be inserted here by JavaScript -->
+                </div>
             </div>
         </div>
     </div>
@@ -312,6 +318,10 @@ async function loadResources(page = 1, search = '', category = '') {
     resourcesList.innerHTML = '';
     emptyState.style.display = 'none';
     pagination.style.display = 'none';
+    
+    // Maintain view mode class after clearing innerHTML
+    const currentViewMode = AppState.viewMode || localStorage.getItem('viewMode') || 'grid';
+    resourcesList.className = `resources-${currentViewMode}`;
     
     try {
         const params = new URLSearchParams({
@@ -368,9 +378,11 @@ function renderResources(resources) {
                 // Add error handling for failed image loads
                 previewImage.onerror = function() {
                     console.warn('Failed to load image:', metadata.image);
-                    imageColumn.style.display = 'none';
-                    // Optionally show a placeholder or default image
-                    // previewImage.src = '/static/placeholder-image.svg';
+                    // Show placeholder image instead of hiding
+                    previewImage.src = '/static/placeholder-image.svg';
+                    previewImage.alt = 'No preview available';
+                    // Remove the error handler to prevent infinite loop
+                    previewImage.onerror = null;
                 };
                 
                 previewImage.onload = function() {
@@ -416,6 +428,17 @@ function renderResources(resources) {
         
         const date = new Date(resource.created_at).toLocaleDateString();
         card.querySelector('.resource-date').textContent = date;
+        
+        // Add checkbox for bulk selection
+        const checkboxWrapper = card.querySelector('.checkbox-wrapper');
+        if (checkboxWrapper) {
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'resource-checkbox';
+            checkbox.value = resource.id;
+            checkbox.onchange = handleResourceSelection;
+            checkboxWrapper.appendChild(checkbox);
+        }
         
         // Add event listeners
         card.querySelector('.edit-btn').onclick = () => editResource(resource.id);

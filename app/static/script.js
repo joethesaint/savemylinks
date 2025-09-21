@@ -72,13 +72,14 @@ function setupEventListeners() {
     }
 
     // View mode toggle
-    const viewModeButtons = document.querySelectorAll('.view-mode-btn');
-    viewModeButtons.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const mode = e.target.dataset.mode;
-            setViewMode(mode);
+    const viewModeToggle = document.getElementById('viewModeToggle');
+    if (viewModeToggle) {
+        viewModeToggle.addEventListener('click', () => {
+            const currentMode = AppState.viewMode;
+            const newMode = currentMode === 'grid' ? 'list' : 'grid';
+            setViewMode(newMode);
         });
-    });
+    }
 
     // Bulk actions
     const selectAllCheckbox = document.getElementById('selectAll');
@@ -216,10 +217,20 @@ function setViewMode(mode) {
         resourcesList.className = `resources-${mode}`;
     }
     
-    // Update button states
-    document.querySelectorAll('.view-mode-btn').forEach(btn => {
-        btn.classList.toggle('is-active', btn.dataset.mode === mode);
-    });
+    // Update toggle button icon and title
+    const viewModeToggle = document.getElementById('viewModeToggle');
+    if (viewModeToggle) {
+        const icon = viewModeToggle.querySelector('i');
+        if (mode === 'grid') {
+            // Currently in grid mode, show list icon to switch to list
+            icon.className = 'fas fa-list';
+            viewModeToggle.title = 'Switch to List View';
+        } else {
+            // Currently in list mode, show grid icon to switch to grid
+            icon.className = 'fas fa-th';
+            viewModeToggle.title = 'Switch to Grid View';
+        }
+    }
     
     // Re-render resources with new view mode
     loadResources();
@@ -271,6 +282,32 @@ async function handleBulkDelete() {
     } catch (error) {
         console.error('Error deleting resources:', error);
         showNotification('Error deleting resources', 'is-danger');
+    }
+}
+
+/**
+ * Handle individual resource selection
+ */
+function handleResourceSelection(event) {
+    const checkbox = event.target;
+    const resourceId = checkbox.value;
+    
+    if (checkbox.checked) {
+        AppState.selectedResources.add(resourceId);
+    } else {
+        AppState.selectedResources.delete(resourceId);
+    }
+    
+    updateBulkActionsUI();
+    
+    // Update select all checkbox state
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const resourceCheckboxes = document.querySelectorAll('.resource-checkbox');
+    const checkedCount = document.querySelectorAll('.resource-checkbox:checked').length;
+    
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = checkedCount === resourceCheckboxes.length;
+        selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < resourceCheckboxes.length;
     }
 }
 
@@ -381,11 +418,19 @@ function renderResourceCard(resource) {
         // Handle image load errors
         previewImage.onerror = function() {
             console.log('Failed to load preview image:', resource.link_metadata.image);
-            previewImageColumn.style.display = 'none';
+            // Show placeholder image instead of hiding
+            previewImage.src = '/static/placeholder-image.svg';
+            previewImage.alt = 'No preview available';
+            // Remove the error handler to prevent infinite loop
+            previewImage.onerror = null;
         };
     } else if (previewImageColumn) {
-        // Hide preview image column if no image available
-        previewImageColumn.style.display = 'none';
+        // Show placeholder image if no image available
+        if (previewImage) {
+            previewImage.src = '/static/placeholder-image.svg';
+            previewImage.alt = 'No preview available';
+            previewImageColumn.style.display = 'block';
+        }
     }
     
     // Display metadata information

@@ -11,6 +11,19 @@ from typing import Optional, Dict, Any
 from pydantic import BaseModel, HttpUrl, Field, ConfigDict
 
 
+class URLRequest(BaseModel):
+    """Schema for URL metadata extraction requests."""
+    url: HttpUrl = Field(..., description="URL to extract metadata from")
+
+
+class MetadataResponse(BaseModel):
+    """Schema for metadata extraction response."""
+    title: Optional[str] = Field(None, description="Page title")
+    description: Optional[str] = Field(None, description="Page description")
+    image: Optional[HttpUrl] = Field(None, description="Preview image URL")
+    favicon: Optional[HttpUrl] = Field(None, description="Favicon URL")
+
+
 class LinkPreviewMetadata(BaseModel):
     """Schema for link preview metadata."""
     

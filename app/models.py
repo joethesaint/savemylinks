@@ -6,8 +6,8 @@ with Mapped and mapped_column for type safety.
 """
 
 from datetime import datetime
-from typing import Optional
-from sqlalchemy import String, Text, DateTime, func
+from typing import Any, Dict, Optional
+from sqlalchemy import JSON, String, Text, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -33,6 +33,8 @@ class Resource(Base):
     url: Mapped[str] = mapped_column(String(500), nullable=False, unique=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     category: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
+    # Link preview (title, description, image, site_name), filled in the background after save.
+    link_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), 
         server_default=func.now(),

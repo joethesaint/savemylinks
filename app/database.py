@@ -51,6 +51,28 @@ async def create_tables():
     """
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_add_missing_columns)
+
+
+def _add_missing_columns(sync_conn) -> None:
+    """
+    Add nullable columns that models gained after a database was first created.
+
+    create_all only creates missing tables, so an existing savemylinks.db would
+    lack new columns such as resources.link_metadata. Adding a nullable column
+    keeps every existing row as it was.
+    """
+    from sqlalchemy import inspect
+
+    inspector = inspect(sync_conn)
+    for table in Base.metadata.sorted_tables:
+        if not inspector.has_table(table.name):
+            continue
+        existing = {column["name"] for column in inspector.get_columns(table.name)}
+        for column in table.columns:
+            if column.name not in existing and column.nullable:
+                column_type = column.type.compile(dialect=sync_conn.dialect)
+                sync_conn.exec_driver_sql(f'ALTER TABLE {table.name} ADD COLUMN {column.name} {column_type}')
 
 
 async def drop_tables():

@@ -7,7 +7,7 @@ never use ORM models directly in endpoints.
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, Optional
 from pydantic import BaseModel, HttpUrl, Field, ConfigDict
 
 
@@ -39,6 +39,7 @@ class Resource(ResourceBase):
     id: int = Field(..., description="Unique identifier for the resource")
     created_at: datetime = Field(..., description="Timestamp when resource was created")
     updated_at: datetime = Field(..., description="Timestamp when resource was last updated")
+    link_metadata: Optional[Dict[str, Any]] = Field(None, description="Link preview: title, description, image, site_name. Filled in shortly after saving.")
 
 
 class ResourceList(BaseModel):

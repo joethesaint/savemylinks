@@ -112,6 +112,11 @@
 <template id="resourceCardTemplate">
     <div class="box resource-card mb-4">
         <div class="columns is-vcentered">
+            <div class="column is-narrow resource-image">
+                <figure class="image is-128x128">
+                    <img src="" alt="" loading="lazy" referrerpolicy="no-referrer" style="object-fit: cover; height: 100%; border-radius: 4px;">
+                </figure>
+            </div>
             <div class="column">
                 <h3 class="title is-5 mb-1">
                     <a class="resource-url" href="" target="_blank" rel="noopener noreferrer"></a>
@@ -119,6 +124,7 @@
                 <p class="subtitle is-6 mb-3 resource-title"></p>
                 <p class="content resource-description"></p>
                 <div class="tags">
+                    <span class="tag is-white resource-site"></span>
                     <span class="tag category-tag resource-category"></span>
                     <span class="tag is-light resource-date"></span>
                 </div>
@@ -223,8 +229,22 @@ function renderResources(resources) {
         card.querySelector('.resource-url').href = resource.url;
         card.querySelector('.resource-url').textContent = resource.url;
         card.querySelector('.resource-title').textContent = resource.title;
-        card.querySelector('.resource-description').textContent = resource.description || 'No description';
-        
+        // Link preview, filled in the background after saving. The user's own text comes first.
+        const preview = resource.link_metadata || {};
+        card.querySelector('.resource-description').textContent = resource.description || preview.description || 'No description';
+        const image = card.querySelector('.resource-image');
+        if (preview.image && /^https?:\/\//i.test(preview.image)) {
+            image.querySelector('img').src = preview.image;
+            image.querySelector('img').onerror = () => { image.style.display = 'none'; };
+        } else {
+            image.style.display = 'none';
+        }
+        if (preview.site_name) {
+            card.querySelector('.resource-site').textContent = preview.site_name;
+        } else {
+            card.querySelector('.resource-site').style.display = 'none';
+        }
+
         if (resource.category) {
             card.querySelector('.resource-category').textContent = resource.category;
         } else {

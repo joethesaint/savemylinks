@@ -177,7 +177,10 @@ class ResourceCRUD:
         update_data = resource_data.model_dump(exclude_unset=True)
         if 'url' in update_data:
             update_data['url'] = str(update_data['url'])
-            
+            if update_data['url'] != db_resource.url:
+                # The old preview belongs to the old link; a fresh one is fetched in the background.
+                update_data['link_metadata'] = None
+
         for field, value in update_data.items():
             setattr(db_resource, field, value)
         

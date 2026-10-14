@@ -6,12 +6,13 @@ Following the architecture rule: Use async routes with proper dependency injecti
 """
 
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
 from app.database import get_db
 from app.crud import resource_crud
+from app.services import metadata
 from app.schemas import (
     Resource,
     ResourceCreate,
@@ -35,6 +36,7 @@ router = APIRouter(prefix="/api/resources", tags=["resources"])
 )
 async def create_resource(
     resource_data: ResourceCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ) -> Resource:
     """
@@ -52,6 +54,8 @@ async def create_resource(
     """
     try:
         db_resource = await resource_crud.create(db, resource_data)
+        # The save returns now; the link preview is fetched afterwards.
+        background_tasks.add_task(metadata.refresh_resource_metadata, db_resource.id, db_resource.url)
         return Resource.model_validate(db_resource)
     except IntegrityError:
         raise HTTPException(
@@ -166,6 +170,7 @@ async def get_resource(
 async def update_resource(
     resource_id: int,
     resource_data: ResourceUpdate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ) -> Resource:
     """
@@ -189,13 +194,38 @@ async def update_resource(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Resource not found"
             )
-        
+
+        if db_resource.link_metadata is None:
+            # New URL (crud cleared the old preview) or a preview never fetched.
+            background_tasks.add_task(metadata.refresh_resource_metadata, db_resource.id, db_resource.url)
         return Resource.model_validate(db_resource)
     except IntegrityError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="A resource with this URL already exists"
         )
+
+
+@router.post(
+    "/{resource_id}/metadata",
+    response_model=Resource,
+    responses={404: {"model": ErrorResponse, "description": "Resource not found"}}
+)
+async def refresh_metadata(
+    resource_id: int,
+    db: AsyncSession = Depends(get_db)
+) -> Resource:
+    """
+    Fetch the link preview again now and return the resource.
+
+    If the page can't be read (offline, blocked, not public), the old preview is kept.
+    """
+    db_resource = await resource_crud.get_by_id(db, resource_id)
+    if not db_resource:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Resource not found")
+    await metadata.refresh_resource_metadata(resource_id, db_resource.url)
+    db.expire_all()
+    return Resource.model_validate(await resource_crud.get_by_id(db, resource_id))
 
 
 @router.delete(

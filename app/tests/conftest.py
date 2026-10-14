@@ -15,6 +15,7 @@ from httpx import AsyncClient
 
 from app.main import app
 from app.database import Base, get_db
+from app.services import metadata
 
 
 # Configure pytest for async testing
@@ -47,10 +48,32 @@ async def async_session() -> AsyncGenerator[AsyncSession, None]:
         engine, class_=AsyncSession, expire_on_commit=False
     )
     
-    async with async_session_maker() as session:
-        yield session
-    
-    await engine.dispose()
+    # Background link-preview tasks use the same test database.
+    real_factory = metadata.session_factory
+    metadata.session_factory = async_session_maker
+    try:
+        async with async_session_maker() as session:
+            yield session
+    finally:
+        metadata.session_factory = real_factory
+        await engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def no_network_metadata(monkeypatch):
+    """No test reaches the internet: link previews come from this stub unless a test swaps it."""
+    calls = []
+
+    async def fake_fetch(url):
+        calls.append(url)
+        return None
+
+    def no_real_database():
+        raise AssertionError("A test reached the real database; use the async_session fixture.")
+
+    monkeypatch.setattr(metadata, "preview_fetcher", fake_fetch)
+    monkeypatch.setattr(metadata, "session_factory", no_real_database)
+    return calls
 
 
 @pytest.fixture

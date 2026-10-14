@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "node .claude/hooks/coexist-guard.cjs session" } ] }
+    ],
+    "PreToolUse": [
+      { "matcher": "Bash|PowerShell|Edit|Write|MultiEdit|NotebookEdit", "hooks": [ { "type": "command", "command": "node .claude/hooks/coexist-guard.cjs pretool" } ] }
+    ]
+  }
+}

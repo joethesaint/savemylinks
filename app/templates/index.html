@@ -204,6 +204,10 @@ async function loadResources(page = 1, search = '', category = '') {
         
         if (data.resources.length === 0) {
             emptyState.style.display = 'block';
+            // Tell the assistant once it is ready (it loads after the page).
+            const search = (document.getElementById('searchInput') || {}).value || '';
+            const tell = () => window.dispatchEvent(new CustomEvent('sml:empty', { detail: { search } }));
+            window.smlAssistant ? tell() : window.addEventListener('sml:assistant-ready', tell, { once: true });
         } else {
             renderResources(data.resources);
             renderPagination(data);

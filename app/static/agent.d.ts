@@ -1,19 +1,20 @@
-import { AgentData } from './types';
+export interface PlayOptions { /** ms before the animation is asked to leave by its exit branch (default 5000) */ timeout?: number; }
+export interface SpeakOptions { /** ms the bubble stays; 0 keeps it until clicked (default 5000) */ duration?: number; tone?: '' | 'saved' | 'duplicate' | 'invalid'; }
 
 export declare class ModernClippy {
-    private element;
     container: HTMLElement;
-    private currentAnimation?;
-    private queue;
-    private data;
-    private overlay;
-    constructor(agentData: AgentData);
-    private setupDOM;
+    visible: boolean;
+    readonly animations: string[];
+    hasAnimation(name: string): boolean;
     show(): void;
     hide(): void;
-    play(animationName: string): Promise<void>;
-    private playAnimation;
-    private renderFrame;
-    speak(text: string, duration?: number): void;
-    moveTo(x: number, y: number, duration?: number): void;
+    /** Hides with the Hide animation and remembers the choice in this browser. */
+    dismiss(): void;
+    /** Resolves true when the animation finished, false if it was unknown, replaced or stopped. */
+    play(animationName: string, options?: PlayOptions): Promise<boolean>;
+    stop(): void;
+    startIdle(minMs?: number, maxMs?: number): void;
+    stopIdle(): void;
+    speak(text: string, options?: SpeakOptions): void;
+    closeBubble(): void;
 }

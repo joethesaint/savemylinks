@@ -187,7 +187,9 @@ document.getElementById('addResourceForm').addEventListener('submit', async func
             body: JSON.stringify(formData)
         });
         
+        const announce = (status, extra = {}) => window.dispatchEvent(new CustomEvent('sml:save', { detail: { status, category: formData.category, ...extra } }));
         if (response.ok) {
+            announce(201);
             showNotification('Resource added successfully!', 'is-success');
             // Reset form
             document.getElementById('addResourceForm').reset();
@@ -198,8 +200,11 @@ document.getElementById('addResourceForm').addEventListener('submit', async func
         } else {
             const errorData = await response.json();
             if (response.status === 409) {
+                announce(409);
                 showFieldError('url', 'A resource with this URL already exists');
             } else if (response.status === 422) {
+                const first = Array.isArray(errorData.detail) && errorData.detail[0];
+                announce(422, { message: first ? `${first.loc[first.loc.length - 1]}: ${first.msg}.` : '' });
                 handleValidationErrors(errorData);
             } else {
                 showNotification('Error adding resource', 'is-danger');
@@ -207,6 +212,7 @@ document.getElementById('addResourceForm').addEventListener('submit', async func
         }
     } catch (error) {
         console.error('Error adding resource:', error);
+        window.dispatchEvent(new CustomEvent('sml:save', { detail: { status: 0 } }));
         showNotification('Network error. Please try again.', 'is-danger');
     } finally {
         // Restore button state

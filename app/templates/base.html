@@ -113,6 +113,12 @@
                     <div class="column is-narrow">
                         <div class="field is-grouped">
                             <p class="control">
+                                <button type="button" id="assistantToggle" class="button is-small is-outlined" aria-pressed="true">
+                                    <span class="icon" aria-hidden="true"><i class="fas fa-paperclip"></i></span>
+                                    <span>Hide assistant</span>
+                                </button>
+                            </p>
+                            <p class="control">
                                 <a class="button is-small is-outlined" href="https://github.com" target="_blank">
                                     <span class="icon">
                                         <i class="fab fa-github"></i>
@@ -357,126 +363,70 @@
         });
     </script>
     
-    <!-- Clippy Assistant Scripts -->
-    <!-- Modern Clippy Assistant Scripts - Loaded after main content -->
+    <!-- Assistant (Clippy). Reacts to what happens on the page; never interrupts on a timer.
+         Pages talk to it with events:
+           window.dispatchEvent(new CustomEvent('sml:save',  { detail: { status: 201|409|422|0, category, message } }))
+           window.dispatchEvent(new CustomEvent('sml:empty', { detail: { search } }))  -->
     <script type="module">
-        let clippy;
-        let randomMovementInterval;
-        
-        function startRandomAnimations() {
-            if (randomMovementInterval) clearInterval(randomMovementInterval);
-            
-            randomMovementInterval = setInterval(() => {
-                if (!clippy) return;
-                
-                // Use correct animation names from modern-clippy
-                const animations = ['Idle', 'Wave', 'Thinking', 'Explain', 'GetAttention', 'Congratulate'];
-                const randomAnimation = animations[Math.floor(Math.random() * animations.length)];
-                
-                clippy.play(randomAnimation);
-                
-                // Occasionally speak random messages
-                if (Math.random() < 0.4) {
-                    const messages = [
-                        "Need any help?",
-                        "I'm here if you need assistance!",
-                        "Exploring the website?",
-                        "Let me know if you have questions!",
-                        "Looking good!",
-                        "How's it going?",
-                        "Anything I can help with?"
-                    ];
-                    const randomMessage = messages[Math.floor(Math.random() * messages.length)];
-                    setTimeout(() => {
-                        clippy.speak(randomMessage);
-                    }, 500);
-                }
-            }, 3000 + Math.random() * 4000); // Faster interval between 3-7 seconds
+        let agent = null;
+        const toggle = document.getElementById('assistantToggle');
+
+        const reactions = {
+            201: (d) => ['Congratulate', `Saved${d.category ? ' to ' + d.category : ''}.`, 'saved'],
+            409: () => ['LookDown', 'Already saved. This URL is in your library.', 'duplicate'],
+            422: (d) => ['Explain', `Not saved. ${d.message || 'Check the highlighted fields.'}`, 'invalid'],
+            0:   () => ['Alert', "Couldn't reach the server. Check your connection and try again.", 'invalid'],
+        };
+
+        function react(animation, text, tone, duration = 5000) {
+            if (!agent || !agent.visible) return;
+            agent.play(animation, { timeout: 3000 });
+            agent.speak(text, { tone, duration });
         }
-        
-        async function initModernClippy() {
+
+        window.addEventListener('sml:save', (e) => {
+            const d = e.detail || {};
+            const r = (reactions[d.status] || reactions[0])(d);
+            react(...r, d.status === 201 ? 4000 : 8000);
+        });
+        window.addEventListener('sml:empty', (e) => {
+            const q = e.detail && e.detail.search;
+            if (q) react('Searching', `Nothing matches "${q}". Try fewer words or another category.`, '');
+            else react('GestureUp', 'No links yet. Use "Add Link" at the top to save your first one.', '', 8000);
+        });
+
+        function syncToggle(hidden) {
+            if (!toggle) return;
+            toggle.setAttribute('aria-pressed', String(!hidden));
+            toggle.querySelector('span:last-child').textContent = hidden ? 'Show assistant' : 'Hide assistant';
+        }
+        window.addEventListener('sml:assistant', (e) => syncToggle(e.detail.hidden));
+
+        async function start() {
             try {
-                // Dynamic import to load Clippy after main content
-                const { initClippy } = await import('/static/modern-clippy.js');
-                
-                clippy = await initClippy({ basePath: '/static/' });
-                
-                // Add drag functionality
-                let isDragging = false;
-                let dragOffset = { x: 0, y: 0 };
-                
-                const clippyContainer = clippy.container;
-                
-                // Mouse down event
-                clippyContainer.addEventListener('mousedown', (e) => {
-                    isDragging = true;
-                    const rect = clippyContainer.getBoundingClientRect();
-                    dragOffset.x = e.clientX - rect.left;
-                    dragOffset.y = e.clientY - rect.top;
-                    clippyContainer.style.cursor = 'grabbing';
-                    
-                    // Stop animations while dragging
-                    if (randomMovementInterval) {
-                        clearInterval(randomMovementInterval);
-                        randomMovementInterval = null;
-                    }
-                    
-                    e.preventDefault();
+                const { initClippy, assistantPrefs } = await import('/static/modern-clippy.js');
+                agent = await initClippy({ basePath: '/static/' });
+                window.smlAssistant = agent;
+                const prefs = assistantPrefs.get();
+                syncToggle(!!prefs.hidden);
+                toggle && toggle.addEventListener('click', () => {
+                    if (agent.visible) agent.dismiss();
+                    else { agent.show(); syncToggle(false); }
                 });
-                
-                // Mouse move event
-                document.addEventListener('mousemove', (e) => {
-                    if (!isDragging) return;
-                    
-                    const newX = window.innerWidth - (e.clientX - dragOffset.x + clippyContainer.offsetWidth);
-                    const newY = window.innerHeight - (e.clientY - dragOffset.y + clippyContainer.offsetHeight);
-                    
-                    // Keep within bounds
-                    const boundedX = Math.max(20, Math.min(newX, window.innerWidth - 150));
-                    const boundedY = Math.max(20, Math.min(newY, window.innerHeight - 120));
-                    
-                    clippyContainer.style.right = boundedX + 'px';
-                    clippyContainer.style.bottom = boundedY + 'px';
-                });
-                
-                // Mouse up event
-                document.addEventListener('mouseup', () => {
-                    if (isDragging) {
-                        isDragging = false;
-                        clippyContainer.style.cursor = 'grab';
-                        
-                        // Restart animations after a brief delay
-                        setTimeout(() => {
-                            if (!randomMovementInterval) {
-                                startRandomAnimations();
-                            }
-                        }, 2000);
-                    }
-                });
-                
-                // Set initial cursor
-                clippyContainer.style.cursor = 'grab';
-                
-                // Welcome message
-                setTimeout(() => {
-                    clippy.play('GetAttention');
-                    setTimeout(() => {
-                        clippy.speak("Hello! I'm your assistant. I'm here to help you navigate this website!");
-                        // Start random animations after welcome
-                        setTimeout(startRandomAnimations, 2000);
-                    }, 500);
-                }, 1000);
-                
+                // Greet once per browser, not on every page load.
+                if (agent.visible && !prefs.greeted) {
+                    setTimeout(() => agent.bubble.hidden && (assistantPrefs.set({ greeted: true }), react('Greeting', "Hi. Save a link and I'll tell you where it was filed. Hide me with the × any time.", '', 9000)), 600);
+                }
+                window.dispatchEvent(new CustomEvent('sml:assistant-ready'));
             } catch (error) {
-                console.error('Failed to initialize Modern Clippy:', error);
+                console.warn('Assistant not loaded:', error.message);
+                toggle && (toggle.hidden = true);
             }
         }
-        
-        // Initialize after main content is fully loaded
-        window.addEventListener('load', () => {
-            // Add delay to ensure main content is prioritized
-            setTimeout(initModernClippy, 1000);
-        });
+
+        // Load after the page so it never delays the content.
+        if (document.readyState === 'complete') setTimeout(start, 300);
+        else window.addEventListener('load', () => setTimeout(start, 300));
     </script>
     
 </body>

@@ -101,9 +101,8 @@ async def home(request: Request):
         HTML response with home page
     """
     return templates.TemplateResponse(
-        request,
         "index.html",
-        {"title": "SaveMyLinks - Home"}
+        {"request": request, "title": "SaveMyLinks - Home"}
     )
 
 
@@ -119,9 +118,8 @@ async def add_resource_page(request: Request):
         HTML response with add resource form
     """
     return templates.TemplateResponse(
-        request,
         "add.html",
-        {"title": "Add Resource - SaveMyLinks"}
+        {"request": request, "title": "Add Resource - SaveMyLinks"}
     )
 
 

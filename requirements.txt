@@ -9,6 +9,7 @@ alembic==1.12.1
 
 # Validation and serialization
 pydantic[email]==2.5.0
+pydantic-settings==2.1.0
 
 # Templates and static files
 jinja2==3.1.2

@@ -39,6 +39,7 @@ function injectStyles() {
     font: 400 14px/20px system-ui, sans-serif; opacity: 0; transform: translateY(8px);
     transition: opacity .2s, transform .48s cubic-bezier(.65,0,.35,1); }
   .clippy-bubble.is-on { opacity: 1; transform: none; }
+  .clippy-bubble.is-passive { pointer-events: none; }
   .clippy-bubble::after { content: ""; position: absolute; right: 48px; bottom: -7px; width: 12px; height: 12px;
     background: inherit; border-right: inherit; border-bottom: inherit; transform: rotate(45deg); }
   .clippy-bubble--saved { border-color: var(--success, #1d6b45); }
@@ -118,6 +119,7 @@ export class ModernClippy {
     const done = () => { this.hide(); store({ hidden: true }); window.dispatchEvent(new CustomEvent('sml:assistant', { detail: { hidden: true } })); };
     if (reducedMotion() || !this.hasAnimation('Hide')) return done();
     this.stopIdle();
+    this.stop(); // a hide request cuts in; it never waits behind the current animation
     this.play('Hide').then(done);
   }
 
@@ -148,7 +150,8 @@ export class ModernClippy {
       this.renderFrame(frame);
       let next = job.index + 1;
       if (job.exiting && frame.exitBranch !== undefined) next = frame.exitBranch;
-      else if (frame.branching) {
+      // Once asked to leave, stop taking random loop-backs, so a looping animation still ends.
+      else if (frame.branching && !job.exiting) {
         let rnd = Math.random() * 100;
         for (const b of frame.branching.branches) { if (rnd <= b.weight) { next = b.frameIndex; break; } rnd -= b.weight; }
       }
@@ -198,7 +201,9 @@ export class ModernClippy {
   speak(text, { duration = 5000, tone = '' } = {}) {
     if (!this.visible) return;
     clearTimeout(this.bubbleTimer);
-    this.bubble.className = 'clippy-bubble' + (tone ? ` clippy-bubble--${tone}` : '');
+    // A timed bubble lets clicks through to the page under it (it can cover footer controls);
+    // a bubble that waits for a click (duration 0) stays clickable.
+    this.bubble.className = 'clippy-bubble' + (tone ? ` clippy-bubble--${tone}` : '') + (duration > 0 ? ' is-passive' : '');
     this.bubble.textContent = text;
     this.bubble.hidden = false;
     requestAnimationFrame(() => this.bubble.classList.add('is-on'));

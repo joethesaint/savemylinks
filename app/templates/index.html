@@ -1,381 +1,383 @@
 {% extends "base.html" %}
 
-{% block title %}Home - SaveMyLinks{% endblock %}
+{% block title %}Library · SaveMyLinks{% endblock %}
 
 {% block content %}
-<div class="container">
-    <!-- Search and Filter Section -->
-    <div class="search-container">
-        <div class="columns">
-            <div class="column is-8">
-                <div class="field has-addons">
-                    <div class="control is-expanded has-icons-left">
-                        <input class="input" type="text" id="searchInput" placeholder="Search resources...">
-                        <span class="icon is-small is-left">
-                            <i class="fas fa-search"></i>
-                        </span>
-                    </div>
-                    <div class="control">
-                        <button class="button is-primary" onclick="searchResources()" 
-                                aria-label="Search resources">
-                            <span class="icon" aria-hidden="true">
-                                <i class="fas fa-search"></i>
-                            </span>
-                            <span>Search</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div class="column is-4">
-                <div class="field">
-                    <div class="control has-icons-left">
-                        <div class="select is-fullwidth">
-                            <select id="categoryFilter" onchange="filterByCategory()">
-                                <option value="">All Categories</option>
-                            </select>
-                        </div>
-                        <span class="icon is-small is-left">
-                            <i class="fas fa-filter"></i>
-                        </span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Resources Section -->
-    <div class="columns">
-        <div class="column">
-            <div class="level">
-                <div class="level-left">
-                    <div class="level-item">
-                        <h1 class="title is-4">
-                            <span class="icon">
-                                <i class="fas fa-bookmark"></i>
-                            </span>
-                            My Resources
-                        </h1>
-                    </div>
-                </div>
-                <div class="level-right">
-                    <div class="level-item">
-                        <span class="tag is-info" id="resourceCount">0 resources</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Loading State -->
-            <div id="loadingState" class="has-text-centered" style="display: none;">
-                <div class="box">
-                    <span class="icon is-large">
-                        <i class="fas fa-spinner fa-pulse"></i>
-                    </span>
-                    <p>Loading resources...</p>
-                </div>
-            </div>
-
-            <!-- Resources List -->
-            <div id="resourcesList">
-                <!-- Resources will be loaded here -->
-            </div>
-
-            <!-- Empty State -->
-            <div id="emptyState" class="empty-state" style="display: none;">
-                <div class="box">
-                    <span class="icon is-large">
-                        <i class="fas fa-bookmark"></i>
-                    </span>
-                    <h3 class="title is-5">No resources found</h3>
-                    <p class="subtitle is-6">Start by adding your first resource!</p>
-                    <a href="/add" class="button is-primary">
-                        <span class="icon">
-                            <i class="fas fa-plus"></i>
-                        </span>
-                        <span>Add Resource</span>
-                    </a>
-                </div>
-            </div>
-
-            <!-- Pagination -->
-            <nav class="pagination is-centered" id="pagination" style="display: none;">
-                <a class="pagination-previous" id="prevPage">Previous</a>
-                <a class="pagination-next" id="nextPage">Next page</a>
-                <ul class="pagination-list" id="pageNumbers">
-                    <!-- Page numbers will be generated here -->
-                </ul>
-            </nav>
-        </div>
+<div class="page-head">
+    <div>
+        <h1 class="display">Your links, filed.</h1>
+        <p class="lede" id="summary">Loading your library…</p>
     </div>
 </div>
 
-<!-- Resource Card Template -->
-<template id="resourceCardTemplate">
-    <div class="box resource-card mb-4">
-        <div class="columns is-vcentered">
-            <div class="column is-narrow resource-image">
-                <figure class="image is-128x128">
-                    <img src="" alt="" loading="lazy" referrerpolicy="no-referrer" style="object-fit: cover; height: 100%; border-radius: 4px;">
-                </figure>
-            </div>
-            <div class="column">
-                <h3 class="title is-5 mb-1">
-                    <a class="resource-url" href="" target="_blank" rel="noopener noreferrer"></a>
-                </h3>
-                <p class="subtitle is-6 mb-3 resource-title"></p>
-                <p class="content resource-description"></p>
-                <div class="tags">
-                    <span class="tag is-white resource-site"></span>
-                    <span class="tag category-tag resource-category"></span>
-                    <span class="tag is-light resource-date"></span>
-                </div>
-            </div>
-            <div class="column is-narrow">
-                <div class="buttons">
-                    <button class="button is-small is-info edit-btn">
-                        <span class="icon">
-                            <i class="fas fa-edit"></i>
-                        </span>
-                    </button>
-                    <button class="button is-small is-danger delete-btn">
-                        <span class="icon">
-                            <i class="fas fa-trash"></i>
-                        </span>
-                    </button>
-                </div>
+<div class="toolbar" role="search">
+    <div class="search">
+        <label for="searchInput" class="visually-hidden">Search your links</label>
+        <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+        <input class="input" type="search" id="searchInput" placeholder="Search titles and notes" autocomplete="off">
+        <kbd aria-hidden="true">/</kbd>
+    </div>
+    <div class="chips" id="categoryChips" aria-label="Filter by category"></div>
+</div>
+
+<div class="status-line">
+    <span id="resultLine" aria-live="polite"></span>
+    <button type="button" class="btn btn-ghost btn-sm" id="clearFilters" hidden>Clear search and filter</button>
+</div>
+
+<div id="loadingState" class="cards" aria-hidden="true">
+    <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+</div>
+
+<ul class="cards" id="resourcesList"></ul>
+
+<section class="empty" id="emptyState" hidden>
+    <img src="{{ url_for('static', path='/art/folder-empty.svg') }}" alt="" width="220" height="220">
+    <h2 class="title" id="emptyTitle">No links yet</h2>
+    <p id="emptyText">Paste any web address and SaveMyLinks files it in under a second, then adds the page's own title, picture and summary so you can recognise it later.</p>
+    <a class="btn btn-primary" id="emptyAction" href="/add"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>Save your first link</a>
+</section>
+
+<nav class="pager" id="pagination" aria-label="Pages" hidden></nav>
+
+<template id="cardTemplate">
+    <li class="card">
+        <img class="thumb" src="" alt="" loading="lazy" referrerpolicy="no-referrer" width="96" height="72">
+        <div class="card-body">
+            <h2 class="card-title"><a class="card-link" href="" target="_blank" rel="noopener noreferrer"></a></h2>
+            <div class="card-url"><svg class="icon" aria-hidden="true"><use href="#i-link"/></svg><span></span></div>
+            <p class="card-desc"></p>
+            <div class="card-meta">
+                <span class="site"></span>
+                <span class="chip is-static category"></span>
+                <span class="date"></span>
             </div>
         </div>
-    </div>
+        <div class="card-actions">
+            <button type="button" class="btn btn-ghost btn-icon edit-btn"><svg class="icon" aria-hidden="true"><use href="#i-edit"/></svg></button>
+            <button type="button" class="btn btn-ghost btn-icon delete-btn"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg></button>
+        </div>
+    </li>
 </template>
 
+<dialog id="editDialog" aria-labelledby="editTitle">
+    <form class="panel form" id="editForm" method="dialog" novalidate>
+        <div class="dialog-head">
+            <h2 class="title" id="editTitle">Edit link</h2>
+            <button type="button" class="btn btn-ghost btn-icon" id="editClose" aria-label="Close without saving"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+        </div>
+        <div class="field">
+            <label class="label" for="editUrl">Web address</label>
+            <input class="input" type="url" id="editUrl" required aria-describedby="editUrlError">
+            <p class="error" id="editUrlError" hidden></p>
+        </div>
+        <div class="field">
+            <label class="label" for="editTitleInput">Title</label>
+            <input class="input" type="text" id="editTitleInput" required maxlength="200" aria-describedby="editTitleError">
+            <p class="error" id="editTitleError" hidden></p>
+        </div>
+        <div class="field">
+            <label class="label" for="editDescription">Note <span class="opt">(optional)</span></label>
+            <textarea class="textarea" id="editDescription" maxlength="1000" aria-describedby="editDescriptionError"></textarea>
+            <p class="error" id="editDescriptionError" hidden></p>
+        </div>
+        <div class="field">
+            <label class="label" for="editCategory">Category <span class="opt">(optional)</span></label>
+            <input class="input" type="text" id="editCategory" list="categoryOptions" maxlength="100">
+        </div>
+        <datalist id="categoryOptions"></datalist>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="editSave">Save changes</button>
+            <button type="button" class="btn" id="editRefresh"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>Fetch preview again</button>
+        </div>
+    </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
 <script>
-let currentPage = 1;
-let currentSearch = '';
-let currentCategory = '';
+(function () {
+    const { toast, categories, categoryClass, resetCategories, fieldErrors } = window.SML;
+    const $ = (s) => document.querySelector(s);
+    const PER_PAGE = 10;
 
-// Load resources on page load
-document.addEventListener('DOMContentLoaded', function() {
-    loadCategories();
-    loadResources();
-});
+    // The URL holds search, category and page, so Back, refresh and shared links keep the view.
+    const params = new URLSearchParams(location.search);
+    const state = { q: params.get('q') || '', category: params.get('category') || '', page: Number(params.get('page')) || 1 };
+    let categoryList = [];
+    let lastTotal = 0;
+    let editing = null;
 
-// Load categories for filter
-async function loadCategories() {
-    try {
-        const response = await fetch('/api/resources/categories');
-        const categories = await response.json();
-        
-        const categoryFilter = document.getElementById('categoryFilter');
-        categories.forEach(category => {
-            const option = document.createElement('option');
-            option.value = category;
-            option.textContent = category;
-            categoryFilter.appendChild(option);
-        });
-    } catch (error) {
-        console.error('Error loading categories:', error);
+    function writeUrl() {
+        const p = new URLSearchParams();
+        if (state.q) p.set('q', state.q);
+        if (state.category) p.set('category', state.category);
+        if (state.page > 1) p.set('page', state.page);
+        history.replaceState(null, '', p.toString() ? '?' + p : location.pathname);
     }
-}
 
-// Load resources
-async function loadResources(page = 1, search = '', category = '') {
-    const loadingState = document.getElementById('loadingState');
-    const resourcesList = document.getElementById('resourcesList');
-    const emptyState = document.getElementById('emptyState');
-    const pagination = document.getElementById('pagination');
-    
-    loadingState.style.display = 'block';
-    resourcesList.innerHTML = '';
-    emptyState.style.display = 'none';
-    pagination.style.display = 'none';
-    
-    try {
-        const params = new URLSearchParams({
-            page: page,
-            per_page: 10
-        });
-        
-        if (search) params.append('search', search);
-        if (category) params.append('category', category);
-        
-        const response = await fetch(`/api/resources/?${params}`);
-        const data = await response.json();
-        
-        loadingState.style.display = 'none';
-        
-        if (data.resources.length === 0) {
-            emptyState.style.display = 'block';
-            // Tell the assistant once it is ready (it loads after the page).
-            const search = (document.getElementById('searchInput') || {}).value || '';
-            const tell = () => window.dispatchEvent(new CustomEvent('sml:empty', { detail: { search } }));
-            window.smlAssistant ? tell() : window.addEventListener('sml:assistant-ready', tell, { once: true });
-        } else {
-            renderResources(data.resources);
-            renderPagination(data);
-        }
-        
-        updateResourceCount(data.total);
-        
-    } catch (error) {
-        console.error('Error loading resources:', error);
-        loadingState.style.display = 'none';
-        showNotification('Error loading resources', 'is-danger');
+    async function loadCategories() {
+        categoryList = await categories();
+        const box = $('#categoryChips');
+        box.innerHTML = '';
+        if (!categoryList.length) { box.hidden = true; return; }
+        box.hidden = false;
+        const make = (label, value, cls) => {
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'chip ' + cls; b.textContent = label;
+            b.setAttribute('aria-pressed', String(state.category === value));
+            b.onclick = () => { state.category = state.category === value ? '' : value; state.page = 1; syncChips(); load(); };
+            b.dataset.value = value;
+            box.append(b);
+        };
+        make('All', '', '');
+        categoryList.forEach(c => make(c, c, categoryClass(c, categoryList)));
+        $('#categoryOptions').innerHTML = '';
+        categoryList.forEach(c => { const o = document.createElement('option'); o.value = c; $('#categoryOptions').append(o); });
     }
-}
+    function syncChips() {
+        document.querySelectorAll('#categoryChips .chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.value === state.category)));
+    }
 
-// Render resources
-function renderResources(resources) {
-    const resourcesList = document.getElementById('resourcesList');
-    const template = document.getElementById('resourceCardTemplate');
-    
-    resources.forEach(resource => {
-        const card = template.content.cloneNode(true);
-        
-        card.querySelector('.resource-url').href = resource.url;
-        card.querySelector('.resource-url').textContent = resource.url;
-        card.querySelector('.resource-title').textContent = resource.title;
-        // Link preview, filled in the background after saving. The user's own text comes first.
-        const preview = resource.link_metadata || {};
-        card.querySelector('.resource-description').textContent = resource.description || preview.description || 'No description';
-        const image = card.querySelector('.resource-image');
-        if (preview.image && /^https?:\/\//i.test(preview.image)) {
-            image.querySelector('img').src = preview.image;
-            image.querySelector('img').onerror = () => { image.style.display = 'none'; };
-        } else {
-            image.style.display = 'none';
-        }
-        if (preview.site_name) {
-            card.querySelector('.resource-site').textContent = preview.site_name;
-        } else {
-            card.querySelector('.resource-site').style.display = 'none';
-        }
+    // The API stores UTC without a zone mark; read it as UTC.
+    const asDate = (iso) => new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(iso) ? iso : iso + 'Z');
+    function savedOn(iso) {
+        return 'Saved ' + asDate(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    }
 
-        if (resource.category) {
-            card.querySelector('.resource-category').textContent = resource.category;
-        } else {
-            card.querySelector('.resource-category').style.display = 'none';
+    function renderCard(r, highlight) {
+        const li = $('#cardTemplate').content.firstElementChild.cloneNode(true);
+        li.dataset.id = r.id;
+        const meta = r.link_metadata || {};
+        const host = (() => { try { return new URL(r.url).hostname.replace(/^www\./, ''); } catch { return r.url; } })();
+
+        li.querySelector('.card-link').href = r.url;
+        li.querySelector('.card-link').textContent = r.title;
+        li.querySelector('.card-url span').textContent = r.url;
+        li.querySelector('.card-url').title = r.url;
+
+        const desc = li.querySelector('.card-desc');
+        const fresh = !r.link_metadata && Date.now() - asDate(r.created_at).getTime() < 60000;
+        if (r.description || meta.description) desc.textContent = r.description || meta.description;
+        else if (fresh) { desc.textContent = 'Fetching the page title, picture and summary…'; desc.classList.add('pending'); }
+        else desc.remove();
+
+        const img = li.querySelector('.thumb');
+        if (meta.image && /^https?:\/\//i.test(meta.image)) {
+            img.src = meta.image;
+            img.onerror = () => { img.remove(); li.classList.add('no-image'); };
+        } else { img.remove(); li.classList.add('no-image'); }
+
+        li.querySelector('.site').textContent = meta.site_name || host;
+        const chip = li.querySelector('.category');
+        if (r.category) { chip.textContent = r.category; chip.classList.add(categoryClass(r.category, categoryList)); }
+        else chip.remove();
+        li.querySelector('.date').textContent = savedOn(r.created_at);
+
+        const edit = li.querySelector('.edit-btn'), del = li.querySelector('.delete-btn');
+        edit.setAttribute('aria-label', `Edit "${r.title}"`); edit.title = 'Edit';
+        del.setAttribute('aria-label', `Delete "${r.title}"`); del.title = 'Delete';
+        edit.onclick = () => openEdit(r);
+        del.onclick = () => askDelete(li, r);
+
+        if (highlight) li.style.boxShadow = '0 0 0 2px var(--brand), var(--shadow-lift)';
+        if (fresh) setTimeout(() => refreshCard(r.id), 2500);
+        return li;
+    }
+
+    // A just-saved link gets its preview a moment later: fetch that one card again, once.
+    async function refreshCard(id) {
+        const li = document.querySelector(`.card[data-id="${id}"]`);
+        if (!li) return;
+        const res = await fetch(`/api/resources/${id}`);
+        if (!res.ok) return;
+        const r = await res.json();
+        if (!r.link_metadata) { const d = li.querySelector('.card-desc.pending'); if (d) d.remove(); return; }
+        li.replaceWith(renderCard(r, false));
+    }
+
+    function askDelete(li, r) {
+        if (li.querySelector('.confirm')) return;
+        const box = document.createElement('div');
+        box.className = 'confirm';
+        box.innerHTML = '<p>Delete this link?</p><button type="button" class="btn btn-danger btn-sm">Delete</button><button type="button" class="btn btn-sm">Keep</button>';
+        const [yes, no] = box.querySelectorAll('button');
+        no.onclick = () => { box.remove(); li.querySelector('.delete-btn').focus(); };
+        yes.onclick = async () => {
+            yes.disabled = true; yes.textContent = 'Deleting…';
+            try {
+                const res = await fetch(`/api/resources/${r.id}`, { method: 'DELETE' });
+                if (!res.ok) throw new Error(res.status);
+                toast(`Deleted "${r.title}".`, { code: res.status, tone: 'success' });
+                if (lastTotal - 1 <= (state.page - 1) * PER_PAGE && state.page > 1) state.page -= 1;
+                resetCategories(); await loadCategories(); load();
+            } catch (e) {
+                toast("Couldn't delete the link. Check your connection and try again.", { code: Number(e.message) || '', tone: 'danger' });
+                yes.disabled = false; yes.textContent = 'Delete';
+            }
+        };
+        li.append(box);
+        no.focus();
+    }
+
+    function renderPager(total) {
+        const nav = $('#pagination');
+        const pages = Math.ceil(total / PER_PAGE);
+        nav.innerHTML = '';
+        if (pages <= 1) { nav.hidden = true; return; }
+        nav.hidden = false;
+        const btn = (label, page, current, disabled) => {
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'btn btn-sm'; b.textContent = label; b.disabled = disabled;
+            if (current) b.setAttribute('aria-current', 'page');
+            b.onclick = () => { state.page = page; load(); window.scrollTo({ top: 0 }); };
+            nav.append(b);
+        };
+        btn('Previous', state.page - 1, false, state.page === 1);
+        for (let i = 1; i <= pages; i++) btn(String(i), i, i === state.page, false);
+        btn('Next', state.page + 1, false, state.page === pages);
+    }
+
+    let requestId = 0;
+    async function load() {
+        writeUrl();
+        const mine = ++requestId;
+        $('#clearFilters').hidden = !(state.q || state.category);
+        const list = $('#resourcesList');
+        const loading = $('#loadingState');
+        const loadTimer = setTimeout(() => { loading.hidden = false; }, 150); // no flash on fast loads
+        try {
+            const p = new URLSearchParams({ page: state.page, per_page: PER_PAGE });
+            if (state.q) p.set('search', state.q);
+            if (state.category) p.set('category', state.category);
+            const res = await fetch(`/api/resources/?${p}`);
+            if (!res.ok) throw new Error(res.status);
+            const data = await res.json();
+            if (mine !== requestId) return; // a newer search already answered
+            clearTimeout(loadTimer); loading.hidden = true;
+            lastTotal = data.total;
+
+            const savedId = Number(new URLSearchParams(location.search).get('saved')) || Number(sessionStorage.getItem('sml-saved')) || 0;
+            sessionStorage.removeItem('sml-saved');
+            list.replaceChildren(...data.resources.map(r => renderCard(r, r.id === savedId)));
+            renderPager(data.total);
+
+            const filtered = state.q || state.category;
+            const n = data.total;
+            $('#resultLine').textContent = filtered
+                ? `${n} ${n === 1 ? 'link matches' : 'links match'}${state.q ? ` "${state.q}"` : ''}${state.category ? ` in ${state.category}` : ''}`
+                : (n ? `Showing ${(state.page - 1) * PER_PAGE + 1}–${Math.min(state.page * PER_PAGE, n)} of ${n}` : '');
+
+            if (!filtered) {
+                $('#summary').textContent = n
+                    ? `${n} ${n === 1 ? 'link' : 'links'} in ${categoryList.length} ${categoryList.length === 1 ? 'category' : 'categories'}. Search by title or note, or pick a category.`
+                    : 'Save a page once and find it again in seconds, by its title, your note or its category.';
+            }
+
+            const empty = $('#emptyState');
+            empty.hidden = data.resources.length > 0;
+            if (!data.resources.length) {
+                if (filtered) {
+                    $('#emptyTitle').textContent = 'Nothing matches';
+                    $('#emptyText').textContent = `No link${state.q ? ` mentions "${state.q}"` : ''}${state.category ? ` in ${state.category}` : ''}. Try fewer words or another category.`;
+                    $('#emptyAction').textContent = 'Clear search and filter';
+                    $('#emptyAction').onclick = (e) => { e.preventDefault(); clearFilters(); };
+                } else {
+                    $('#emptyAction').onclick = null;
+                }
+                const q = state.q;
+                const tell = () => window.dispatchEvent(new CustomEvent('sml:empty', { detail: { search: q } }));
+                window.smlAssistant ? tell() : window.addEventListener('sml:assistant-ready', tell, { once: true });
+            }
+        } catch (e) {
+            clearTimeout(loadTimer); loading.hidden = true;
+            toast("Couldn't load your links. Check that the server is running, then reload.", { code: Number(e.message) || '', tone: 'danger' });
         }
-        
-        const date = new Date(resource.created_at).toLocaleDateString();
-        card.querySelector('.resource-date').textContent = date;
-        
-        // Add event listeners
-        card.querySelector('.edit-btn').onclick = () => editResource(resource.id);
-        card.querySelector('.delete-btn').onclick = () => deleteResource(resource.id);
-        
-        resourcesList.appendChild(card);
+    }
+
+    function clearFilters() {
+        state.q = ''; state.category = ''; state.page = 1;
+        $('#searchInput').value = ''; syncChips(); load();
+    }
+    $('#clearFilters').onclick = clearFilters;
+
+    // Search as you type, after a short pause.
+    let typing;
+    const search = $('#searchInput');
+    search.value = state.q;
+    search.addEventListener('input', () => {
+        clearTimeout(typing);
+        typing = setTimeout(() => { state.q = search.value.trim(); state.page = 1; load(); }, 250);
     });
-}
+    search.addEventListener('keydown', (e) => { if (e.key === 'Escape' && search.value) { search.value = ''; state.q = ''; state.page = 1; load(); } });
+    if (params.get('focus') === 'search') search.focus();
 
-// Render pagination
-function renderPagination(data) {
-    const pagination = document.getElementById('pagination');
-    const prevPage = document.getElementById('prevPage');
-    const nextPage = document.getElementById('nextPage');
-    const pageNumbers = document.getElementById('pageNumbers');
-    
-    if (data.total <= data.per_page) return;
-    
-    pagination.style.display = 'flex';
-    
-    const totalPages = Math.ceil(data.total / data.per_page);
-    
-    // Previous button
-    if (data.page > 1) {
-        prevPage.onclick = () => loadResources(data.page - 1, currentSearch, currentCategory);
-        prevPage.classList.remove('is-disabled');
-    } else {
-        prevPage.classList.add('is-disabled');
+    // ── edit ──
+    const dlg = $('#editDialog');
+    function showErr(id, msg) {
+        const el = $('#' + id + 'Error');
+        el.textContent = msg || ''; el.hidden = !msg;
     }
-    
-    // Next button
-    if (data.page < totalPages) {
-        nextPage.onclick = () => loadResources(data.page + 1, currentSearch, currentCategory);
-        nextPage.classList.remove('is-disabled');
-    } else {
-        nextPage.classList.add('is-disabled');
+    function clearEditErrors() {
+        ['editUrl', 'editTitle', 'editDescription'].forEach(id => showErr(id, ''));
+        dlg.querySelectorAll('[aria-invalid]').forEach(el => el.removeAttribute('aria-invalid'));
     }
-    
-    // Page numbers
-    pageNumbers.innerHTML = '';
-    for (let i = 1; i <= totalPages; i++) {
-        const li = document.createElement('li');
-        const a = document.createElement('a');
-        a.className = `pagination-link ${i === data.page ? 'is-current' : ''}`;
-        a.textContent = i;
-        a.onclick = () => loadResources(i, currentSearch, currentCategory);
-        li.appendChild(a);
-        pageNumbers.appendChild(li);
+    function openEdit(r) {
+        editing = r;
+        clearEditErrors();
+        $('#editUrl').value = r.url;
+        $('#editTitleInput').value = r.title;
+        $('#editDescription').value = r.description || '';
+        $('#editCategory').value = r.category || '';
+        dlg.showModal();
+        $('#editTitleInput').focus();
     }
-}
-
-// Search resources
-function searchResources() {
-    currentSearch = document.getElementById('searchInput').value;
-    currentPage = 1;
-    loadResources(currentPage, currentSearch, currentCategory);
-}
-
-// Filter by category
-function filterByCategory() {
-    currentCategory = document.getElementById('categoryFilter').value;
-    currentPage = 1;
-    loadResources(currentPage, currentSearch, currentCategory);
-}
-
-// Update resource count
-function updateResourceCount(total) {
-    const resourceCount = document.getElementById('resourceCount');
-    resourceCount.textContent = `${total} resource${total !== 1 ? 's' : ''}`;
-}
-
-// Edit resource
-function editResource(id) {
-    // For now, just show an alert. In a full implementation, this would open an edit modal
-    alert(`Edit resource ${id} - This would open an edit form`);
-}
-
-// Delete resource
-async function deleteResource(id) {
-    if (!confirm('Are you sure you want to delete this resource?')) return;
-    
-    try {
-        const response = await fetch(`/api/resources/${id}`, {
-            method: 'DELETE'
-        });
-        
-        if (response.ok) {
-            showNotification('Resource deleted successfully', 'is-success');
-            loadResources(currentPage, currentSearch, currentCategory);
-        } else {
-            showNotification('Error deleting resource', 'is-danger');
+    $('#editClose').onclick = () => dlg.close();
+    $('#editForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearEditErrors();
+        const save = $('#editSave');
+        save.disabled = true; save.textContent = 'Saving…';
+        const body = {
+            url: $('#editUrl').value.trim(),
+            title: $('#editTitleInput').value.trim(),
+            description: $('#editDescription').value.trim() || null,
+            category: $('#editCategory').value.trim() || null,
+        };
+        try {
+            const res = await fetch(`/api/resources/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            if (res.status === 409) { showErr('editUrl', 'Another saved link already has this address.'); $('#editUrl').setAttribute('aria-invalid', 'true'); return; }
+            if (res.status === 422) {
+                const errs = fieldErrors((await res.json()).detail);
+                const map = { url: ['editUrl', 'editUrl'], title: ['editTitle', 'editTitleInput'], description: ['editDescription', 'editDescription'] };
+                Object.entries(errs).forEach(([f, m]) => { if (map[f]) { showErr(map[f][0], m); $('#' + map[f][1]).setAttribute('aria-invalid', 'true'); } });
+                dlg.querySelector('[aria-invalid="true"]')?.focus();
+                return;
+            }
+            if (!res.ok) throw new Error(res.status);
+            dlg.close();
+            toast(`Saved changes to "${body.title}".`, { code: res.status, tone: 'success' });
+            resetCategories(); await loadCategories(); load();
+        } catch (err) {
+            toast("Couldn't save the changes. Check your connection and try again.", { code: Number(err.message) || '', tone: 'danger' });
+        } finally {
+            save.disabled = false; save.textContent = 'Save changes';
         }
-    } catch (error) {
-        console.error('Error deleting resource:', error);
-        showNotification('Error deleting resource', 'is-danger');
-    }
-}
+    });
+    $('#editRefresh').onclick = async () => {
+        const b = $('#editRefresh');
+        b.disabled = true;
+        try {
+            const res = await fetch(`/api/resources/${editing.id}/metadata`, { method: 'POST' });
+            const r = await res.json();
+            toast(r.link_metadata ? 'Preview updated.' : "The page didn't share a preview. Your link is unchanged.", { code: res.status, tone: r.link_metadata ? 'success' : 'notice' });
+            if (r.link_metadata) { dlg.close(); load(); }
+        } catch (e) {
+            toast("Couldn't reach the server.", { tone: 'danger' });
+        } finally { b.disabled = false; }
+    };
 
-// Show notification
-function showNotification(message, type = 'is-info') {
-    const notification = document.createElement('div');
-    notification.className = `notification ${type} is-toast`;
-    notification.innerHTML = `
-        <button class="delete" onclick="this.parentElement.remove()"></button>
-        ${message}
-    `;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.remove();
-    }, 5000);
-}
-
-// Search on Enter key
-document.getElementById('searchInput').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        searchResources();
-    }
-});
+    loadCategories().then(load);
+})();
 </script>
 {% endblock %}

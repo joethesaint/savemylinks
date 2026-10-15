@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="SaveMyLinks — saving">
+  <style>
+    .cover { transform-box: fill-box; transform-origin: 50% 100%; animation: dip 1.6s cubic-bezier(.65,0,.35,1) infinite; }
+    .card  { animation: drop 1.6s cubic-bezier(.5,0,.75,0) infinite; }
+    .sheets{ transform-box: fill-box; transform-origin: 50% 100%; animation: settle 1.6s ease-out infinite; }
+    @keyframes dip    { 0%,8% {transform:scaleY(1)} 28%,62% {transform:scaleY(.72) skewX(-6deg)} 80%,100% {transform:scaleY(1)} }
+    @keyframes drop   { 0%,22% {transform:translateY(-8px);opacity:0} 30% {opacity:1} 56% {transform:translateY(12px);opacity:1} 57%,100% {transform:translateY(12px);opacity:0} }
+    @keyframes settle { 0%,54% {transform:scaleY(1)} 60% {transform:scaleY(.94)} 68%,100% {transform:scaleY(1)} }
+    @media (prefers-reduced-motion: reduce) { .cover,.card,.sheets { animation: none } .card { opacity: 0 } }
+  </style>
+  <!-- back panel -->
+  <rect x="4" y="8" width="24" height="21" rx="1.5" fill="#5f8a92"/>
+  <!-- sheets: three layered edges, each with its own tab (back sheet highest) -->
+  <g class="sheets">
+    <rect x="19.5" y="2" width="6" height="5" rx="1" fill="#e0483e"/>
+    <rect x="6"  y="6" width="20" height="12" rx=".5" fill="#eab8a4"/>
+    <rect x="13" y="4" width="6" height="5" rx="1" fill="#3b7dd8"/>
+    <rect x="6"  y="8.5" width="20" height="10" rx=".5" fill="#f4e7c5"/>
+    <rect x="6.5"  y="6" width="6" height="5" rx="1" fill="#3fae5a"/>
+    <rect x="6"  y="10.5" width="20" height="8" rx=".5" fill="#d3e6cb"/>
+  </g>
+  <!-- link card -->
+  <g class="card"><rect x="11" y="0" width="10" height="12" rx="1" fill="#fff" stroke="#33404a" stroke-width=".75"/>
+    <path d="M14 7.2l-.9.9a1.3 1.3 0 0 0 1.8 1.8l.9-.9M18 6.8l.9-.9a1.3 1.3 0 0 0-1.8-1.8l-.9.9M14.6 7.4l2.8-2.8" fill="none" stroke="#e0603a" stroke-width="1" stroke-linecap="round" transform="translate(0 -1)"/></g>
+  <!-- front cover: slightly wider at the top, like the real file leaning out -->
+  <g class="cover">
+    <path d="M2.5 13 H29.5 L28 28 H4 Z" fill="#93bcc3" stroke="#33404a" stroke-width="1" stroke-linejoin="round"/>
+    <rect x="6.5" y="16" width="13" height="3.5" rx=".6" fill="#fbf8f0"/>
+    <rect x="21" y="22.5" width="4.5" height="1.75" rx=".85" fill="#3a4048"/>
+  </g>
+  <!-- base -->
+  <rect x="4" y="28" width="24" height="2.5" rx="1" fill="#3a4048"/>
+</svg>

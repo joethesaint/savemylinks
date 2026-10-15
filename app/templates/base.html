@@ -3,366 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="SaveMyLinks - Your personal link curator and bookmark manager">
-    <meta name="theme-color" content="#667eea">
+    <meta name="description" content="SaveMyLinks: save any page in one click and find it again by category.">
+    <meta name="theme-color" content="#2f6f7a">
     <title>{% block title %}SaveMyLinks{% endblock %}</title>
-    
-    <!-- Preload critical resources -->
+    <script>
+        // Set the theme before first paint so the page never flashes the wrong colours.
+        try { const t = localStorage.getItem('theme'); if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+              else if (matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.dataset.theme = 'dark'; } catch (e) {}
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    
-    <!-- Modern CSS Framework -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', path='/style.css') }}">
-    
-    <!-- Three.js Library -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.144.0/build/three.min.js"></script>
-    
-    <!-- Modern Clippy CSS is included in the JS module -->
-    
-    <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔗</text></svg>">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="{{ url_for('static', path='/sml.css') }}?v=4">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='/art/icon.svg') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', path='/art/icon-32.png') }}">
 </head>
-<body class="has-navbar-fixed-top">
-    <!-- Skip to main content link for accessibility -->
-    <a href="#main-content" class="skip-link">Skip to main content</a>
-    
-    <!-- Particle Canvas -->
-    <canvas id="particle-canvas" aria-hidden="true"></canvas>
-    
-    <!-- Navigation -->
-    <nav class="navbar is-fixed-top has-shadow" role="navigation" aria-label="main navigation">
-        <div class="container">
-            <div class="navbar-brand">
-                <a class="navbar-item brand-logo" href="/">
-                    <span class="icon is-medium">
-                        <i class="fas fa-link"></i>
-                    </span>
-                    <strong class="ml-2">SaveMyLinks</strong>
-                </a>
-                
-                <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarBasic">
-                    <span aria-hidden="true"></span>
-                    <span aria-hidden="true"></span>
-                    <span aria-hidden="true"></span>
-                </a>
-            </div>
-            
-            <div id="navbarBasic" class="navbar-menu">
-                <div class="navbar-start">
-                    <a class="navbar-item" href="/" aria-label="Go to homepage">
-                        <span class="icon" aria-hidden="true">
-                            <i class="fas fa-home"></i>
-                        </span>
-                        <span>Home</span>
-                    </a>
-                    <a class="navbar-item" href="/add" aria-label="Add new link">
-                        <span class="icon" aria-hidden="true">
-                            <i class="fas fa-plus"></i>
-                        </span>
-                        <span>Add Link</span>
-                    </a>
-                </div>
-                
-                <div class="navbar-end">
-                    <div class="navbar-item">
-                        <button id="theme-toggle" class="button is-ghost theme-toggle" 
-                                title="Toggle theme" aria-label="Toggle between light and dark theme">
-                            <span class="icon" aria-hidden="true">
-                                <i id="theme-icon" class="fas fa-sun"></i>
-                            </span>
-                        </button>
-                    </div>
-                    <div class="navbar-item">
-                        <div class="buttons">
-                            <a class="button is-primary is-light" href="/add" aria-label="Add new link">
-                                <strong>Add New Link</strong>
-                            </a>
-                        </div>
-                    </div>
-                </div>
+<body>
+    <a href="#main-content" class="skip-link">Skip to content</a>
+
+    <!-- Line icons: 16px, 1.6 stroke, round caps, currentColor (design system). -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></symbol>
+        <symbol id="i-link" viewBox="0 0 16 16"><path d="M6.5 9.5 9.5 6.5"/><path d="M7 4.5 8.6 3a2.8 2.8 0 0 1 4 4L11 8.6"/><path d="M9 11.5 7.4 13a2.8 2.8 0 0 1-4-4L5 7.4"/></symbol>
+        <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></symbol>
+        <symbol id="i-edit" viewBox="0 0 16 16"><path d="M10.5 2.5l3 3L6 13H3v-3z"/></symbol>
+        <symbol id="i-trash" viewBox="0 0 16 16"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/></symbol>
+        <symbol id="i-close" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></symbol>
+        <symbol id="i-sun" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1"/></symbol>
+        <symbol id="i-moon" viewBox="0 0 16 16"><path d="M13 9.5A5.5 5.5 0 1 1 6.5 3a4.5 4.5 0 0 0 6.5 6.5z"/></symbol>
+        <symbol id="i-clip" viewBox="0 0 16 16"><path d="M10.5 5.5 6 10a1.4 1.4 0 0 0 2 2l5-5a2.8 2.8 0 0 0-4-4L4 8a4.2 4.2 0 0 0 6 6l3.5-3.5"/></symbol>
+        <symbol id="i-refresh" viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v2.5h-2.5"/></symbol>
+    </svg>
+
+    <header class="site-header">
+        <div class="wrap">
+            <a class="brand" href="/" aria-label="SaveMyLinks library">
+                <img src="{{ url_for('static', path='/art/icon.svg') }}" alt="" width="28" height="28">
+                SaveMyLinks
+            </a>
+            <nav class="nav" aria-label="Main">
+                <a href="/" {% if active == 'library' %}aria-current="page"{% endif %}>Library</a>
+                <a href="/add" {% if active == 'add' %}aria-current="page"{% endif %}>Save a link</a>
+            </nav>
+            <div class="header-tools">
+                <button type="button" id="assistantToggle" class="btn btn-ghost btn-sm" aria-pressed="true" hidden>
+                    <svg class="icon" aria-hidden="true"><use href="#i-clip"/></svg><span>Hide assistant</span>
+                </button>
+                <button type="button" id="themeToggle" class="btn btn-ghost btn-icon" aria-label="Switch to dark theme">
+                    <svg class="icon" aria-hidden="true"><use href="#i-moon"/></svg>
+                </button>
+                {% block header_action %}
+                <a class="btn btn-primary" href="/add" aria-label="Save a link"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span>Save<span class="wide-only"> a link</span></span></a>
+                {% endblock %}
             </div>
         </div>
-    </nav>
+    </header>
 
-    <!-- Particle Canvas Background -->
-    <canvas id="particle-canvas" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none;"></canvas>
-
-    <!-- Main Content -->
-    <main class="main-content" id="main-content">
-        <div class="container">
+    <main id="main-content">
+        <div class="wrap">
             {% block content %}{% endblock %}
         </div>
     </main>
 
-    <!-- Footer -->
-    <footer class="footer mt-6">
-        <div class="container">
-            <div class="content has-text-centered">
-                <div class="columns is-vcentered">
-                    <div class="column">
-                        <p class="is-size-6">
-                            <strong>SaveMyLinks</strong> - Your personal link curator
-                        </p>
-                        <p class="is-size-7 has-text-grey">
-                            Organize, search, and manage your bookmarks with ease
-                        </p>
-                    </div>
-                    <div class="column is-narrow">
-                        <div class="field is-grouped">
-                            <p class="control">
-                                <button type="button" id="assistantToggle" class="button is-small is-outlined" aria-pressed="true">
-                                    <span class="icon" aria-hidden="true"><i class="fas fa-paperclip"></i></span>
-                                    <span>Hide assistant</span>
-                                </button>
-                            </p>
-                            <p class="control">
-                                <a class="button is-small is-outlined" href="https://github.com" target="_blank">
-                                    <span class="icon">
-                                        <i class="fab fa-github"></i>
-                                    </span>
-                                    <span>GitHub</span>
-                                </a>
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <footer class="site-footer">
+        <div class="wrap">
+            <span>SaveMyLinks keeps every link you save, filed by category, on your own server.</span>
+            <span>Press <kbd>/</kbd> to search.</span>
         </div>
     </footer>
 
-    <!-- JavaScript for mobile menu -->
-    <script>
-        // Mobile menu functionality
-        document.addEventListener('DOMContentLoaded', () => {
-            const $navbarBurgers = Array.prototype.slice.call(document.querySelectorAll('.navbar-burger'), 0);
-            
-            if ($navbarBurgers.length > 0) {
-                $navbarBurgers.forEach(el => {
-                    el.addEventListener('click', () => {
-                        const target = el.dataset.target;
-                        const $target = document.getElementById(target);
-                        
-                        el.classList.toggle('is-active');
-                        $target.classList.toggle('is-active');
-                    });
-                });
-            }
-        });
+    <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 
-        // Theme switching functionality
-        document.addEventListener('DOMContentLoaded', () => {
-            const themeToggle = document.getElementById('theme-toggle');
-            const themeIcon = document.getElementById('theme-icon');
-            const html = document.documentElement;
-            
-            // Check for saved theme preference or default to 'light'
-            const currentTheme = localStorage.getItem('theme') || 'light';
-            html.setAttribute('data-theme', currentTheme);
-            updateThemeIcon(currentTheme);
-            
-            themeToggle.addEventListener('click', () => {
-                const currentTheme = html.getAttribute('data-theme');
-                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                
-                // Add animation class
-                themeToggle.classList.add(newTheme === 'dark' ? 'dimming' : 'lighting');
-                
-                // Change theme after a short delay for animation
-                setTimeout(() => {
-                    html.setAttribute('data-theme', newTheme);
-                    localStorage.setItem('theme', newTheme);
-                    updateThemeIcon(newTheme);
-                    
-                    // Remove animation class after animation completes
-                    setTimeout(() => {
-                        themeToggle.classList.remove('dimming', 'lighting');
-                    }, 600);
-                }, 100);
-            });
-            
-            function updateThemeIcon(theme) {
-                if (theme === 'dark') {
-                    themeIcon.className = 'fas fa-moon';
-                } else {
-                    themeIcon.className = 'fas fa-sun';
-                }
-            }
-            
-            // Enhanced Particle system with green dust effects
-            const canvas = document.getElementById('particle-canvas');
-            const ctx = canvas.getContext('2d');
-            
-            let particles = [];
-            let mouse = { x: 0, y: 0 };
-            
-            // Particle class with enhanced green effects
-            class Particle {
-                constructor(x, y) {
-                    this.x = x;
-                    this.y = y;
-                    this.vx = (Math.random() - 0.5) * 0.5;
-                    this.vy = (Math.random() - 0.5) * 0.5;
-                    this.size = Math.random() * 3 + 1;
-                    this.opacity = Math.random() * 0.8 + 0.2;
-                    this.hue = 120 + Math.random() * 60; // Green spectrum
-                    this.life = Math.random() * 200 + 100;
-                    this.maxLife = this.life;
-                }
-                
-                update() {
-                    this.x += this.vx;
-                    this.y += this.vy;
-                    
-                    // Mouse interaction - stronger repulsion
-                    const dx = this.x - mouse.x;
-                    const dy = this.y - mouse.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    
-                    if (distance < 120) {
-                        const force = (120 - distance) / 120;
-                        this.vx += (dx / distance) * force * 0.3;
-                        this.vy += (dy / distance) * force * 0.3;
-                    }
-                    
-                    // Boundary bouncing
-                    if (this.x < 0 || this.x > canvas.width) this.vx *= -0.8;
-                    if (this.y < 0 || this.y > canvas.height) this.vy *= -0.8;
-                    
-                    // Keep particles in bounds
-                    this.x = Math.max(0, Math.min(canvas.width, this.x));
-                    this.y = Math.max(0, Math.min(canvas.height, this.y));
-                    
-                    // Friction
-                    this.vx *= 0.99;
-                    this.vy *= 0.99;
-                    
-                    // Life cycle
-                    this.life--;
-                    this.opacity = (this.life / this.maxLife) * 0.8;
-                }
-                
-                draw() {
-                    ctx.save();
-                    ctx.globalAlpha = this.opacity;
-                    
-                    // Glowing effect
-                    const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 3);
-                    gradient.addColorStop(0, `hsla(${this.hue}, 70%, 60%, 0.8)`);
-                    gradient.addColorStop(0.5, `hsla(${this.hue}, 60%, 50%, 0.4)`);
-                    gradient.addColorStop(1, `hsla(${this.hue}, 50%, 40%, 0)`);
-                    
-                    ctx.fillStyle = gradient;
-                    ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.size * 3, 0, Math.PI * 2);
-                    ctx.fill();
-                    
-                    // Core particle
-                    ctx.fillStyle = `hsla(${this.hue}, 80%, 70%, ${this.opacity})`;
-                    ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                    ctx.fill();
-                    
-                    ctx.restore();
-                }
-            }
-            
-            function setCanvasSize() {
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight;
-            }
-            
-            function initParticles() {
-                particles = [];
-                const particleCount = Math.min(80, Math.floor((canvas.width * canvas.height) / 15000));
-                
-                // Green color palette
-                const greenShades = [
-                    'rgba(34, 197, 94, 0.8)',   // Primary green
-                    'rgba(22, 163, 74, 0.7)',  // Dark green
-                    'rgba(74, 222, 128, 0.6)', // Light green
-                    'rgba(5, 150, 105, 0.8)',  // Secondary green
-                    'rgba(132, 204, 22, 0.7)', // Accent green
-                    'rgba(163, 230, 53, 0.6)'  // Bright green
-                ];
-                
-                for (let i = 0; i < particleCount; i++) {
-                    particles.push(new Particle(
-                        Math.random() * canvas.width,
-                        Math.random() * canvas.height
-                    ));
-                }
-            }
-            
-            function drawConnections() {
-                for (let i = 0; i < particles.length; i++) {
-                    for (let j = i + 1; j < particles.length; j++) {
-                        const dx = particles[i].x - particles[j].x;
-                        const dy = particles[i].y - particles[j].y;
-                        const distance = Math.sqrt(dx * dx + dy * dy);
-                        
-                        if (distance < 100) {
-                            const opacity = (1 - distance / 100) * 0.3;
-                            ctx.strokeStyle = `rgba(34, 197, 94, ${opacity})`;
-                            ctx.lineWidth = 1;
-                            ctx.beginPath();
-                            ctx.moveTo(particles[i].x, particles[i].y);
-                            ctx.lineTo(particles[j].x, particles[j].y);
-                            ctx.stroke();
-                        }
-                    }
-                }
-            }
-            
-            function animateParticles() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                
-                // Update and draw particles
-                for (let i = particles.length - 1; i >= 0; i--) {
-                    particles[i].update();
-                    particles[i].draw();
-                    
-                    // Remove dead particles
-                    if (particles[i].life <= 0) {
-                        particles.splice(i, 1);
-                    }
-                }
-                
-                // Add new particles to maintain count
-                while (particles.length < Math.min(80, Math.floor((canvas.width * canvas.height) / 15000))) {
-                    particles.push(new Particle(
-                        Math.random() * canvas.width,
-                        Math.random() * canvas.height
-                    ));
-                }
-                
-                // Draw connections
-                drawConnections();
-                
-                requestAnimationFrame(animateParticles);
-            }
-            
-            // Mouse tracking with enhanced interaction
-            document.addEventListener('mousemove', (e) => {
-                mouse.x = e.clientX;
-                mouse.y = e.clientY;
-            });
-            
-            // Initialize particle system
-            setCanvasSize();
-            initParticles();
-            animateParticles();
-            
-            // Handle window resize
-            window.addEventListener('resize', () => {
-                setCanvasSize();
-                initParticles();
-            });
-        });
-    </script>
-    
+    <script src="{{ url_for('static', path='/sml.js') }}?v=4"></script>
+
     <!-- Assistant (Clippy). Reacts to what happens on the page; never interrupts on a timer.
          Pages talk to it with events:
            window.dispatchEvent(new CustomEvent('sml:save',  { detail: { status: 201|409|422|0, category, message } }))
@@ -392,11 +105,12 @@
         window.addEventListener('sml:empty', (e) => {
             const q = e.detail && e.detail.search;
             if (q) react('Searching', `Nothing matches "${q}". Try fewer words or another category.`, '');
-            else react('GestureUp', 'No links yet. Use "Add Link" at the top to save your first one.', '', 8000);
+            else react('GestureUp', 'No links yet. Use "Save a link" at the top to save your first one.', '', 8000);
         });
 
         function syncToggle(hidden) {
             if (!toggle) return;
+            toggle.hidden = false;
             toggle.setAttribute('aria-pressed', String(!hidden));
             toggle.querySelector('span:last-child').textContent = hidden ? 'Show assistant' : 'Hide assistant';
         }
@@ -404,12 +118,12 @@
 
         async function start() {
             try {
-                const { initClippy, assistantPrefs } = await import('/static/modern-clippy.js');
+                const { initClippy, assistantPrefs } = await import('/static/modern-clippy.js?v=4');
                 agent = await initClippy({ basePath: '/static/' });
                 window.smlAssistant = agent;
                 const prefs = assistantPrefs.get();
                 syncToggle(!!prefs.hidden);
-                toggle && toggle.addEventListener('click', () => {
+                toggle.addEventListener('click', () => {
                     if (agent.visible) agent.dismiss();
                     else { agent.show(); syncToggle(false); }
                 });
@@ -420,7 +134,6 @@
                 window.dispatchEvent(new CustomEvent('sml:assistant-ready'));
             } catch (error) {
                 console.warn('Assistant not loaded:', error.message);
-                toggle && (toggle.hidden = true);
             }
         }
 
@@ -428,6 +141,6 @@
         if (document.readyState === 'complete') setTimeout(start, 300);
         else window.addEventListener('load', () => setTimeout(start, 300));
     </script>
-    
+    {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -16,6 +16,7 @@ import uvicorn
 
 from app.database import create_tables
 from app.routes.resources import router as resources_router
+from app.routes.save import router as save_router
 
 
 @asynccontextmanager
@@ -87,6 +88,7 @@ templates = Jinja2Templates(directory="app/templates")
 
 # Include API routes
 app.include_router(resources_router)
+app.include_router(save_router)
 
 
 @app.get("/", response_class=HTMLResponse)

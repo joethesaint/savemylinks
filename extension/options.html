@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SaveMyLinks options</title>
+  <style>
+    :root { color-scheme: light dark; --ink: #1f2a2e; --muted: #53656a; --line: #6c7f84; --brand: #2f6f7a; --on-brand: #fff; --bg: #fff; --ok: #1d6b45; --bad: #b3261e; }
+    @media (prefers-color-scheme: dark) { :root { --ink: #e3ebea; --muted: #9aacaf; --line: #62777c; --brand: #8cc4cc; --on-brand: #10181a; --bg: #1c2528; --ok: #7fd6a4; --bad: #ff8a80; } }
+    body { margin: 0; padding: 16px; min-width: 340px; background: var(--bg); color: var(--ink); font: 15px/22px "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; }
+    form { display: grid; gap: 16px; }
+    label { display: grid; gap: 6px; font: 500 12px/16px inherit; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+    input { min-height: 40px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; font: 15px inherit; color: var(--ink); background: transparent; text-transform: none; letter-spacing: 0; }
+    p { margin: 0; font-size: 13px; color: var(--muted); }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    button { min-height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--ink); font: 500 15px inherit; cursor: pointer; }
+    button[type=submit] { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+    :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+    #status { font-weight: 500; }
+    #status.ok { color: var(--ok); } #status.bad { color: var(--bad); }
+  </style>
+</head>
+<body>
+  <form id="form">
+    <label>Server address
+      <input id="server" type="url" required placeholder="http://127.0.0.1:8000">
+    </label>
+    <p>Where your SaveMyLinks app runs. The default works when it runs on this computer.</p>
+    <label>Save into category <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional)</span>
+      <input id="category" type="text" maxlength="100" placeholder="e.g. Reading">
+    </label>
+    <div class="row">
+      <button type="submit">Save options</button>
+      <button type="button" id="test">Test connection</button>
+    </div>
+    <p id="status" role="status" aria-live="polite"></p>
+    <p>Shortcut: Alt+Shift+S saves the page you're on. Change it at chrome://extensions/shortcuts (Edge: edge://extensions/shortcuts).</p>
+  </form>
+  <script src="options.js"></script>
+</body>
+</html>

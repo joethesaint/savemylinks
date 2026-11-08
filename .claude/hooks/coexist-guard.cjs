@@ -109,6 +109,9 @@ const prepush = remote => {
 }
 // reference-transaction hook: git calls it for every ref change, from any tool or agent.
 // Blocks local branch deletion and any move that drops commits (reset to older, amend, rebase, branch -f).
+// A local branch MAY be deleted when its tip is already on a remote (a remote-tracking branch contains it, so
+// nothing can be lost) and no other session holds a live claim on it (Director, 8 Nov 2026: merged branches
+// must clean up without the override). Git itself refuses to delete a branch checked out in any worktree.
 // Human override for one command: COEXIST_ALLOW=1 git ...
 const reftx = () => {
   if (process.env.COEXIST_ALLOW === '1') return
@@ -118,7 +121,14 @@ const reftx = () => {
   for (const [oldSha, newSha, ref] of updates) {
     // git branch -d/-D reports "0 0" for a ref that exists; a rename reports "<sha> 0" and is allowed.
     if (zero.test(oldSha) && zero.test(newSha) && execSyncOk(`git rev-parse --verify -q ${ref}`)) {
-      console.error(`[coexist-guard] Refusing to delete ${ref}. Another session may depend on it. Override: COEXIST_ALLOW=1 git ...`); process.exit(1)
+      const branch = ref.slice('refs/heads/'.length)
+      const tip = git(`rev-parse ${ref}`)
+      const onRemote = Boolean(tip) && git(`branch -r --contains ${tip}`).length > 0
+      const other = heldByOther(branch)
+      if (onRemote && !other) continue
+      const why = other ? `It is claimed by ${other.agent} in ${other.worktree} (${other.note}).`
+        : `Its tip ${tip.slice(0, 7)} is on no remote, so deleting it would lose work. Push it (or tag it) first.`
+      console.error(`[coexist-guard] Refusing to delete ${ref}. ${why} Override: COEXIST_ALLOW=1 git ...`); process.exit(1)
     }
     if (zero.test(oldSha) || zero.test(newSha) || oldSha === newSha) continue
     if (!execSyncOk(`git merge-base --is-ancestor ${oldSha} ${newSha}`)) {

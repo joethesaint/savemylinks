@@ -43,6 +43,49 @@ pub fn fallback_title(url: &str) -> String {
     }
 }
 
+fn key(text: &str) -> String {
+    text.chars().filter(|c| c.is_ascii_alphanumeric()).map(|c| c.to_ascii_lowercase()).collect()
+}
+
+/// %XX in a path segment back to its character (a segment is matched on letters and digits).
+fn percent_decode(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'%' && i + 2 < b.len() {
+            let hex = std::str::from_utf8(&b[i + 1..i + 3]).unwrap_or("zz");
+            if let Ok(v) = u8::from_str_radix(hex, 16) {
+                out.push(v);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(b[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// True when a title was made from the address, not written by a person or the page; exactly as
+/// app/services/urls.py looks_guessed. Such a title gives way to the page's own when it arrives.
+pub fn looks_guessed(title: &str, url: &str) -> bool {
+    let t = key(title);
+    if t.is_empty() {
+        return true;
+    }
+    let Ok(u) = Url::parse(url) else { return false };
+    let host = u.host_str().unwrap_or("").trim_start_matches("www.").to_string();
+    let raw_last = u.path_segments().and_then(|s| s.filter(|p| !p.is_empty()).last()).map(percent_decode).unwrap_or_default();
+    let last = match raw_last.rfind('.') {
+        Some(i) if i > 0 && raw_last[i + 1..].chars().all(|c| c.is_ascii_alphanumeric()) && i + 1 < raw_last.len() => raw_last[..i].to_string(),
+        _ => raw_last.clone(),
+    };
+    [key(&host), key(&format!("{last}{host}")), key(&format!("{raw_last}{host}")), key(&last)]
+        .iter()
+        .any(|k| !k.is_empty() && *k == t)
+}
+
 /// Is this a valid http(s) URL as the create/edit form requires? Returns the stored form.
 pub fn parse_http_url(raw: &str) -> Option<String> {
     let u = Url::parse(raw.trim()).ok()?;
@@ -56,6 +99,17 @@ pub fn parse_http_url(raw: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn guessed_titles() {
+        let li = "https://www.linkedin.com/feed/update/urn:li:activity:7503440251881947136/";
+        assert!(looks_guessed("Urn:li:activity:7503440251881947136 (linkedin.com)", li));
+        assert!(looks_guessed("Background tasks (fastapi.tiangolo.com)", "https://fastapi.tiangolo.com/tutorial/background-tasks/"));
+        assert!(looks_guessed("Report (example.com)", "https://example.com/files/report.pdf"));
+        assert!(looks_guessed("example.com", "https://www.example.com/"));
+        assert!(!looks_guessed("My notes on FastAPI tasks", "https://fastapi.tiangolo.com/tutorial/background-tasks/"));
+        assert_eq!(percent_decode("a%3Ab"), "a:b");
+    }
 
     #[test]
     fn normalizes_like_the_python_app() {

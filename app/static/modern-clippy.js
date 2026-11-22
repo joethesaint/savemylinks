@@ -182,8 +182,9 @@ export class ModernClippy {
     if (img) this.element.style.backgroundPosition = `-${img[0]}px -${img[1]}px`;
   }
 
-  // ── idle: an occasional idle animation, never speech ──
-  startIdle(min = 20000, max = 45000) {
+  // ── idle: a small idle move every few seconds so he feels alive; never speech ──
+  // (20-45 s between moves read as "frozen"; 6-14 s keeps him alive without being busy.)
+  startIdle(min = 6000, max = 14000) {
     this.stopIdle();
     if (reducedMotion()) return;
     const idles = this.animations.filter((n) => n.startsWith('Idle'));
@@ -196,6 +197,15 @@ export class ModernClippy {
     tick();
   }
   stopIdle() { clearTimeout(this.idleTimer); this.idleTimer = null; }
+
+  // ── poke: a click (or Enter/Space) gets a move back, picked from the ones this agent has ──
+  poke() {
+    const moves = ['Wave', 'GetAttention', 'Congratulate', 'GetTechy', 'GetArtsy', 'Thinking', 'CheckingSomething', 'GestureUp', 'LookUp', 'Explain']
+      .filter((n) => this.hasAnimation(n));
+    if (!moves.length) return;
+    this.stop();
+    this.play(moves[Math.floor(Math.random() * moves.length)], { timeout: 4000 }).then(() => this.startIdle());
+  }
 
   // ── speech: one bubble at a time ──
   speak(text, { duration = 5000, tone = '' } = {}) {
@@ -220,11 +230,13 @@ export class ModernClippy {
     let start = null;
     this.element.addEventListener('pointerdown', (e) => {
       const r = this.container.getBoundingClientRect();
-      start = { id: e.pointerId, dx: e.clientX - r.left, dy: e.clientY - r.top, moved: false };
+      start = { id: e.pointerId, dx: e.clientX - r.left, dy: e.clientY - r.top, x: e.clientX, y: e.clientY, moved: false };
       this.element.setPointerCapture(e.pointerId);
     });
     this.element.addEventListener('pointermove', (e) => {
       if (!start || e.pointerId !== start.id) return;
+      // A few pixels of wobble is still a click, not a drag.
+      if (!start.moved && Math.hypot(e.clientX - start.x, e.clientY - start.y) < 4) return;
       if (!start.moved) { start.moved = true; this.container.classList.add('is-dragging'); this.stopIdle(); }
       this.placeAt(e.clientX - start.dx, e.clientY - start.dy);
     });
@@ -233,6 +245,7 @@ export class ModernClippy {
       const moved = start.moved; start = null;
       this.container.classList.remove('is-dragging');
       if (moved) { this.savePosition(); this.startIdle(); }
+      else this.poke();
     };
     this.element.addEventListener('pointerup', end);
     this.element.addEventListener('pointercancel', end);
@@ -240,6 +253,7 @@ export class ModernClippy {
       const step = e.shiftKey ? 40 : 10;
       const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
       if (e.key === 'Escape') { this.closeBubble(); return; }
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.poke(); return; }
       if (!moves[e.key]) return;
       e.preventDefault();
       const r = this.container.getBoundingClientRect();

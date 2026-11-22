@@ -24,6 +24,18 @@ def test_no_root_absolute_links_remain(tmp_path):
     assert "'/?focus=search'" not in (out / "static" / "sml.js").read_text(encoding="utf-8")
 
 
+def test_dynamic_imports_use_a_relative_path(tmp_path):
+    # import('static/x.js') is a bare module name, not a file: the browser refuses it.
+    out = build(tmp_path / "site")
+    for page in ["index.html", "add.html"]:
+        html = (out / page).read_text(encoding="utf-8")
+        specs = re.findall(r"import\(\s*['\"]([^'\"]+)['\"]", html)
+        assert specs, f"{page}: expected the assistant's dynamic import"
+        for spec in specs:
+            assert spec.startswith(("./", "../", "/", "http")), f"{page}: bare import specifier {spec!r}"
+        assert (out / "static" / "modern-clippy.js").exists()
+
+
 def test_demo_api_loads_before_the_app_scripts(tmp_path):
     out = build(tmp_path / "site")
     for page in ["index.html", "add.html"]:

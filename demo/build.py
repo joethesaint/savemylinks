@@ -37,7 +37,9 @@ REWRITES = [
     ('href="/?', 'href="./?'),
     ('href="/"', 'href="./"'),
     ("location.href = '/'", "location.href = './'"),
-    ("'/static/", "'static/"),
+    # "./" not bare "static/": import('static/x.js') is read as a package name and fails, which
+    # silently stopped the assistant (Clippy) loading on the first demo.
+    ("'/static/", "'./static/"),
     ("on your own server.", "on your own server. This demo keeps them in your browser."),
 ]
 

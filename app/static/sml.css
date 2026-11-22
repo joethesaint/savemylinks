@@ -58,11 +58,20 @@ a { color: var(--brand); }
 a:hover { color: var(--brand-hover); }
 [hidden] { display: none !important; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* No blue flash or ring on a mouse click or a tap: the ring is for keyboard users only
+   (gotcha: buttons focused by a click, or by script, must not look "stuck"). */
+* { -webkit-tap-highlight-color: transparent; }
+:focus:not(:focus-visible) { outline: none; }
+button, .btn, .chip, .card { -webkit-user-select: none; user-select: none; }
+.card-title, .card-desc, .card-url { -webkit-user-select: text; user-select: text; }
 .visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .skip-link { position: absolute; left: var(--space-4); top: -48px; background: var(--surface-raised); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); z-index: 50; }
 .skip-link:focus { top: var(--space-2); }
 
-.wrap { width: 100%; max-width: 920px; margin: 0 auto; padding: 0 var(--space-4); }
+/* Wide like most web apps (the library is a grid, not an article); text keeps its own measure
+   (.lede 56ch, empty-state 46ch) and the save page stays a comfortable form width. */
+.wrap { width: 100%; max-width: 1760px; margin: 0 auto; padding: 0 max(var(--space-4), env(safe-area-inset-left, 0px)); }
+@media (min-width: 1024px) { .wrap { padding: 0 var(--space-8); } }
 
 /* ── header ── */
 .site-header { position: sticky; top: 0; z-index: 20; background: var(--surface-raised); border-bottom: 1px solid var(--line); }
@@ -188,7 +197,7 @@ main { flex: 1; padding: var(--space-8) 0 var(--space-12); }
 .pager .btn[aria-current="page"] { background: var(--brand-soft); border-color: var(--brand); color: var(--brand); }
 
 /* ── add page ── */
-.split { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--space-8); align-items: start; }
+.split { max-width: 1000px; margin-inline: auto; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--space-8); align-items: start; }
 .panel { background: var(--surface-raised); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); padding: var(--space-6); }
 .form { display: grid; gap: var(--space-6); }
 .form-actions { display: flex; gap: var(--space-3); flex-wrap: wrap; }
@@ -212,11 +221,11 @@ dialog .panel { border: 0; box-shadow: none; }
   border: 1px solid var(--line); box-shadow: var(--shadow-lift);
   animation: toast-in var(--dur-settle) var(--ease-swing);
 }
-.toast code { font: 500 13px var(--f-mono); }
+.toast-icon { flex: none; width: 20px; height: 20px; color: var(--ink-muted); }
 .toast .msg { flex: 1; }
-.toast-success { background: var(--success-soft); border-color: var(--success); } .toast-success code { color: var(--success); }
-.toast-notice { background: var(--notice-soft); border-color: var(--notice); } .toast-notice code { color: var(--notice); }
-.toast-danger { background: var(--danger-soft); border-color: var(--danger); } .toast-danger code { color: var(--danger); }
+.toast-success { background: var(--success-soft); border-color: var(--success); } .toast-success .toast-icon { color: var(--success); }
+.toast-notice { background: var(--notice-soft); border-color: var(--notice); } .toast-notice .toast-icon { color: var(--notice); }
+.toast-danger { background: var(--danger-soft); border-color: var(--danger); } .toast-danger .toast-icon { color: var(--danger); }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
 
 /* ── footer ── */
@@ -268,11 +277,6 @@ dialog .panel { border: 0; box-shadow: none; }
 .status-line { flex-wrap: wrap; }
 .view-switch { display: inline-flex; gap: 2px; padding: 2px; margin-left: auto; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-raised); }
 .view-switch .btn[aria-pressed="true"] { background: var(--brand-soft); color: var(--brand); }
-.cards[data-view="grid"] { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
-.cards[data-view="grid"] .card { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto; gap: var(--space-3); }
-.cards[data-view="grid"] .thumb { grid-column: 1 / -1; width: 100%; height: auto; aspect-ratio: 16 / 9; }
-.cards[data-view="grid"] .card-desc { -webkit-line-clamp: 3; }
-.cards[data-view="grid"] .card-actions { grid-column: 1; flex-direction: row; justify-self: end; }
 .cards[data-view="list"] { gap: 0; border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; background: var(--surface-raised); }
 .cards[data-view="list"] .card { grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding: var(--space-2) var(--space-4); border: 0; border-bottom: 1px solid var(--line); border-radius: 0; box-shadow: none; }
 .cards[data-view="list"] .card:last-child { border-bottom: 0; }
@@ -286,13 +290,49 @@ dialog .panel { border: 0; box-shadow: none; }
 @media (max-width: 720px) {
   .cards[data-view="list"] .card-meta .site { display: none; }
 }
-/* A link with no picture: a stand-in sheet in its category's colour, grid view only. */
+/* ── grid view, after studying Pocket's cards ──
+   The picture bleeds to the card's edges (rounded top corners only); the title clamps at three
+   lines; one footer row holds the site and category on the left and the actions on the right,
+   so every card in a row ends on the same line. Unlike Pocket we keep focus rings, and the
+   stand-in colour means something (the category), not a hash of the id. */
+.cards[data-view="grid"] { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.cards[data-view="grid"] .card { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto 1fr auto; gap: var(--space-2) var(--space-3); align-items: start; }
+.cards[data-view="grid"] .card-body { display: contents; }
+.cards[data-view="grid"] .thumb {
+  grid-column: 1 / -1; grid-row: 1; width: calc(100% + 2 * var(--space-4)); max-width: none; height: auto; aspect-ratio: 16 / 9;
+  margin: calc(-1 * var(--space-4)) calc(-1 * var(--space-4)) var(--space-2); border-radius: var(--radius-lg) var(--radius-lg) 0 0; cursor: pointer;
+}
+.cards[data-view="grid"] .card-title { grid-column: 1 / -1; grid-row: 2; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.cards[data-view="grid"] .card-url { display: none; }
+.cards[data-view="grid"] .card-desc { grid-column: 1 / -1; grid-row: 3; margin: 0; font-size: 14px; color: var(--ink-muted); }
+.cards[data-view="grid"] .card-meta { grid-column: 1; grid-row: 4; align-self: center; margin: 0; flex-wrap: nowrap; min-width: 0; }
+.cards[data-view="grid"] .card-meta .site { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.cards[data-view="grid"] .card-meta .date { display: none; }
+.cards[data-view="grid"] .card-actions { grid-column: 2; grid-row: 4; align-self: center; }
+.cards[data-view="grid"] .confirm { grid-row: 5; }
+
+/* A link with no picture: a stand-in sheet in its category's colour, grid view only. Like Pocket,
+   one big cropped letter is the texture; the domain sits on it as a label. */
 .thumb-fallback { display: none; }
 .cards[data-view="grid"] .thumb-fallback {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1);
-  min-width: 0; padding: var(--space-3); box-sizing: border-box; overflow: hidden;
-  background: var(--chip-bg, var(--surface-sunk)); color: var(--ink);
-  border-top: 4px solid var(--chip-tab, var(--brand));
+  display: block; position: relative; overflow: hidden; box-sizing: border-box;
+  background: var(--chip-bg, var(--surface-sunk)); border-top: 4px solid var(--chip-tab, var(--brand));
 }
-.thumb-fallback b { font-size: 40px; line-height: 1; font-weight: 700; opacity: .85; }
-.thumb-fallback span { max-width: 100%; font-size: 12px; color: var(--ink-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thumb-fallback b {
+  position: absolute; right: -0.06em; bottom: -0.3em; font: 700 128px/1 var(--f-sans);
+  color: var(--chip-tab, var(--brand)); opacity: .55; pointer-events: none;
+}
+.thumb-fallback span {
+  position: absolute; left: var(--space-3); bottom: var(--space-3); max-width: calc(100% - 2 * var(--space-3));
+  padding: 2px var(--space-2); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--ink);
+  font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Wide screens: cards sit two across so lines stay readable; list rows get room for long titles. */
+@media (min-width: 1100px) {
+  .cards:not([data-view]), .cards[data-view="cards"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1600px) {
+  .cards:not([data-view]), .cards[data-view="cards"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cards[data-view="grid"] { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+}

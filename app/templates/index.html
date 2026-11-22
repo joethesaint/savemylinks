@@ -145,7 +145,7 @@
 (function () {
     const { toast, categories, categoryClass, resetCategories, fieldErrors } = window.SML;
     const $ = (s) => document.querySelector(s);
-    const PER_PAGE = 10;
+    const PER_PAGE = 24; // divides by 2, 3, 4, 6 and 8, so full grid rows at most widths
 
     // The URL holds search, category and page, so Back, refresh and shared links keep the view.
     const params = new URLSearchParams(location.search);
@@ -226,6 +226,8 @@
             img.src = meta.image;
             img.onerror = () => img.replaceWith(standIn());
         } else img.replaceWith(standIn());
+        // As in Pocket, the picture opens the link too (a big mouse target; keyboard users have o and Enter).
+        li.addEventListener('click', (ev) => { if (ev.target.closest('.thumb')) li.querySelector('.card-link').click(); });
 
         li.querySelector('.site').textContent = meta.site_name || host;
         const chip = li.querySelector('.category');
@@ -325,6 +327,8 @@
             const savedId = Number(new URLSearchParams(location.search).get('saved')) || Number(sessionStorage.getItem('sml-saved')) || 0;
             sessionStorage.removeItem('sml-saved');
             list.replaceChildren(...data.resources.map(r => renderCard(r, r.id === savedId)));
+            // LCP: the first row of pictures is on screen at once, so it loads now, not lazily.
+            list.querySelectorAll('img.thumb').forEach((im, i) => { if (i < 6) { im.loading = 'eager'; if (i === 0) im.fetchPriority = 'high'; } });
             current = data.resources;
             if (sel >= 0) select(sel); // keep the keyboard selection in place after a change
             renderPager(data.total);
@@ -440,10 +444,15 @@
         const b = $('#editRefresh');
         b.disabled = true;
         try {
+            const before = JSON.stringify(editing.link_metadata || null);
             const res = await fetch(`/api/resources/${editing.id}/metadata`, { method: 'POST' });
             const r = await res.json();
-            toast(r.link_metadata ? 'Preview updated.' : "The page didn't share a preview. Your link is unchanged.", { code: res.status, tone: r.link_metadata ? 'success' : 'notice' });
-            if (r.link_metadata) { dlg.close(); load(); }
+            const changed = JSON.stringify(r.link_metadata || null) !== before;
+            // Say what really happened: new preview, the same one, or none at all.
+            toast(!r.link_metadata ? "The page didn't share a preview. Your link is unchanged."
+                : changed ? 'Preview updated.' : 'Checked the page again: the preview is already up to date.',
+                { code: res.status, tone: r.link_metadata && changed ? 'success' : 'notice' });
+            if (r.link_metadata && changed) { dlg.close(); load(); }
         } catch (e) {
             toast("Couldn't reach the server.", { tone: 'danger' });
         } finally { b.disabled = false; }

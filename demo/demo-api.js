@@ -9,20 +9,22 @@
   const now = () => new Date().toISOString();
   const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString();
 
+  // Images are each site's own share picture (og:image, fetched 22 Nov 2026). FastAPI, ALX,
+  // SQLAlchemy, Chrome docs and pytest-asyncio publish none, so they show the stand-in, as in the app.
   const SEED = [
     // Newest first in the library: the author's portfolio, then this app's source.
     ['https://joethesaint.github.io/', 'Joseph Taiwo Bamisaye: portfolio', 'Who built SaveMyLinks.', 'Projects', 'joethesaint.github.io', 'Software engineer: backend systems, quantitative analysis, portfolio optimization and scalable web architectures.', 0.05, 'https://joethesaint.github.io/og-image.jpg'],
     ['https://github.com/joethesaint/savemylinks', 'SaveMyLinks source code', 'This app, on GitHub: MIT licensed.', 'Projects', 'GitHub', 'Save any page in one move and find it again in seconds. FastAPI, Rust, Jinja.', 0.1, 'https://opengraph.githubassets.com/1/joethesaint/savemylinks'],
-    ['https://developer.mozilla.org/en-US/docs/Web/HTML/Element/dialog', 'The dialog element (MDN)', 'How the edit window in this app works.', 'Web', 'MDN Web Docs', 'The HTML dialog element represents a modal or non-modal dialog box.', 1],
+    ['https://developer.mozilla.org/en-US/docs/Web/HTML/Element/dialog', 'The dialog element (MDN)', 'How the edit window in this app works.', 'Web', 'MDN Web Docs', 'The HTML dialog element represents a modal or non-modal dialog box.', 1, 'https://developer.mozilla.org/mdn-social-image.46ac2375.png'],
     ['https://fastapi.tiangolo.com/tutorial/background-tasks/', 'Background tasks in FastAPI', 'How link previews are fetched after the save returns.', 'Python', 'FastAPI', 'Define background tasks to be run after returning a response.', 2],
     ['https://www.alxafrica.com/', 'ALX Africa', 'Where SaveMyLinks started, as a capstone project.', 'Learning', 'ALX Africa', 'Tech training programmes for Africa.', 3],
     ['https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html', 'SQLAlchemy asyncio', null, 'Python', 'SQLAlchemy', 'Asynchronous I/O support for Core and ORM.', 4],
-    ['https://web.dev/articles/optimize-lcp', 'Optimize Largest Contentful Paint', 'Checklist for a fast first screen.', 'Web', 'web.dev', 'A step-by-step guide on how to break down LCP and identify key areas to improve.', 6],
-    ['https://www.nngroup.com/articles/ten-usability-heuristics/', '10 Usability Heuristics', 'Read before any design review.', 'Design', 'Nielsen Norman Group', "Jakob Nielsen's 10 general principles for interaction design.", 8],
-    ['https://refactoringui.com/', 'Refactoring UI', null, 'Design', 'Refactoring UI', 'Learn how to design awesome UIs by yourself using specific tactics.', 11],
-    ['https://docs.pydantic.dev/latest/concepts/validators/', 'Pydantic validators', 'Where the 422 messages come from.', 'Python', 'Pydantic', 'Field and model validators in Pydantic v2.', 13],
+    ['https://web.dev/articles/optimize-lcp', 'Optimize Largest Contentful Paint', 'Checklist for a fast first screen.', 'Web', 'web.dev', 'A step-by-step guide on how to break down LCP and identify key areas to improve.', 6, 'https://web.dev/static/articles/optimize-lcp/image/thumbnail.png'],
+    ['https://www.nngroup.com/articles/ten-usability-heuristics/', '10 Usability Heuristics', 'Read before any design review.', 'Design', 'Nielsen Norman Group', "Jakob Nielsen's 10 general principles for interaction design.", 8, 'https://media.nngroup.com/media/articles/opengraph_images/Updated10HeuristicSocialCard-36.png'],
+    ['https://refactoringui.com/', 'Refactoring UI', null, 'Design', 'Refactoring UI', 'Learn how to design awesome UIs by yourself using specific tactics.', 11, 'https://refactoringui.com/img/homepage/og-image.png'],
+    ['https://docs.pydantic.dev/latest/concepts/validators/', 'Pydantic validators', 'Where the 422 messages come from.', 'Python', 'Pydantic', 'Field and model validators in Pydantic v2.', 13, 'https://pydantic.dev/docs/og/validation/latest/concepts/validators.png'],
     ['https://developer.chrome.com/docs/extensions/develop', 'Build a Chrome extension', 'For the one-click save button.', 'Web', 'Chrome for Developers', 'Learn how to develop extensions for Chrome.', 16],
-    ['https://www.smashingmagazine.com/2022/09/inline-validation-web-forms-ux/', 'Inline validation in web forms', null, 'Design', 'Smashing Magazine', 'How to design inline validation that helps instead of nags.', 21],
+    ['https://www.smashingmagazine.com/2022/09/inline-validation-web-forms-ux/', 'Inline validation in web forms', null, 'Design', 'Smashing Magazine', 'How to design inline validation that helps instead of nags.', 21, 'https://archive.smashing.media/assets/344dbf88-fdf9-42bb-adb4-46f01eedd629/64066efe-71fa-45b6-8e86-caf46c423b64/clean-up-input-ux-pattern.jpg'],
     ['https://pytest-asyncio.readthedocs.io/', 'pytest-asyncio', null, 'Python', 'pytest-asyncio', 'Pytest support for asyncio.', 25],
   ];
   const seed = () => ({
@@ -34,12 +36,35 @@
     })),
   });
 
+  const norm0 = (u) => { try { const x = new URL(u); return x.host.toLowerCase() + x.pathname.replace(/\/$/, ''); } catch (e) { return u; } };
+  // What the demo "knows" about its sample pages: "Fetch preview again" gives these back, and
+  // visitors who saved the demo before the pictures were added get them on their next visit.
+  const KNOWN = new Map(seed().items.map((r) => [norm0(r.url), r.link_metadata]));
+  const PORTFOLIO = SEED[0][0];
+
   let memory = null;
   function load() {
-    try { const s = localStorage.getItem(KEY); if (s) return JSON.parse(s); } catch (e) { /* blocked */ }
+    try {
+      const s = localStorage.getItem(KEY);
+      if (s) {
+        const db = JSON.parse(s);
+        for (const r of db.items) {
+          const k = KNOWN.get(norm0(r.url));
+          if (k && k.image && r.link_metadata && !r.link_metadata.image) r.link_metadata = { ...r.link_metadata, image: k.image };
+        }
+        return db;
+      }
+    } catch (e) { /* blocked */ }
     return memory || (memory = seed());
   }
   function save(db) { memory = db; try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { /* memory only */ } }
+  // Clear all: start an empty library, keeping only the author's portfolio (delete that too if you like).
+  window.smlDemoClear = function () {
+    const db = load();
+    const keep = db.items.filter((r) => norm0(r.url) === norm0(PORTFOLIO));
+    db.items = keep.length ? keep : seed().items.filter((r) => r.url === PORTFOLIO);
+    save(db); location.reload();
+  };
   window.smlDemoReset = function () { try { localStorage.removeItem(KEY); } catch (e) { /* blocked */ } memory = null; location.reload(); };
 
   const json = (status, body) => Promise.resolve(new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }));
@@ -111,7 +136,9 @@
       const r = db.items.find((x) => x.id === id);
       if (!r) return json(404, { detail: 'Resource not found' });
       if (m[2] && method === 'POST') {
-        if (!r.link_metadata && !r.pending_at) { previewLater(r); save(db); }
+        const k = KNOWN.get(norm0(r.url));
+        if (k) { r.link_metadata = { ...k }; delete r.pending_at; save(db); }
+        else if (!r.link_metadata && !r.pending_at) { previewLater(r); save(db); }
         return json(200, r);
       }
       if (method === 'GET') return json(200, r);

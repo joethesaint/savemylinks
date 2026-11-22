@@ -24,7 +24,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-    <link rel="stylesheet" href="static/sml.css?v=6">
+    <link rel="stylesheet" href="static/sml.css?v=10">
     <link rel="icon" type="image/svg+xml" href="static/art/icon.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="static/art/icon-32.png">
     <!-- Installable app (add to home screen); on Android it also appears in the Share menu. -->
@@ -32,10 +32,10 @@
     <link rel="apple-touch-icon" href="static/art/apple-touch-icon.png">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="SaveMyLinks">
-<style>.demo-banner{display:flex;flex-wrap:wrap;gap:.5rem 1rem;align-items:center;justify-content:center;padding:.5rem max(16px,env(safe-area-inset-left,0px));background:#2f6f7a;color:#fff;font-size:.875rem;text-align:center}.demo-banner a{color:inherit;text-decoration:underline}.demo-banner .btn{color:inherit;border-color:currentColor}.demo-banner{gap:.5rem 1.5rem;transition:background-color .3s}.demo-banner.is-connected{background:#1d6b45}.demo-banner [data-app-detect]{display:inline-flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.5rem 1rem}@media (min-width:720px){.demo-banner [data-app-detect]{padding-left:1.5rem;border-left:1px solid rgba(255,255,255,.35)}}.app-status{display:inline-flex;align-items:center;gap:.4rem}.app-dot{width:.6rem;height:.6rem;border-radius:50%;background:#7dffb2;box-shadow:0 0 0 3px rgba(125,255,178,.25)}.demo-banner a.app-open,[data-app-detect] a.app-open{display:inline-block;padding:.25rem .8rem;border-radius:999px;background:#fff;color:#1d6b45;font-weight:600;text-decoration:none}.demo-banner a.app-open:hover{background:#e8f7ee}@media (prefers-reduced-motion:reduce){.demo-banner{transition:none}}</style>
+<style>.demo-banner{display:flex;flex-wrap:wrap;gap:.5rem 1rem;align-items:center;justify-content:center;padding:.5rem max(16px,env(safe-area-inset-left,0px));background:#2f6f7a;color:#fff;font-size:.875rem;text-align:center}.demo-banner a{color:inherit;text-decoration:underline}.demo-banner .btn{color:inherit;border-color:currentColor}.demo-banner{gap:.5rem 1.5rem;transition:background-color .3s}.demo-actions{display:inline-flex;gap:.5rem}.demo-banner.is-connected{background:#1d6b45}.demo-banner [data-app-detect]{display:inline-flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.5rem 1rem}@media (min-width:720px){.demo-banner [data-app-detect]{padding-left:1.5rem;border-left:1px solid rgba(255,255,255,.35)}}.app-status{display:inline-flex;align-items:center;gap:.4rem}.app-dot{width:.6rem;height:.6rem;border-radius:50%;background:#7dffb2;box-shadow:0 0 0 3px rgba(125,255,178,.25)}.demo-banner a.app-open,[data-app-detect] a.app-open{display:inline-block;padding:.25rem .8rem;border-radius:999px;background:#fff;color:#1d6b45;font-weight:600;text-decoration:none}.demo-banner a.app-open:hover{background:#e8f7ee}@media (prefers-reduced-motion:reduce){.demo-banner{transition:none}}</style>
 </head>
 <body>
-    <div class="demo-banner" role="note"><span><strong>Demo.</strong> Links you save here stay in this browser only. Previews are simulated. <a href="download.html">Download the full app</a> · <a href="https://github.com/joethesaint/savemylinks">Source</a></span><button type="button" class="btn btn-ghost btn-sm" onclick="smlDemoReset()">Reset demo</button><span data-app-detect><button type="button" class="btn btn-ghost btn-sm">Have the app? Open it</button></span></div>
+    <div class="demo-banner" role="note"><span><strong>Demo.</strong> Links you save here stay in this browser only. Previews are simulated. <a href="download.html">Download the full app</a> · <a href="https://github.com/joethesaint/savemylinks">Source</a></span><span class="demo-actions"><button type="button" class="btn btn-ghost btn-sm" onclick="smlDemoClear()" title="Keeps only the portfolio link">Clear all</button><button type="button" class="btn btn-ghost btn-sm" onclick="smlDemoReset()" title="Brings back the sample links">Reset demo</button></span><span data-app-detect><button type="button" class="btn btn-ghost btn-sm">Have the app? Open it</button></span></div>
     <a href="#main-content" class="skip-link">Skip to content</a>
 
     <!-- Line icons: 16px, 1.6 stroke, round caps, currentColor (design system). -->
@@ -50,6 +50,12 @@
         <symbol id="i-moon" viewBox="0 0 16 16"><path d="M13 9.5A5.5 5.5 0 1 1 6.5 3a4.5 4.5 0 0 0 6.5 6.5z"/></symbol>
         <symbol id="i-clip" viewBox="0 0 16 16"><path d="M10.5 5.5 6 10a1.4 1.4 0 0 0 2 2l5-5a2.8 2.8 0 0 0-4-4L4 8a4.2 4.2 0 0 0 6 6l3.5-3.5"/></symbol>
         <symbol id="i-refresh" viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v2.5h-2.5"/></symbol>
+        <symbol id="i-check" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><path d="M5.2 8.2l1.9 1.9 3.7-3.9"/></symbol>
+        <symbol id="i-info" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><path d="M8 7.2v3.8M8 5h.01"/></symbol>
+        <symbol id="i-alert" viewBox="0 0 16 16"><path d="M8 2l6.3 11H1.7z"/><path d="M8 6.5v3M8 11.5h.01"/></symbol>
+        <symbol id="i-view-cards" viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="11" height="4.5" rx="1"/><rect x="2.5" y="9" width="11" height="4.5" rx="1"/></symbol>
+        <symbol id="i-view-grid" viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"/><rect x="9" y="9" width="4.5" height="4.5" rx="1"/></symbol>
+        <symbol id="i-view-list" viewBox="0 0 16 16"><path d="M2.5 4h11M2.5 8h11M2.5 12h11"/></symbol>
     </svg>
 
     <header class="site-header">
@@ -99,6 +105,11 @@
 <div class="status-line">
     <span id="resultLine" aria-live="polite"></span>
     <button type="button" class="btn btn-ghost btn-sm" id="clearFilters" hidden>Clear search and filter</button>
+    <div class="view-switch" role="group" aria-label="How to show your links">
+        <button type="button" class="btn btn-ghost btn-icon btn-sm" data-view="cards" aria-label="Cards view" title="Cards (v then c)"><svg class="icon" aria-hidden="true"><use href="#i-view-cards"/></svg></button>
+        <button type="button" class="btn btn-ghost btn-icon btn-sm" data-view="grid" aria-label="Grid view" title="Grid (v then g)"><svg class="icon" aria-hidden="true"><use href="#i-view-grid"/></svg></button>
+        <button type="button" class="btn btn-ghost btn-icon btn-sm" data-view="list" aria-label="List view" title="List (v then l)"><svg class="icon" aria-hidden="true"><use href="#i-view-list"/></svg></button>
+    </div>
 </div>
 
 <div id="loadingState" class="cards" aria-hidden="true">
@@ -201,6 +212,7 @@
             <dt><kbd>d</kbd></dt><dd>Delete it (you can undo)</dd>
             <dt><kbd>.</kbd></dt><dd>Do the last change again, on the selected link</dd>
             <dt><kbd>/</kbd></dt><dd>Search</dd>
+            <dt><kbd>v</kbd> then <kbd>c</kbd> <kbd>g</kbd> <kbd>l</kbd></dt><dd>Cards, grid or list view</dd>
             <dt><kbd>?</kbd></dt><dd>This list</dd>
         </dl>
         <p class="hint">Tidying many links: change one with <kbd>c</kbd>, then <kbd>j</kbd> <kbd>.</kbd> <kbd>j</kbd> <kbd>.</kbd> for the rest.</p>
@@ -222,7 +234,7 @@
 
     <script src="static/demo-api.js"></script>
     <script src="static/app-detect.js"></script>
-    <script src="static/sml.js?v=5"></script>
+    <script src="static/sml.js?v=6"></script>
 
     <!-- Assistant (Clippy). Reacts to what happens on the page; never interrupts on a timer.
          Pages talk to it with events:
@@ -299,7 +311,7 @@
 (function () {
     const { toast, categories, categoryClass, resetCategories, fieldErrors } = window.SML;
     const $ = (s) => document.querySelector(s);
-    const PER_PAGE = 10;
+    const PER_PAGE = 24; // divides by 2, 3, 4, 6 and 8, so full grid rows at most widths
 
     // The URL holds search, category and page, so Back, refresh and shared links keep the view.
     const params = new URLSearchParams(location.search);
@@ -364,11 +376,24 @@
         else if (fresh) { desc.textContent = 'Fetching the page title, picture and summary…'; desc.classList.add('pending'); }
         else desc.remove();
 
+        // No picture: a stand-in sheet in the category's colour (shown in grid view only).
+        const standIn = () => {
+            const d = document.createElement('div');
+            d.className = 'thumb thumb-fallback' + (r.category ? ' ' + categoryClass(r.category, categoryList) : '');
+            d.setAttribute('aria-hidden', 'true');
+            const b = document.createElement('b'); b.textContent = (host[0] || '?').toUpperCase();
+            const s = document.createElement('span'); s.textContent = host;
+            d.append(b, s);
+            li.classList.add('no-image');
+            return d;
+        };
         const img = li.querySelector('.thumb');
         if (meta.image && /^https?:\/\//i.test(meta.image)) {
             img.src = meta.image;
-            img.onerror = () => { img.remove(); li.classList.add('no-image'); };
-        } else { img.remove(); li.classList.add('no-image'); }
+            img.onerror = () => img.replaceWith(standIn());
+        } else img.replaceWith(standIn());
+        // As in Pocket, the picture opens the link too (a big mouse target; keyboard users have o and Enter).
+        li.addEventListener('click', (ev) => { if (ev.target.closest('.thumb')) li.querySelector('.card-link').click(); });
 
         li.querySelector('.site').textContent = meta.site_name || host;
         const chip = li.querySelector('.category');
@@ -468,6 +493,8 @@
             const savedId = Number(new URLSearchParams(location.search).get('saved')) || Number(sessionStorage.getItem('sml-saved')) || 0;
             sessionStorage.removeItem('sml-saved');
             list.replaceChildren(...data.resources.map(r => renderCard(r, r.id === savedId)));
+            // LCP: the first row of pictures is on screen at once, so it loads now, not lazily.
+            list.querySelectorAll('img.thumb').forEach((im, i) => { if (i < 6) { im.loading = 'eager'; if (i === 0) im.fetchPriority = 'high'; } });
             current = data.resources;
             if (sel >= 0) select(sel); // keep the keyboard selection in place after a change
             renderPager(data.total);
@@ -583,10 +610,15 @@
         const b = $('#editRefresh');
         b.disabled = true;
         try {
+            const before = JSON.stringify(editing.link_metadata || null);
             const res = await fetch(`/api/resources/${editing.id}/metadata`, { method: 'POST' });
             const r = await res.json();
-            toast(r.link_metadata ? 'Preview updated.' : "The page didn't share a preview. Your link is unchanged.", { code: res.status, tone: r.link_metadata ? 'success' : 'notice' });
-            if (r.link_metadata) { dlg.close(); load(); }
+            const changed = JSON.stringify(r.link_metadata || null) !== before;
+            // Say what really happened: new preview, the same one, or none at all.
+            toast(!r.link_metadata ? "The page didn't share a preview. Your link is unchanged."
+                : changed ? 'Preview updated.' : 'Checked the page again: the preview is already up to date.',
+                { code: res.status, tone: r.link_metadata && changed ? 'success' : 'notice' });
+            if (r.link_metadata && changed) { dlg.close(); load(); }
         } catch (e) {
             toast("Couldn't reach the server.", { tone: 'danger' });
         } finally { b.disabled = false; }
@@ -693,6 +725,14 @@
     document.addEventListener('keydown', (e) => {
         if (e.ctrlKey || e.metaKey || e.altKey) return;
         if (e.target.closest('input, textarea, select, [contenteditable="true"]') || document.querySelector('dialog[open]')) return;
+        // Two-key views, as in Pocket: v then c (cards), g (grid) or l (list).
+        if (viewPending) {
+            viewPending = false;
+            const v = { c: 'cards', g: 'grid', l: 'list' }[e.key];
+            if (v) { e.preventDefault(); setView(v, true); }
+            return;
+        }
+        if (e.key === 'v') { e.preventDefault(); viewPending = true; setTimeout(() => { viewPending = false; }, 1500); return; }
         const r = sel >= 0 ? current[sel] : null;
         const needs = (fn) => () => (r ? fn() : select(0)); // a verb with nothing selected selects the first link
         const keys = {
@@ -712,6 +752,18 @@
         act();
     });
     if (params.get('keys')) $('#keysDialog').showModal();
+
+    // ── views: cards (default), grid, list; remembered per browser ──
+    let viewPending = false;
+    function setView(v, announce) {
+        if (!['cards', 'grid', 'list'].includes(v)) v = 'cards';
+        $('#resourcesList').dataset.view = v;
+        document.querySelectorAll('.view-switch [data-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
+        try { localStorage.setItem('sml-view', v); } catch (e) { /* blocked */ }
+        if (announce) $('#selectionStatus').textContent = `${v[0].toUpperCase()}${v.slice(1)} view`;
+    }
+    document.querySelectorAll('.view-switch [data-view]').forEach((b) => { b.onclick = () => setView(b.dataset.view, true); });
+    setView((() => { try { return localStorage.getItem('sml-view'); } catch (e) { return null; } })() || 'cards');
 
     loadCategories().then(load);
 })();

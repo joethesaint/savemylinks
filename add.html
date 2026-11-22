@@ -24,7 +24,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-    <link rel="stylesheet" href="static/sml.css?v=6">
+    <link rel="stylesheet" href="static/sml.css?v=10">
     <link rel="icon" type="image/svg+xml" href="static/art/icon.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="static/art/icon-32.png">
     <!-- Installable app (add to home screen); on Android it also appears in the Share menu. -->
@@ -32,10 +32,10 @@
     <link rel="apple-touch-icon" href="static/art/apple-touch-icon.png">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="SaveMyLinks">
-<style>.demo-banner{display:flex;flex-wrap:wrap;gap:.5rem 1rem;align-items:center;justify-content:center;padding:.5rem max(16px,env(safe-area-inset-left,0px));background:#2f6f7a;color:#fff;font-size:.875rem;text-align:center}.demo-banner a{color:inherit;text-decoration:underline}.demo-banner .btn{color:inherit;border-color:currentColor}.demo-banner{gap:.5rem 1.5rem;transition:background-color .3s}.demo-banner.is-connected{background:#1d6b45}.demo-banner [data-app-detect]{display:inline-flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.5rem 1rem}@media (min-width:720px){.demo-banner [data-app-detect]{padding-left:1.5rem;border-left:1px solid rgba(255,255,255,.35)}}.app-status{display:inline-flex;align-items:center;gap:.4rem}.app-dot{width:.6rem;height:.6rem;border-radius:50%;background:#7dffb2;box-shadow:0 0 0 3px rgba(125,255,178,.25)}.demo-banner a.app-open,[data-app-detect] a.app-open{display:inline-block;padding:.25rem .8rem;border-radius:999px;background:#fff;color:#1d6b45;font-weight:600;text-decoration:none}.demo-banner a.app-open:hover{background:#e8f7ee}@media (prefers-reduced-motion:reduce){.demo-banner{transition:none}}</style>
+<style>.demo-banner{display:flex;flex-wrap:wrap;gap:.5rem 1rem;align-items:center;justify-content:center;padding:.5rem max(16px,env(safe-area-inset-left,0px));background:#2f6f7a;color:#fff;font-size:.875rem;text-align:center}.demo-banner a{color:inherit;text-decoration:underline}.demo-banner .btn{color:inherit;border-color:currentColor}.demo-banner{gap:.5rem 1.5rem;transition:background-color .3s}.demo-actions{display:inline-flex;gap:.5rem}.demo-banner.is-connected{background:#1d6b45}.demo-banner [data-app-detect]{display:inline-flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.5rem 1rem}@media (min-width:720px){.demo-banner [data-app-detect]{padding-left:1.5rem;border-left:1px solid rgba(255,255,255,.35)}}.app-status{display:inline-flex;align-items:center;gap:.4rem}.app-dot{width:.6rem;height:.6rem;border-radius:50%;background:#7dffb2;box-shadow:0 0 0 3px rgba(125,255,178,.25)}.demo-banner a.app-open,[data-app-detect] a.app-open{display:inline-block;padding:.25rem .8rem;border-radius:999px;background:#fff;color:#1d6b45;font-weight:600;text-decoration:none}.demo-banner a.app-open:hover{background:#e8f7ee}@media (prefers-reduced-motion:reduce){.demo-banner{transition:none}}</style>
 </head>
 <body>
-    <div class="demo-banner" role="note"><span><strong>Demo.</strong> Links you save here stay in this browser only. Previews are simulated. <a href="download.html">Download the full app</a> · <a href="https://github.com/joethesaint/savemylinks">Source</a></span><button type="button" class="btn btn-ghost btn-sm" onclick="smlDemoReset()">Reset demo</button><span data-app-detect><button type="button" class="btn btn-ghost btn-sm">Have the app? Open it</button></span></div>
+    <div class="demo-banner" role="note"><span><strong>Demo.</strong> Links you save here stay in this browser only. Previews are simulated. <a href="download.html">Download the full app</a> · <a href="https://github.com/joethesaint/savemylinks">Source</a></span><span class="demo-actions"><button type="button" class="btn btn-ghost btn-sm" onclick="smlDemoClear()" title="Keeps only the portfolio link">Clear all</button><button type="button" class="btn btn-ghost btn-sm" onclick="smlDemoReset()" title="Brings back the sample links">Reset demo</button></span><span data-app-detect><button type="button" class="btn btn-ghost btn-sm">Have the app? Open it</button></span></div>
     <a href="#main-content" class="skip-link">Skip to content</a>
 
     <!-- Line icons: 16px, 1.6 stroke, round caps, currentColor (design system). -->
@@ -50,6 +50,12 @@
         <symbol id="i-moon" viewBox="0 0 16 16"><path d="M13 9.5A5.5 5.5 0 1 1 6.5 3a4.5 4.5 0 0 0 6.5 6.5z"/></symbol>
         <symbol id="i-clip" viewBox="0 0 16 16"><path d="M10.5 5.5 6 10a1.4 1.4 0 0 0 2 2l5-5a2.8 2.8 0 0 0-4-4L4 8a4.2 4.2 0 0 0 6 6l3.5-3.5"/></symbol>
         <symbol id="i-refresh" viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v2.5h-2.5"/></symbol>
+        <symbol id="i-check" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><path d="M5.2 8.2l1.9 1.9 3.7-3.9"/></symbol>
+        <symbol id="i-info" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><path d="M8 7.2v3.8M8 5h.01"/></symbol>
+        <symbol id="i-alert" viewBox="0 0 16 16"><path d="M8 2l6.3 11H1.7z"/><path d="M8 6.5v3M8 11.5h.01"/></symbol>
+        <symbol id="i-view-cards" viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="11" height="4.5" rx="1"/><rect x="2.5" y="9" width="11" height="4.5" rx="1"/></symbol>
+        <symbol id="i-view-grid" viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"/><rect x="9" y="9" width="4.5" height="4.5" rx="1"/></symbol>
+        <symbol id="i-view-list" viewBox="0 0 16 16"><path d="M2.5 4h11M2.5 8h11M2.5 12h11"/></symbol>
     </svg>
 
     <header class="site-header">
@@ -154,7 +160,7 @@
 
     <script src="static/demo-api.js"></script>
     <script src="static/app-detect.js"></script>
-    <script src="static/sml.js?v=5"></script>
+    <script src="static/sml.js?v=6"></script>
 
     <!-- Assistant (Clippy). Reacts to what happens on the page; never interrupts on a timer.
          Pages talk to it with events:

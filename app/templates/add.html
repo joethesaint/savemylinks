@@ -70,7 +70,7 @@
         <h2 class="title" id="promiseTitle">What happens when you save</h2>
         <ol>
             <li>The link is filed at once. You don't wait for the page to load.</li>
-            <li>About a second later, SaveMyLinks reads the page's own title, picture and summary and adds them to the card.</li>
+            <li>About a second later, SaveMyLinks reads the page's own title, picture and summary and adds them to the card. If you kept the suggested title, the page's own title replaces it.</li>
             <li>Find it again by typing any word of its title or your note, or by tapping its category.</li>
             <li>Save the same address twice and you're told it's already in your library, so nothing is duplicated.</li>
         </ol>
@@ -108,7 +108,9 @@
         try {
             const url = new URL(u);
             const last = url.pathname.split('/').filter(Boolean).pop();
-            const words = last ? decodeURIComponent(last).replace(/\.[a-z0-9]+$/i, '').replace(/[-_+]+/g, ' ').trim() : '';
+            let words = last ? decodeURIComponent(last).replace(/\.[a-z0-9]+$/i, '').replace(/[-_+]+/g, ' ').trim() : '';
+            // An ID is no title (a LinkedIn post ends in urn:li:activity:7503...): use the site for now.
+            if (/\d{6,}|^urn:/i.test(words) || !/[a-z]{3,}/i.test(words)) words = '';
             const host = url.hostname.replace(/^www\./, '');
             titleInput.value = words ? `${words.charAt(0).toUpperCase()}${words.slice(1)} (${host})` : host;
         } catch { /* not an address yet */ }

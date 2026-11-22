@@ -171,6 +171,7 @@ async def refresh_resource_metadata(
     a preview to store, and only if the resource still has that URL.
     """
     from app.models import Resource  # local import: models import the database module
+    from app.services.urls import looks_guessed
 
     metadata = await (fetcher or preview_fetcher)(url)
     if not metadata:
@@ -180,5 +181,9 @@ async def refresh_resource_metadata(
         if resource is None or resource.url != url:  # deleted or edited meanwhile
             return None
         resource.link_metadata = metadata
+        # A title guessed from the address (a LinkedIn post's ID, say) gives way to the page's own.
+        page_title = (metadata.get("title") or "").strip()
+        if page_title and looks_guessed(resource.title, url):
+            resource.title = page_title[:200]
         await db.commit()
     return metadata

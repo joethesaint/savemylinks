@@ -1,11 +1,18 @@
+// Windows: no black terminal window; the icon by the clock is the app (see tray.rs).
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 //! SaveMyLinks as one program. Serves the app's own pages (built from app/templates by
 //! demo/build.py --app) and the same JSON API as the FastAPI app, on 127.0.0.1 only.
 //!
 //!   savemylinks                 start on port 8000 and open the browser
 //!   --port 8123 --db my.db      another port or library file (env: SAVEMYLINKS_PORT, SAVEMYLINKS_DB)
 //!   --no-browser                don't open a browser window (env: SAVEMYLINKS_NO_BROWSER=1)
+//!   --no-tray                   no icon by the clock; stop with Ctrl+C (env: SAVEMYLINKS_NO_TRAY=1)
+//!
+//! Started a second time, it just opens the library of the copy that is already running.
 mod db;
 mod preview;
+#[cfg(any(windows, target_os = "macos"))]
+mod tray;
 mod urls;
 
 use std::sync::{Arc, Mutex};
@@ -378,26 +385,101 @@ fn arg(name: &str) -> Option<String> {
     a.iter().position(|x| x == name).and_then(|i| a.get(i + 1).cloned())
 }
 
-#[tokio::main]
-async fn main() {
+/// Is the program on this port SaveMyLinks? (A second start then just opens the library.)
+fn ours_is_running(port: u16) -> bool {
+    use std::io::{Read, Write};
+    let Ok(mut c) = std::net::TcpStream::connect_timeout(&([127, 0, 0, 1], port).into(), std::time::Duration::from_millis(800)) else {
+        return false;
+    };
+    let _ = c.set_read_timeout(Some(std::time::Duration::from_millis(800)));
+    let _ = c.write_all(b"GET /health HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n");
+    let mut body = String::new();
+    let _ = c.read_to_string(&mut body);
+    // /health answers {"status":"healthy","service":"SaveMyLinks"}.
+    body.starts_with("HTTP/1.") && body.contains(" 200 ") && body.contains("SaveMyLinks")
+}
+
+/// Tell the person what went wrong in plain words: a message box on Windows (there is no terminal).
+fn fail(message: &str) -> ! {
+    eprintln!("{message}");
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONWARNING, MB_OK};
+        let wide = |s: &str| s.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
+        let (text, title) = (wide(message), wide("SaveMyLinks"));
+        unsafe { MessageBoxW(std::ptr::null_mut(), text.as_ptr(), title.as_ptr(), MB_OK | MB_ICONWARNING) };
+    }
+    std::process::exit(1);
+}
+
+fn main() {
+    // Started from a terminal on Windows: print there as before.
+    #[cfg(windows)]
+    unsafe {
+        windows_sys::Win32::System::Console::AttachConsole(windows_sys::Win32::System::Console::ATTACH_PARENT_PROCESS);
+    }
     let port: u16 = arg("--port").or_else(|| std::env::var("SAVEMYLINKS_PORT").ok()).and_then(|p| p.parse().ok()).unwrap_or(8000);
     let db_path = arg("--db").or_else(|| std::env::var("SAVEMYLINKS_DB").ok()).unwrap_or_else(default_db);
     let no_browser = std::env::args().any(|a| a == "--no-browser") || std::env::var("SAVEMYLINKS_NO_BROWSER").is_ok();
-    let store = Store::open(&db_path).unwrap_or_else(|e| {
-        eprintln!("Can't open the library at {db_path}: {e}");
-        std::process::exit(1);
-    });
-    let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await.unwrap_or_else(|e| {
-        eprintln!("Port {port} is busy ({e}). Is SaveMyLinks already running? Try --port 8123.");
-        std::process::exit(1);
-    });
+    let no_tray = std::env::args().any(|a| a == "--no-tray") || std::env::var("SAVEMYLINKS_NO_TRAY").is_ok();
     let addr = format!("http://127.0.0.1:{port}/");
-    println!("SaveMyLinks is running at {addr}\nYour library: {db_path}\nClose this window (or press Ctrl+C) to stop.");
+
+    let listener = match std::net::TcpListener::bind(("127.0.0.1", port)) {
+        Ok(l) => l,
+        Err(_) if ours_is_running(port) => {
+            // Already on: opening it again means "show me my library".
+            if !no_browser {
+                let _ = webbrowser::open(&addr);
+            }
+            return;
+        }
+        Err(e) => fail(&format!(
+            "Another program is using port {port}, so SaveMyLinks can't start there.
+
+Start it on another port, for example: savemylinks --port 8123
+
+({e})"
+        )),
+    };
+    let store = Store::open(&db_path).unwrap_or_else(|e| fail(&format!("SaveMyLinks can't open your library at {db_path}.
+
+({e})")));
+    let _ = listener.set_nonblocking(true);
+
+    // The web server runs on its own thread; the main thread belongs to the tray icon.
+    let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+    let server = std::thread::spawn(move || {
+        let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build().expect("tokio runtime");
+        rt.block_on(async move {
+            let listener = tokio::net::TcpListener::from_std(listener).expect("listener");
+            axum::serve(listener, app(store))
+                .with_graceful_shutdown(async move {
+                    tokio::select! {
+                        _ = tokio::signal::ctrl_c() => {}
+                        _ = rx => {}
+                    }
+                })
+                .await
+                .ok();
+        });
+    });
+
+    println!("SaveMyLinks is running at {addr}
+Your library: {db_path}");
     if !no_browser {
         let _ = webbrowser::open(&addr);
     }
-    axum::serve(listener, app(store))
-        .with_graceful_shutdown(async { let _ = tokio::signal::ctrl_c().await; })
-        .await
-        .unwrap();
+
+    #[cfg(any(windows, target_os = "macos"))]
+    if !no_tray {
+        println!("Its icon is by the clock: click it to open your library, right-click to switch it off.");
+        tray::run(addr, db_path, move || {
+            let _ = tx.send(());
+            let _ = server.join();
+        });
+    }
+    let _ = no_tray;
+    println!("Press Ctrl+C to stop.");
+    let _ = server.join();
+    drop(tx);
 }

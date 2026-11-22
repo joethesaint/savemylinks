@@ -24,7 +24,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-    <link rel="stylesheet" href="static/sml.css?v=10">
+    <link rel="stylesheet" href="static/sml.css?v=15">
     <link rel="icon" type="image/svg+xml" href="static/art/icon.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="static/art/icon-32.png">
     <!-- Installable app (add to home screen); on Android it also appears in the Share menu. -->
@@ -109,11 +109,20 @@
 
             <div class="field">
                 <label class="label" for="category">Category <span class="opt">(optional)</span></label>
-                <input class="input" type="text" id="category" name="category" list="categoryOptions" maxlength="100" placeholder="e.g. Docs" aria-describedby="categoryHelp categoryError">
-                <datalist id="categoryOptions"></datalist>
-                <div class="chips" id="categoryChips" aria-label="Pick an existing category"></div>
-                <p class="help" id="categoryHelp">Pick one above or type a new name.</p>
+                <select class="input select" id="category" name="category" aria-describedby="categoryError">
+                    <option value="">No category</option>
+                    <option value="__new">New category…</option>
+                </select>
+                <input class="input" type="text" id="categoryNew" maxlength="100" placeholder="Name the new category" aria-label="New category name" hidden>
                 <p class="error" id="categoryError" hidden></p>
+            </div>
+
+            <div class="field">
+                <label class="label" for="tags">Tags <span class="opt">(optional)</span></label>
+                <input class="input" type="text" id="tags" name="tags" placeholder="e.g. python, to-read" autocomplete="off" autocapitalize="off" aria-describedby="tagsHelp tagsError">
+                <div class="chips tag-chips" id="tagChips" aria-label="Tags you've used" hidden></div>
+                <p class="help" id="tagsHelp">Put commas between them, or tap one you've used before.</p>
+                <p class="error" id="tagsError" hidden></p>
             </div>
 
             <div class="field">
@@ -160,7 +169,7 @@
 
     <script src="static/demo-api.js"></script>
     <script src="static/app-detect.js"></script>
-    <script src="static/sml.js?v=6"></script>
+    <script src="static/sml.js?v=8"></script>
 
     <!-- Assistant (Clippy). Reacts to what happens on the page; never interrupts on a timer.
          Pages talk to it with events:
@@ -204,7 +213,7 @@
 
         async function start() {
             try {
-                const { initClippy, assistantPrefs } = await import('./static/modern-clippy.js?v=5');
+                const { initClippy, assistantPrefs } = await import('./static/modern-clippy.js?v=9');
                 agent = await initClippy({ basePath: './static/' });
                 window.smlAssistant = agent;
                 const prefs = assistantPrefs.get();
@@ -234,26 +243,23 @@
     
 <script>
 (function () {
-    const { toast, categories, categoryClass, fieldErrors } = window.SML;
+    const { toast, fieldErrors, facets, categoryPicker, tagField } = window.SML;
     const $ = (s) => document.querySelector(s);
     const form = $('#addResourceForm');
-    const urlInput = $('#url'), titleInput = $('#title'), catInput = $('#category');
+    const urlInput = $('#url'), titleInput = $('#title');
     let titleEdited = false;
 
-    categories().then(list => {
-        list.forEach(c => {
-            const o = document.createElement('option'); o.value = c; $('#categoryOptions').append(o);
-            const b = document.createElement('button');
-            b.type = 'button'; b.className = 'chip ' + categoryClass(c, list); b.textContent = c;
-            b.setAttribute('aria-pressed', 'false');
-            b.onclick = () => { catInput.value = catInput.value === c ? '' : c; syncChips(); };
-            $('#categoryChips').append(b);
-        });
+    // Category dropdown and tag suggestions from what's already in the library.
+    let getCategory = () => '', getTags = () => [];
+    getCategory = categoryPicker($('#category'), $('#categoryNew'), [], '');
+    getTags = tagField($('#tags'), $('#tagChips'), [], []);
+    facets().then(f => {
+        const typedTags = $('#tags').value;
+        getCategory = categoryPicker($('#category'), $('#categoryNew'), f.categories.map(c => c.name), getCategory());
+        getTags = tagField($('#tags'), $('#tagChips'), f.tags.map(t => t.name), []);
+        $('#tags').value = typedTags;
+        $('#tags').dispatchEvent(new Event('input'));
     });
-    function syncChips() {
-        document.querySelectorAll('#categoryChips .chip').forEach(b => b.setAttribute('aria-pressed', String(b.textContent === catInput.value.trim())));
-    }
-    catInput.addEventListener('input', syncChips);
 
     // Suggest a title from the address until the person types their own.
     titleInput.addEventListener('input', () => { titleEdited = titleInput.value.trim() !== ''; });
@@ -282,7 +288,7 @@
         el.hidden = !(msg || html);
         if (msg || html) input.setAttribute('aria-invalid', 'true'); else input.removeAttribute('aria-invalid');
     }
-    function clearErrors() { ['url', 'title', 'category', 'description'].forEach(f => setError(f, '')); }
+    function clearErrors() { ['url', 'title', 'category', 'tags', 'description'].forEach(f => setError(f, '')); }
 
     function check(data) {
         let ok = true;
@@ -299,7 +305,8 @@
             url: urlInput.value.trim(),
             title: titleInput.value.trim(),
             description: $('#description').value.trim() || null,
-            category: catInput.value.trim() || null,
+            category: getCategory() || null,
+            tags: getTags(),
         };
         if (!check(data)) { form.querySelector('[aria-invalid="true"]').focus(); return; }
 

@@ -24,7 +24,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-    <link rel="stylesheet" href="static/sml.css?v=10">
+    <link rel="stylesheet" href="static/sml.css?v=15">
     <link rel="icon" type="image/svg+xml" href="static/art/icon.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="static/art/icon-32.png">
     <!-- Installable app (add to home screen); on Android it also appears in the Share menu. -->
@@ -92,6 +92,23 @@
     </div>
 </div>
 
+<div class="library">
+<aside class="sidebar" aria-label="Browse your library">
+    <span class="side-pill" id="sidePill" aria-hidden="true"></span>
+    <button type="button" class="jump-btn" id="jumpOpen" aria-keyshortcuts="Control+K">
+        <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span>Jump to…</span><kbd>Ctrl K</kbd>
+    </button>
+    <nav class="side-group side-cats" aria-labelledby="sideCatsTitle">
+        <h2 class="side-title" id="sideCatsTitle">Categories</h2>
+        <ul class="side-list" id="sideCategories"></ul>
+    </nav>
+    <nav class="side-group side-tags-group" aria-labelledby="sideTagsTitle">
+        <h2 class="side-title" id="sideTagsTitle">Tags</h2>
+        <ul class="side-list side-tags" id="sideTags"></ul>
+        <p class="side-empty" id="sideTagsEmpty" hidden>No tags yet. Add some when you save or edit a link.</p>
+    </nav>
+</aside>
+<div class="library-main">
 <div class="toolbar" role="search">
     <div class="search">
         <label for="searchInput" class="visually-hidden">Search your links</label>
@@ -127,17 +144,21 @@
 </section>
 
 <nav class="pager" id="pagination" aria-label="Pages" hidden></nav>
+</div>
+</div>
 
 <template id="cardTemplate">
     <li class="card">
         <img class="thumb" src="" alt="" loading="lazy" referrerpolicy="no-referrer" width="96" height="72">
         <div class="card-body">
+            <p class="card-site"></p>
             <h2 class="card-title"><a class="card-link" href="" target="_blank" rel="noopener noreferrer"></a></h2>
             <div class="card-url"><svg class="icon" aria-hidden="true"><use href="#i-link"/></svg><span></span></div>
             <p class="card-desc"></p>
             <div class="card-meta">
                 <span class="site"></span>
                 <span class="chip is-static category"></span>
+                <span class="tags"></span>
                 <span class="date"></span>
             </div>
         </div>
@@ -171,7 +192,14 @@
         </div>
         <div class="field">
             <label class="label" for="editCategory">Category <span class="opt">(optional)</span></label>
-            <input class="input" type="text" id="editCategory" list="categoryOptions" maxlength="100">
+            <select class="input select" id="editCategory"></select>
+            <input class="input" type="text" id="editCategoryNew" maxlength="100" placeholder="Name the new category" aria-label="New category name" hidden>
+        </div>
+        <div class="field">
+            <label class="label" for="editTags">Tags <span class="opt">(optional)</span></label>
+            <input class="input" type="text" id="editTags" placeholder="e.g. python, to-read" autocomplete="off" autocapitalize="off" aria-describedby="editTagsError">
+            <div class="chips tag-chips" id="editTagChips" aria-label="Tags you've used" hidden></div>
+            <p class="error" id="editTagsError" hidden></p>
         </div>
         <datalist id="categoryOptions"></datalist>
         <div class="form-actions">
@@ -211,6 +239,7 @@
             <dt><kbd>c</kbd></dt><dd>Change its category</dd>
             <dt><kbd>d</kbd></dt><dd>Delete it (you can undo)</dd>
             <dt><kbd>.</kbd></dt><dd>Do the last change again, on the selected link</dd>
+            <dt><kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>Jump to a link, category, tag or action</dd>
             <dt><kbd>/</kbd></dt><dd>Search</dd>
             <dt><kbd>v</kbd> then <kbd>c</kbd> <kbd>g</kbd> <kbd>l</kbd></dt><dd>Cards, grid or list view</dd>
             <dt><kbd>?</kbd></dt><dd>This list</dd>
@@ -218,6 +247,16 @@
         <p class="hint">Tidying many links: change one with <kbd>c</kbd>, then <kbd>j</kbd> <kbd>.</kbd> <kbd>j</kbd> <kbd>.</kbd> for the rest.</p>
         <p class="hint">Clippy teaches these as you go: after you do something the slow way twice, he shows the key once. <button type="button" class="btn btn-ghost btn-sm" id="tipsReset">Show his tips again</button></p>
     </div>
+</dialog>
+
+<dialog id="jumpDialog" class="jump" aria-label="Jump to">
+    <div class="jump-box">
+        <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+        <input class="input" id="jumpInput" type="text" placeholder="Jump to a link, category, tag or action" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="jumpList" aria-autocomplete="list">
+        <kbd>Esc</kbd>
+    </div>
+    <ul class="jump-list" id="jumpList" role="listbox" aria-label="Results"></ul>
+    <p class="jump-hint"><kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>Enter</kbd> to go</p>
 </dialog>
 
         </div>
@@ -234,7 +273,7 @@
 
     <script src="static/demo-api.js"></script>
     <script src="static/app-detect.js"></script>
-    <script src="static/sml.js?v=6"></script>
+    <script src="static/sml.js?v=8"></script>
 
     <!-- Assistant (Clippy). Reacts to what happens on the page; never interrupts on a timer.
          Pages talk to it with events:
@@ -278,7 +317,7 @@
 
         async function start() {
             try {
-                const { initClippy, assistantPrefs } = await import('./static/modern-clippy.js?v=5');
+                const { initClippy, assistantPrefs } = await import('./static/modern-clippy.js?v=9');
                 agent = await initClippy({ basePath: './static/' });
                 window.smlAssistant = agent;
                 const prefs = assistantPrefs.get();
@@ -309,14 +348,15 @@
 <script src="static/tips.js?v=1"></script>
 <script>
 (function () {
-    const { toast, categories, categoryClass, resetCategories, fieldErrors } = window.SML;
+    const { toast, dismiss, reduceMotion, categories, categoryClass, resetCategories, fieldErrors, facets, categoryPicker, tagField } = window.SML;
     const $ = (s) => document.querySelector(s);
     const PER_PAGE = 24; // divides by 2, 3, 4, 6 and 8, so full grid rows at most widths
 
     // The URL holds search, category and page, so Back, refresh and shared links keep the view.
     const params = new URLSearchParams(location.search);
-    const state = { q: params.get('q') || '', category: params.get('category') || '', page: Number(params.get('page')) || 1 };
+    const state = { q: params.get('q') || '', category: params.get('category') || '', tag: params.get('tag') || '', page: Number(params.get('page')) || 1 };
     let categoryList = [];
+    let facetData = { total: 0, categories: [], tags: [] };
     let lastTotal = 0;
     let editing = null;
 
@@ -324,6 +364,7 @@
         const p = new URLSearchParams();
         if (state.q) p.set('q', state.q);
         if (state.category) p.set('category', state.category);
+        if (state.tag) p.set('tag', state.tag);
         if (state.page > 1) p.set('page', state.page);
         history.replaceState(null, '', p.toString() ? '?' + p : location.pathname);
     }
@@ -338,7 +379,7 @@
             const b = document.createElement('button');
             b.type = 'button'; b.className = 'chip ' + cls; b.textContent = label;
             b.setAttribute('aria-pressed', String(state.category === value));
-            b.onclick = () => { state.category = state.category === value ? '' : value; state.page = 1; syncChips(); load(); };
+            b.onclick = () => { state.category = state.category === value ? '' : value; state.page = 1; syncChips(); browse(); };
             b.dataset.value = value;
             box.append(b);
         };
@@ -346,9 +387,68 @@
         categoryList.forEach(c => make(c, c, categoryClass(c, categoryList)));
         $('#categoryOptions').innerHTML = '';
         categoryList.forEach(c => { const o = document.createElement('option'); o.value = c; $('#categoryOptions').append(o); });
+        facetData = await facets();
+        renderSidebar();
     }
     function syncChips() {
         document.querySelectorAll('#categoryChips .chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.value === state.category)));
+        document.querySelectorAll('#sideCategories .side-item').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.value === state.category && !state.tag)));
+        document.querySelectorAll('#sideTags .side-item').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.value === state.tag)));
+        placePill();
+    }
+    function filterBy(kind, value) {
+        if (kind === 'category') { state.category = state.category === value && !state.tag ? '' : value; state.tag = ''; }
+        else state.tag = state.tag === value ? '' : value;
+        state.page = 1; syncChips(); browse();
+    }
+
+    // The sidebar's pill slides to the chosen item (wide screens). Only its transform animates;
+    // its size is set at once. The first placement doesn't slide.
+    const sidebar = $('.sidebar'), pill = $('#sidePill');
+    const wide = matchMedia('(min-width: 1024px)');
+    function placePill() {
+        const on = wide.matches && sidebar.querySelector('.side-item[aria-pressed="true"]');
+        if (!on) { pill.classList.remove('is-on'); sidebar.classList.remove('has-pill'); return; }
+        const a = on.getBoundingClientRect(), b = sidebar.getBoundingClientRect();
+        pill.style.width = a.width + 'px'; pill.style.height = a.height + 'px';
+        pill.style.transform = `translate(${a.left - b.left + sidebar.scrollLeft}px, ${a.top - b.top + sidebar.scrollTop}px)`;
+        pill.classList.add('is-on'); sidebar.classList.add('has-pill');
+        if (!pill.classList.contains('is-placed')) requestAnimationFrame(() => pill.classList.add('is-placed'));
+    }
+    let pillFrame = 0;
+    const replacePill = () => { cancelAnimationFrame(pillFrame); pillFrame = requestAnimationFrame(placePill); };
+    addEventListener('resize', replacePill);
+    document.fonts?.ready.then(replacePill);
+
+    // The sidebar: every category and tag with its count. On phones the categories stay as chips
+    // above the list and the tags become one scrolling row.
+    function renderSidebar() {
+        const item = (kind, value, label, count, cls) => {
+            const li = document.createElement('li');
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'side-item'; b.dataset.value = value;
+            const name = document.createElement('span'); name.className = 'name'; name.textContent = label;
+            if (cls) { const tab = document.createElement('span'); tab.className = 'tab ' + cls; tab.setAttribute('aria-hidden', 'true'); b.append(tab); }
+            const n = document.createElement('span'); n.className = 'count'; n.textContent = count;
+            b.append(name, n);
+            b.setAttribute('aria-label', `${label}, ${count} ${count === 1 ? 'link' : 'links'}`);
+            b.onclick = () => (kind === 'all' ? clearFilters() : filterBy(kind, value));
+            li.append(b);
+            return li;
+        };
+        $('#sideCategories').replaceChildren(
+            item('all', '', 'All links', facetData.total, ''),
+            ...facetData.categories.map(c => item('category', c.name, c.name, c.count, categoryClass(c.name, categoryList))));
+        $('#sideTags').replaceChildren(...facetData.tags.map(t => item('tag', t.name, '#' + t.name, t.count, '')));
+        $('#sideTagsEmpty').hidden = facetData.tags.length > 0;
+        // Opened with a filter in the address, load() never writes the whole-library line: write it here.
+        const n = facetData.total, c = facetData.categories.length;
+        if ($('#summary').textContent === 'Loading your library…') {
+            $('#summary').textContent = n
+                ? `${n} ${n === 1 ? 'link' : 'links'} in ${c} ${c === 1 ? 'category' : 'categories'}. Search by title or note, or pick a category.`
+                : 'Save a page once and find it again in seconds, by its title, your note or its category.';
+        }
+        syncChips();
     }
 
     // The API stores UTC without a zone mark; read it as UTC.
@@ -396,9 +496,19 @@
         li.addEventListener('click', (ev) => { if (ev.target.closest('.thumb')) li.querySelector('.card-link').click(); });
 
         li.querySelector('.site').textContent = meta.site_name || host;
+        li.querySelector('.card-site').textContent = meta.site_name || host;
         const chip = li.querySelector('.category');
         if (r.category) { chip.textContent = r.category; chip.classList.add(categoryClass(r.category, categoryList)); }
         else chip.remove();
+        const tagBox = li.querySelector('.tags');
+        (r.tags || []).forEach(t => {
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'tag-link'; b.textContent = '#' + t;
+            b.setAttribute('aria-label', `Show links tagged ${t}`);
+            b.onclick = () => filterBy('tag', t);
+            tagBox.append(b);
+        });
+        if (!tagBox.childElementCount) tagBox.remove();
         li.querySelector('.date').textContent = savedOn(r.created_at);
 
         const edit = li.querySelector('.edit-btn'), del = li.querySelector('.delete-btn');
@@ -435,6 +545,7 @@
             try {
                 const res = await fetch(`/api/resources/${r.id}`, { method: 'DELETE' });
                 if (!res.ok) throw new Error(res.status);
+                li.classList.add('is-leaving'); // shrinks away while the list reloads
                 toast(`Deleted "${r.title}".`, { code: res.status, tone: 'success' });
                 window.SMLTips?.note('mouse-delete');
                 resetCategories(); await loadCategories(); load();
@@ -457,7 +568,7 @@
             const b = document.createElement('button');
             b.type = 'button'; b.className = 'btn btn-sm'; b.textContent = label; b.disabled = disabled;
             if (current) b.setAttribute('aria-current', 'page');
-            b.onclick = () => { state.page = page; load(); window.scrollTo({ top: 0 }); };
+            b.onclick = () => { state.page = page; browse(); window.scrollTo({ top: 0 }); };
             nav.append(b);
         };
         btn('Previous', state.page - 1, false, state.page === 1);
@@ -465,11 +576,23 @@
         btn('Next', state.page + 1, false, state.page === pages);
     }
 
+    // Cards rise in only when the person changed what's shown (filter, tag, search, page); never on
+    // the first load (LCP) and never after an edit or delete, where the list should stay still.
+    let enterNext = false;
+    function browse() { enterNext = true; load(); }
+    let enterTimer = 0;
+    function playEnter(el) {
+        el.classList.add('is-entering');
+        clearTimeout(enterTimer);
+        enterTimer = setTimeout(() => el.classList.remove('is-entering'), 500); // 200 ms stagger + 220 ms
+    }
+
     let requestId = 0;
     async function load() {
         writeUrl();
+        const enter = enterNext; enterNext = false;
         const mine = ++requestId;
-        $('#clearFilters').hidden = !(state.q || state.category);
+        $('#clearFilters').hidden = !(state.q || state.category || state.tag);
         const list = $('#resourcesList');
         const loading = $('#loadingState');
         const loadTimer = setTimeout(() => { loading.hidden = false; }, 150); // no flash on fast loads
@@ -477,6 +600,7 @@
             const p = new URLSearchParams({ page: state.page, per_page: PER_PAGE });
             if (state.q) p.set('search', state.q);
             if (state.category) p.set('category', state.category);
+            if (state.tag) p.set('tag', state.tag);
             const res = await fetch(`/api/resources/?${p}`);
             if (!res.ok) throw new Error(res.status);
             const data = await res.json();
@@ -485,6 +609,7 @@
             if (!data.resources.length && state.page > 1) {
                 clearTimeout(loadTimer);
                 state.page = Math.max(1, Math.ceil(data.total / PER_PAGE));
+                enterNext = enter;
                 return load();
             }
             clearTimeout(loadTimer); loading.hidden = true;
@@ -493,16 +618,17 @@
             const savedId = Number(new URLSearchParams(location.search).get('saved')) || Number(sessionStorage.getItem('sml-saved')) || 0;
             sessionStorage.removeItem('sml-saved');
             list.replaceChildren(...data.resources.map(r => renderCard(r, r.id === savedId)));
+            if (enter) playEnter(list);
             // LCP: the first row of pictures is on screen at once, so it loads now, not lazily.
             list.querySelectorAll('img.thumb').forEach((im, i) => { if (i < 6) { im.loading = 'eager'; if (i === 0) im.fetchPriority = 'high'; } });
             current = data.resources;
             if (sel >= 0) select(sel); // keep the keyboard selection in place after a change
             renderPager(data.total);
 
-            const filtered = state.q || state.category;
+            const filtered = state.q || state.category || state.tag;
             const n = data.total;
             $('#resultLine').textContent = filtered
-                ? `${n} ${n === 1 ? 'link matches' : 'links match'}${state.q ? ` "${state.q}"` : ''}${state.category ? ` in ${state.category}` : ''}`
+                ? `${n} ${n === 1 ? 'link' : 'links'}${state.q ? `${n === 1 ? ' matches' : ' match'} "${state.q}"` : ''}${state.category ? ` in ${state.category}` : ''}${state.tag ? ` tagged #${state.tag}` : ''}`
                 : (n ? `Showing ${(state.page - 1) * PER_PAGE + 1}–${Math.min(state.page * PER_PAGE, n)} of ${n}` : '');
 
             if (!filtered) {
@@ -513,10 +639,11 @@
 
             const empty = $('#emptyState');
             empty.hidden = data.resources.length > 0;
+            empty.classList.toggle('is-entering', enter && !data.resources.length);
             if (!data.resources.length) {
                 if (filtered) {
                     $('#emptyTitle').textContent = 'Nothing matches';
-                    $('#emptyText').textContent = `No link${state.q ? ` mentions "${state.q}"` : ''}${state.category ? ` in ${state.category}` : ''}. Try fewer words or another category.`;
+                    $('#emptyText').textContent = `No link${state.q ? ` mentions "${state.q}"` : ''}${state.category ? ` in ${state.category}` : ''}${state.tag ? ` is tagged #${state.tag}` : ''}. Try fewer words, another category or another tag.`;
                     $('#emptyAction').textContent = 'Clear search and filter';
                     $('#emptyAction').onclick = (e) => { e.preventDefault(); clearFilters(); };
                 } else {
@@ -533,8 +660,8 @@
     }
 
     function clearFilters() {
-        state.q = ''; state.category = ''; state.page = 1;
-        $('#searchInput').value = ''; syncChips(); load();
+        state.q = ''; state.category = ''; state.tag = ''; state.page = 1;
+        $('#searchInput').value = ''; syncChips(); browse();
     }
     $('#clearFilters').onclick = clearFilters;
 
@@ -546,9 +673,9 @@
     document.addEventListener('keydown', (e) => { if (e.key === '/') window.SMLTips?.used('/'); }, true);
     search.addEventListener('input', () => {
         clearTimeout(typing);
-        typing = setTimeout(() => { state.q = search.value.trim(); state.page = 1; load(); }, 250);
+        typing = setTimeout(() => { state.q = search.value.trim(); state.page = 1; browse(); }, 250);
     });
-    search.addEventListener('keydown', (e) => { if (e.key === 'Escape' && search.value) { search.value = ''; state.q = ''; state.page = 1; load(); } });
+    search.addEventListener('keydown', (e) => { if (e.key === 'Escape' && search.value) { search.value = ''; state.q = ''; state.page = 1; browse(); } });
     if (params.get('focus') === 'search') search.focus();
 
     // ── edit ──
@@ -557,8 +684,9 @@
         const el = $('#' + id + 'Error');
         el.textContent = msg || ''; el.hidden = !msg;
     }
+    let getEditCategory = () => '', getEditTags = () => [];
     function clearEditErrors() {
-        ['editUrl', 'editTitle', 'editDescription'].forEach(id => showErr(id, ''));
+        ['editUrl', 'editTitle', 'editDescription', 'editTags'].forEach(id => showErr(id, ''));
         dlg.querySelectorAll('[aria-invalid]').forEach(el => el.removeAttribute('aria-invalid'));
     }
     function openEdit(r) {
@@ -567,7 +695,8 @@
         $('#editUrl').value = r.url;
         $('#editTitleInput').value = r.title;
         $('#editDescription').value = r.description || '';
-        $('#editCategory').value = r.category || '';
+        getEditCategory = categoryPicker($('#editCategory'), $('#editCategoryNew'), categoryList, r.category);
+        getEditTags = tagField($('#editTags'), $('#editTagChips'), facetData.tags.map(t => t.name), r.tags || []);
         dlg.showModal();
         $('#editTitleInput').focus();
     }
@@ -581,14 +710,15 @@
             url: $('#editUrl').value.trim(),
             title: $('#editTitleInput').value.trim(),
             description: $('#editDescription').value.trim() || null,
-            category: $('#editCategory').value.trim() || null,
+            category: getEditCategory() || null,
+            tags: getEditTags(),
         };
         try {
             const res = await fetch(`/api/resources/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
             if (res.status === 409) { showErr('editUrl', 'Another saved link already has this address.'); $('#editUrl').setAttribute('aria-invalid', 'true'); return; }
             if (res.status === 422) {
                 const errs = fieldErrors((await res.json()).detail);
-                const map = { url: ['editUrl', 'editUrl'], title: ['editTitle', 'editTitleInput'], description: ['editDescription', 'editDescription'] };
+                const map = { url: ['editUrl', 'editUrl'], title: ['editTitle', 'editTitleInput'], description: ['editDescription', 'editDescription'], tags: ['editTags', 'editTags'] };
                 Object.entries(errs).forEach(([f, m]) => { if (map[f]) { showErr(map[f][0], m); $('#' + map[f][1]).setAttribute('aria-invalid', 'true'); } });
                 dlg.querySelector('[aria-invalid="true"]')?.focus();
                 return;
@@ -653,14 +783,14 @@
         el.className = 'toast toast-success';
         const msg = document.createElement('span'); msg.className = 'msg'; msg.textContent = message;
         const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-sm'; b.textContent = 'Undo';
-        let timer = setTimeout(() => el.remove(), 8000);
+        let timer = setTimeout(() => dismiss(el), 8000);
         // The toast and its Undo stay until the restore succeeds; a failure brings the button back.
         b.onclick = async () => {
             clearTimeout(timer);
             b.disabled = true; b.textContent = 'Restoring…';
-            if (await onUndo()) { el.remove(); return; }
+            if (await onUndo()) { dismiss(el); return; }
             b.disabled = false; b.textContent = 'Try Undo again';
-            timer = setTimeout(() => el.remove(), 15000);
+            timer = setTimeout(() => dismiss(el), 15000);
         };
         el.append(msg, b);
         $('#toasts').append(el);
@@ -685,9 +815,10 @@
         try { res = await fetch(`/api/resources/${r.id}`, { method: 'DELETE' }); }
         catch { offline('delete the link'); return; }
         if (!res.ok) { toast("Couldn't delete the link. Check your connection and try again.", { code: res.status, tone: 'danger' }); return; }
+        document.querySelector(`#resourcesList .card[data-id="${r.id}"]`)?.classList.add('is-leaving');
         undoToast(`Deleted "${r.title}".`, async () => {
             let back;
-            try { back = await fetch('/api/resources/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: r.title, url: r.url, description: r.description, category: r.category }) }); }
+            try { back = await fetch('/api/resources/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: r.title, url: r.url, description: r.description, category: r.category, tags: r.tags || [] }) }); }
             catch { offline(`restore "${r.title}"`); return false; }
             // 409: it is already back (e.g. restored from another tab), which is what Undo wanted.
             const ok = back.ok || back.status === 409;
@@ -755,15 +886,121 @@
 
     // ── views: cards (default), grid, list; remembered per browser ──
     let viewPending = false;
+    let viewSwitchId = 0;
     function setView(v, announce) {
         if (!['cards', 'grid', 'list'].includes(v)) v = 'cards';
-        $('#resourcesList').dataset.view = v;
-        document.querySelectorAll('.view-switch [data-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
+        const list = $('#resourcesList');
+        const apply = () => {
+            list.dataset.view = v;
+            document.querySelectorAll('.view-switch [data-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
+        };
+        // A switch the person made glides each card on screen to its new place (View Transitions).
+        // Only those cards get names, and only for the switch; elsewhere it changes at once.
+        if (announce && list.dataset.view !== v && document.startViewTransition && !reduceMotion()) {
+            const all = [...list.children];
+            all.forEach((c) => { c.style.viewTransitionName = ''; });
+            const named = all.filter((c) => { const r = c.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight; });
+            named.forEach((c, i) => { c.style.viewTransitionName = 'sml-card-' + i; });
+            document.documentElement.classList.add('vt-view');
+            const mine = ++viewSwitchId; // a quicker second switch keeps the names; only the last one clears them
+            const done = () => { if (mine !== viewSwitchId) return; all.forEach((c) => { c.style.viewTransitionName = ''; }); document.documentElement.classList.remove('vt-view'); };
+            try { document.startViewTransition(apply).finished.then(done, done); } catch (e) { apply(); done(); }
+        } else apply();
         try { localStorage.setItem('sml-view', v); } catch (e) { /* blocked */ }
         if (announce) $('#selectionStatus').textContent = `${v[0].toUpperCase()}${v.slice(1)} view`;
     }
     document.querySelectorAll('.view-switch [data-view]').forEach((b) => { b.onclick = () => setView(b.dataset.view, true); });
     setView((() => { try { return localStorage.getItem('sml-view'); } catch (e) { return null; } })() || 'cards');
+
+    // ── Ctrl+K: jump to any link, category, tag or action ──
+    const jump = $('#jumpDialog'), jumpInput = $('#jumpInput'), jumpList = $('#jumpList');
+    let jumpItems = [], jumpSel = 0, jumpReq = 0, jumpTimer = null;
+    const ACTIONS = [
+        { label: 'Save a link', hint: 'Action', run: () => { location.href = '/add'; } },
+        { label: 'Show all links', hint: 'Action', run: () => clearFilters() },
+        { label: 'Cards view', hint: 'View', run: () => setView('cards', true) },
+        { label: 'Grid view', hint: 'View', run: () => setView('grid', true) },
+        { label: 'List view', hint: 'View', run: () => setView('list', true) },
+        { label: 'Switch light or dark', hint: 'Action', run: () => $('#themeToggle')?.click() },
+        { label: 'Keyboard shortcuts', hint: 'Help', run: () => $('#keysDialog').showModal() },
+    ];
+    function showJump(items) {
+        jumpItems = items.slice(0, 40);
+        jumpSel = Math.min(jumpSel, Math.max(0, jumpItems.length - 1));
+        jumpList.replaceChildren(...jumpItems.map((it, i) => {
+            const li = document.createElement('li');
+            li.id = 'jump-' + i; li.setAttribute('role', 'option'); li.className = 'jump-item';
+            li.setAttribute('aria-selected', String(i === jumpSel));
+            const a = document.createElement('span'); a.className = 'jump-label'; a.textContent = it.label;
+            const b = document.createElement('span'); b.className = 'jump-kind'; b.textContent = it.hint;
+            li.append(a, b);
+            li.onmousemove = () => { if (jumpSel !== i) { jumpSel = i; markJump(); } };
+            li.onclick = () => runJump(i);
+            return li;
+        }));
+        if (!jumpItems.length) {
+            const li = document.createElement('li'); li.className = 'jump-none'; li.textContent = 'Nothing matches. Try fewer letters.';
+            jumpList.append(li);
+        }
+        markJump();
+    }
+    function markJump() {
+        jumpList.querySelectorAll('.jump-item').forEach((li, i) => li.setAttribute('aria-selected', String(i === jumpSel)));
+        jumpInput.setAttribute('aria-activedescendant', jumpItems.length ? 'jump-' + jumpSel : '');
+        jumpList.querySelector(`#jump-${jumpSel}`)?.scrollIntoView({ block: 'nearest' });
+    }
+    function jumpFacets(s) {
+        const has = (t) => !s || t.toLowerCase().includes(s);
+        return [
+            ...facetData.categories.filter(c => has(c.name)).map(c => ({ label: c.name, hint: `Category, ${c.count}`, run: () => { state.tag = ''; state.category = c.name; state.page = 1; syncChips(); browse(); } })),
+            ...facetData.tags.filter(t => has(t.name)).map(t => ({ label: '#' + t.name, hint: `Tag, ${t.count}`, run: () => { state.tag = t.name; state.page = 1; syncChips(); browse(); } })),
+        ];
+    }
+    function renderJump() {
+        const q = jumpInput.value.trim(), s = q.toLowerCase().replace(/^#/, '');
+        const mine = ++jumpReq;
+        const actions = ACTIONS.filter(a => !s || a.label.toLowerCase().includes(s));
+        jumpSel = 0;
+        if (!s) { showJump([...actions, ...jumpFacets('')]); return; }
+        showJump([...jumpFacets(s), ...actions]);
+        clearTimeout(jumpTimer);
+        jumpTimer = setTimeout(async () => {
+            try {
+                const res = await fetch(`/api/resources/?${new URLSearchParams({ search: q, per_page: 8 })}`);
+                if (!res.ok || mine !== jumpReq) return;
+                const links = (await res.json()).resources.map(r => {
+                    let host = r.url; try { host = new URL(r.url).hostname.replace(/^www\./, ''); } catch { /* keep */ }
+                    return { label: r.title, hint: host, run: () => window.open(r.url, '_blank', 'noopener') };
+                });
+                if (mine === jumpReq) showJump([...links, ...jumpFacets(s), ...actions]);
+            } catch { /* offline: the categories, tags and actions still show */ }
+        }, 120);
+    }
+    function runJump(i) {
+        const it = jumpItems[i];
+        if (!it) return;
+        jump.close();
+        it.run();
+    }
+    function openJump() {
+        if (jump.open) { jumpInput.select(); return; }
+        document.querySelector('dialog[open]')?.close();
+        jumpInput.value = '';
+        jump.showModal();
+        jumpInput.focus();
+        renderJump();
+    }
+    jumpInput.addEventListener('input', renderJump);
+    jumpInput.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown') { e.preventDefault(); jumpSel = Math.min(jumpItems.length - 1, jumpSel + 1); markJump(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); jumpSel = Math.max(0, jumpSel - 1); markJump(); }
+        else if (e.key === 'Enter') { e.preventDefault(); runJump(jumpSel); }
+    });
+    jump.addEventListener('click', (e) => { if (e.target === jump) jump.close(); }); // a click outside closes it
+    $('#jumpOpen').onclick = openJump;
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'k') { e.preventDefault(); openJump(); }
+    });
 
     loadCategories().then(load);
 })();

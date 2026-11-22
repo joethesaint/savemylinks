@@ -33,6 +33,8 @@ class Resource(Base):
     url: Mapped[str] = mapped_column(String(500), nullable=False, unique=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     category: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
+    # Tags: several per link, on top of the one category. A JSON list of normalized strings.
+    tags: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     # Link preview (title, description, image, site_name), filled in the background after save.
     link_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

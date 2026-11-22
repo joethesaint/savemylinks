@@ -13,16 +13,28 @@ from sqlalchemy.exc import IntegrityError
 from app.database import get_db
 from app.crud import resource_crud
 from app.services import metadata
+from app.schemas import normalize_tags
 from app.schemas import (
     Resource,
     ResourceCreate,
     ResourceUpdate,
     ResourceList,
+    Facets,
     MessageResponse,
     ErrorResponse
 )
 
 router = APIRouter(prefix="/api/resources", tags=["resources"])
+
+
+def _one_tag(tag: Optional[str]) -> Optional[str]:
+    """A ?tag= filter in the stored form. One too long to be stored simply matches nothing."""
+    if not tag:
+        return None
+    try:
+        return (normalize_tags([tag]) or [None])[0]
+    except ValueError:
+        return tag
 
 
 @router.post(
@@ -75,7 +87,8 @@ async def get_resources(
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(20, ge=1, le=100, description="Resources per page"),
     category: Optional[str] = Query(None, description="Filter by category"),
-    search: Optional[str] = Query(None, description="Search in title and description"),
+    search: Optional[str] = Query(None, description="Search in title, description and tags"),
+    tag: Optional[str] = Query(None, description="Only links with this tag"),
     db: AsyncSession = Depends(get_db)
 ) -> ResourceList:
     """
@@ -93,7 +106,8 @@ async def get_resources(
     """
     skip = (page - 1) * per_page
     resources, total = await resource_crud.get_all(
-        db, skip=skip, limit=per_page, category=category, search=search
+        db, skip=skip, limit=per_page, category=category, search=search,
+        tag=_one_tag(tag),
     )
     
     return ResourceList(
@@ -122,6 +136,12 @@ async def get_categories(db: AsyncSession = Depends(get_db)) -> list[str]:
         List of unique categories
     """
     return await resource_crud.get_categories(db)
+
+
+@router.get("/facets", response_model=Facets)
+async def get_facets(db: AsyncSession = Depends(get_db)) -> Facets:
+    """Every category and tag with how many links have it: what the sidebar lists."""
+    return Facets(**await resource_crud.facets(db))
 
 
 @router.get(

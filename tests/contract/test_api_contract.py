@@ -165,3 +165,34 @@ def test_extension_save_checks_types_and_limits(api, extra, field):
     assert field in [e["loc"][-1] for e in r.json()["detail"]]
     assert api.post("/api/save", json={"url": 42}).status_code == 422
     assert api.post("/api/save", content="[]", headers={"Content-Type": "application/json"}).status_code == 422
+
+
+# ── tags: several per link, on top of the one category (issue #30's follow-up) ──
+
+def test_tags_are_normalized_filtered_searched_and_counted(api):
+    t = uuid.uuid4().hex[:6]
+    a = make(api, tags=[f" #Py{t} ", f"web   {t}", f"py{t}", "", '"q",'])
+    assert a["tags"] == [f"py{t}", f"web-{t}", "q"], "trimmed, no #, lowercase, spaces as -, no quotes or commas, no repeats"
+    b = make(api, tags=[f"py{t}"])
+    assert make(api)["tags"] == [], "no tags is an empty list"
+    hits = api.get("/api/resources/", params={"tag": f"Py{t}"}).json()
+    assert hits["total"] == 2 and {x["id"] for x in hits["resources"]} == {a["id"], b["id"]}
+    assert api.get("/api/resources/", params={"search": f"web-{t}"}).json()["total"] == 1, "search covers tags"
+    facets = api.get("/api/resources/facets").json()
+    assert set(facets) == {"total", "categories", "tags"} and facets["total"] >= 3
+    counts = {x["name"]: x["count"] for x in facets["tags"]}
+    assert counts[f"py{t}"] == 2 and counts[f"web-{t}"] == 1
+    names = [x["name"] for x in facets["tags"]]
+    assert names == sorted(names)
+    assert all(set(c) == {"name", "count"} for c in facets["categories"])
+    kept = api.put(f"/api/resources/{a['id']}", json={"title": "Renamed"}).json()
+    assert kept["tags"] == [f"py{t}", f"web-{t}", "q"], "an update without tags keeps them"
+    assert api.put(f"/api/resources/{b['id']}", json={"tags": []}).json()["tags"] == []
+    assert api.put(f"/api/resources/{a['id']}", json={"tags": None}).json()["tags"] == []
+
+
+@pytest.mark.parametrize("tags", ["python", [1], ["x" * 31], [f"t{i}" for i in range(11)]])
+def test_bad_tags_are_422_naming_tags(api, tags):
+    r = api.post("/api/resources/", json={"title": "x", "url": u(), "tags": tags})
+    assert r.status_code == 422, r.text
+    assert any("tags" in e["loc"] for e in r.json()["detail"])

@@ -6,7 +6,8 @@ using SQLAlchemy 2.0 async patterns.
 """
 
 from typing import Optional, Sequence
-from sqlalchemy import select, func, desc
+from collections import Counter
+from sqlalchemy import String, cast, select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
@@ -36,7 +37,8 @@ class ResourceCRUD:
             title=resource_data.title,
             url=str(resource_data.url),
             description=resource_data.description,
-            category=resource_data.category
+            category=resource_data.category,
+            tags=resource_data.tags or [],
         )
         
         db.add(db_resource)
@@ -88,7 +90,8 @@ class ResourceCRUD:
         skip: int = 0,
         limit: int = 100,
         category: Optional[str] = None,
-        search: Optional[str] = None
+        search: Optional[str] = None,
+        tag: Optional[str] = None,
     ) -> tuple[Sequence[Resource], int]:
         """
         Get all resources with pagination and filtering.
@@ -112,8 +115,16 @@ class ResourceCRUD:
             query = query.where(Resource.category == category)
             count_query = count_query.where(Resource.category == category)
             
+        if tag:
+            # Tags are stored as a JSON list, so a tag is the text "tag" (quotes included) inside it.
+            needle = tag.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            tag_filter = cast(Resource.tags, String).like(f'%"{needle}"%', escape="\\")
+            query = query.where(tag_filter)
+            count_query = count_query.where(tag_filter)
+
         if search:
-            search_filter = Resource.title.ilike(f"%{search}%") | Resource.description.ilike(f"%{search}%")
+            search_filter = (Resource.title.ilike(f"%{search}%") | Resource.description.ilike(f"%{search}%")
+                             | cast(Resource.tags, String).ilike(f"%{search}%"))
             query = query.where(search_filter)
             count_query = count_query.where(search_filter)
         
@@ -149,6 +160,25 @@ class ResourceCRUD:
         return [category for category in result.scalars().all() if category]
 
     @staticmethod
+    async def facets(db: AsyncSession) -> dict:
+        """Every category and tag with its number of links, each sorted by name."""
+        total = (await db.execute(select(func.count(Resource.id)))).scalar() or 0
+        cats = await db.execute(
+            select(Resource.category, func.count(Resource.id))
+            .where(Resource.category.is_not(None))
+            .group_by(Resource.category)
+            .order_by(Resource.category)
+        )
+        counts: Counter = Counter()
+        for tags in (await db.execute(select(Resource.tags))).scalars():
+            counts.update(tags or [])
+        return {
+            "total": total,
+            "categories": [{"name": c, "count": n} for c, n in cats.all() if c],
+            "tags": [{"name": t, "count": counts[t]} for t in sorted(counts)],
+        }
+
+    @staticmethod
     async def update(
         db: AsyncSession,
         resource_id: int,
@@ -175,6 +205,8 @@ class ResourceCRUD:
         
         # Update only provided fields
         update_data = resource_data.model_dump(exclude_unset=True)
+        if 'tags' in update_data and update_data['tags'] is None:
+            update_data['tags'] = []
         if 'url' in update_data:
             update_data['url'] = str(update_data['url'])
             if update_data['url'] != db_resource.url:

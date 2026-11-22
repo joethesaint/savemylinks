@@ -58,3 +58,7 @@ jobs:
           source-dir: _site
           preview-branch: gh-pages
           umbrella-dir: pr-preview
+          # No bot comment: it was edited on every push and emailed each time. The preview is
+          # always at https://joethesaint.github.io/savemylinks/pr-preview/pr-<number>/ and
+          # goes in the PR description instead.
+          comment: false

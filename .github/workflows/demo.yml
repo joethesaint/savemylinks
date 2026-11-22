@@ -1,10 +1,13 @@
-# Static demo (demo/build.py) on GitHub Pages.
-# On every pull request: test and build only, so a broken demo fails on the PR, before merge.
-# On main: test, build and publish.
+# Static demo (demo/build.py) on GitHub Pages, served from the gh-pages branch.
+# - main: test, build, publish to the site root.
+# - every PR: test, build, publish a live preview at /savemylinks/pr-preview/pr-<number>/ and
+#   comment the link on the PR, so it can be tried while CodeRabbit reviews it. The preview is
+#   removed when the PR closes. (PRs from forks are tested but get no preview: no write access.)
 name: Demo site
 
 on:
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review, closed]
     paths: ["app/templates/**", "app/static/**", "demo/**", ".github/workflows/demo.yml", "conftest.py", "pytest.ini"]
   push:
     branches: [main]
@@ -12,37 +15,42 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write        # push to the gh-pages branch
+  pull-requests: write   # comment the preview link
 
+# One writer to gh-pages at a time; never cancel a half-finished publish.
 concurrency:
-  group: demo-${{ github.ref }}
-  cancel-in-progress: true
+  group: gh-pages
+  cancel-in-progress: false
 
 jobs:
-  build:
+  site:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
+        if: github.event.action != 'closed'
         with:
           python-version: "3.12"
-      - run: pip install jinja2==3.1.2 pytest==7.4.3 pytest-asyncio==0.21.1  # the root conftest.py loads pytest_asyncio
-      - run: python -m pytest demo/test_build.py -q -p no:cacheprovider
-      - run: python demo/build.py _site
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
+      - name: Test and build
+        if: github.event.action != 'closed'
+        run: |
+          pip install jinja2==3.1.2 pytest==7.4.3 pytest-asyncio==0.21.1  # the root conftest.py loads pytest_asyncio
+          python -m pytest demo/test_build.py -q -p no:cacheprovider
+          python demo/build.py _site
 
-  deploy:
-    if: github.event_name != 'pull_request'
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Publish the site (main)
+        if: github.event_name != 'pull_request'
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: _site
+          branch: gh-pages
+          clean-exclude: pr-preview/
+
+      - name: Publish or remove the PR preview
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: _site
+          preview-branch: gh-pages
+          umbrella-dir: pr-preview

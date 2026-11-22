@@ -1,0 +1,102 @@
+# The native app (native/): one program people download and run, with the full app inside.
+# PRs and main: unit tests, then the same API contract against the native app AND the FastAPI
+# app, then builds for Windows, macOS and Linux (downloadable from the run).
+# A tag like v0.1.0: the same, then a GitHub Release with the three downloads attached.
+name: Native app
+
+on:
+  pull_request:
+    paths: ["native/**", "demo/**", "app/**", "tests/contract/**", ".github/workflows/native.yml"]
+  push:
+    branches: [main]
+    paths: ["native/**", "demo/**", "app/**", "tests/contract/**", ".github/workflows/native.yml"]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Build the app pages into native/site
+        run: python demo/build.py native/site --app
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native
+      - name: Unit tests
+        run: cargo test --manifest-path native/Cargo.toml
+      - name: Build
+        run: cargo build --release --manifest-path native/Cargo.toml
+      - name: Contract against the native app
+        run: |
+          ./native/target/release/savemylinks --port 8765 --db /tmp/native.db --no-browser &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8765/health && break; sleep 1; done
+          SAVEMYLINKS_URL=http://127.0.0.1:8765 python -m pytest tests/contract -q -p no:cacheprovider -o addopts=""
+      - name: Contract against the FastAPI app (the reference)
+        run: |
+          DATABASE_URL=sqlite+aiosqlite:////tmp/fastapi.db python -m uvicorn app.main:app --host 127.0.0.1 --port 8766 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8766/health && break; sleep 1; done
+          SAVEMYLINKS_URL=http://127.0.0.1:8766 python -m pytest tests/contract -q -p no:cacheprovider -o addopts=""
+
+  build:
+    needs: contract
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            file: savemylinks.exe
+            asset: savemylinks-windows-x64.exe
+          - os: macos-latest
+            file: savemylinks
+            asset: savemylinks-macos-arm64
+          - os: ubuntu-latest
+            file: savemylinks
+            asset: savemylinks-linux-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install jinja2==3.1.2
+      - run: python demo/build.py native/site --app
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native
+      - run: cargo build --release --manifest-path native/Cargo.toml
+      - name: Name the download
+        shell: bash
+        run: cp native/target/release/${{ matrix.file }} ${{ matrix.asset }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

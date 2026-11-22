@@ -2,6 +2,10 @@
 
 **Try it:** [live demo](https://joethesaint.github.io/savemylinks/) (runs in your browser; links you save stay on your device).
 
+**Run your own copy:** download one file from [Releases](https://github.com/joethesaint/savemylinks/releases) (Windows, macOS or Linux) and open it. Your browser opens your own SaveMyLinks with real link previews; your library is one file on your computer (`%APPDATA%\SaveMyLinks` on Windows, `~/.local/share/savemylinks` elsewhere). No Python, no setup. The browser extension works with it as-is. Built from `native/` (Rust); the Python app below is the reference it is tested against.
+- Options: `--port 8123`, `--db path/to/library.db`, `--no-browser`. Export your library at `/api/export`.
+- The downloads are not code-signed yet, so Windows SmartScreen and macOS Gatekeeper ask once before the first run.
+
 **AI For Developers II Capstone Project | [ALX](https://www.alxafrica.com/)**
 
 ## 🔖 Project Description

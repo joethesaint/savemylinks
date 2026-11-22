@@ -38,3 +38,9 @@ reviews:
       instructions: |
         demo/demo-api.js must answer like the FastAPI routes (status codes and response shapes).
         Dynamic import() paths must be relative ("./"), never bare.
+    - path: "native/**"
+      instructions: |
+        Rust port of the FastAPI app. Responses must match the API contract in tests/contract
+        (status codes, JSON shapes, 422 detail lists). The link-preview fetch must refuse
+        non-public addresses on every redirect hop, keep the 5 s timeout and 1 MB cap, and never
+        hold the store's Mutex across an await. Bind to 127.0.0.1 only.

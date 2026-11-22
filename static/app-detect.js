@@ -22,12 +22,17 @@
   }
 
   function found(slots) {
+    // Connected: its own wording, a status dot, a clear button, and the banner turns green.
     for (const el of slots) {
       el.innerHTML = '';
-      const strong = document.createElement('strong');
-      strong.textContent = 'SaveMyLinks is running on this computer. ';
-      const a = Object.assign(document.createElement('a'), { href: APP, textContent: 'Open your library' });
-      el.append(strong, a, ' (real previews, your own links).');
+      el.classList.add('is-connected');
+      el.closest('.demo-banner')?.classList.add('is-connected');
+      const status = document.createElement('span');
+      status.className = 'app-status';
+      status.innerHTML = '<span class="app-dot" aria-hidden="true"></span><strong>Connected.</strong> ';
+      status.append('Your SaveMyLinks is running on this computer.');
+      const a = Object.assign(document.createElement('a'), { href: APP, className: 'app-open', textContent: 'Open your library →' });
+      el.append(status, a);
     }
   }
 

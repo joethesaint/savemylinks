@@ -1,6 +1,6 @@
 [package]
 name = "savemylinks"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "SaveMyLinks as one small program: your own library, real link previews, no setup."
 license = "MIT"

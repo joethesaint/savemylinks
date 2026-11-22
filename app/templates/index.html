@@ -836,6 +836,9 @@
         if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'k') { e.preventDefault(); openJump(); }
     });
 
+    // Saved from Clippy's quick-save box on this page: show it.
+    window.addEventListener('sml:saved-elsewhere', () => refresh());
+
     loadCategories().then(load);
 })();
 </script>

@@ -118,6 +118,61 @@ fn check_str(body: &Value, field: &str, required: bool, max: usize, errs: &mut V
     }
 }
 
+/// Tags as people type them -> one form, exactly as app/schemas.py normalize_tags: no leading #,
+/// no quotes or commas, lowercase, spaces as -, no empties, no repeats (first wins).
+pub fn normalize_tags(raw: &[String]) -> Result<Vec<String>, String> {
+    let mut out: Vec<String> = vec![];
+    for r in raw {
+        let t = r.trim().trim_start_matches('#').trim().replace(['"', ','], "").to_lowercase();
+        let t = t.split_whitespace().collect::<Vec<_>>().join("-");
+        if t.is_empty() {
+            continue;
+        }
+        if t.chars().count() > 30 {
+            return Err("Value error, Each tag should have at most 30 characters".into());
+        }
+        if !out.contains(&t) {
+            out.push(t);
+        }
+    }
+    Ok(out)
+}
+
+/// The tags field like the Pydantic schema: absent, null, or a list of at most 10 strings.
+fn check_tags(body: &Value, errs: &mut Vec<Value>) -> Option<Option<Vec<String>>> {
+    match body.get("tags") {
+        None => None,
+        Some(Value::Null) => Some(None),
+        Some(Value::Array(items)) => {
+            let mut strs = vec![];
+            for (i, v) in items.iter().enumerate() {
+                match v {
+                    Value::String(s) => strs.push(s.clone()),
+                    other => errs.push(json!({ "type": "string_type", "loc": ["body", "tags", i], "msg": "Input should be a valid string", "input": other })),
+                }
+            }
+            if items.len() > 10 {
+                errs.push(field_error("body", "tags", "too_long", format!("List should have at most 10 items after validation, not {}", items.len()), &json!(items), Some(json!({ "field_type": "List", "max_length": 10, "actual_length": items.len() }))));
+                return None;
+            }
+            if strs.len() < items.len() {
+                return None;
+            }
+            match normalize_tags(&strs) {
+                Ok(t) => Some(Some(t)),
+                Err(msg) => {
+                    errs.push(field_error("body", "tags", "value_error", msg, &json!(items), None));
+                    None
+                }
+            }
+        }
+        Some(other) => {
+            errs.push(field_error("body", "tags", "list_type", "Input should be a valid list".into(), other, None));
+            None
+        }
+    }
+}
+
 fn check_url(body: &Value, required: bool, errs: &mut Vec<Value>) -> Option<String> {
     match body.get("url") {
         None if !required => None,
@@ -156,6 +211,7 @@ struct ListQuery {
     per_page: Option<String>,
     category: Option<String>,
     search: Option<String>,
+    tag: Option<String>,
 }
 
 async fn list(State(st): State<AppState>, Query(q): Query<ListQuery>) -> Response {
@@ -175,7 +231,12 @@ async fn list(State(st): State<AppState>, Query(q): Query<ListQuery>) -> Respons
         return invalid(errs);
     }
     let s = st.lock().unwrap();
-    match s.list(page, per_page, q.category.as_deref(), q.search.as_deref()) {
+    // A ?tag= in the stored form; one too long to be stored simply matches nothing.
+    let tag = q.tag.filter(|t| !t.is_empty()).and_then(|t| match normalize_tags(&[t.clone()]) {
+        Ok(v) => v.into_iter().next(),
+        Err(_) => Some(t),
+    });
+    match s.list(page, per_page, q.category.as_deref(), q.search.as_deref(), tag.as_deref()) {
         Ok((resources, total)) => Json(json!({ "resources": resources, "total": total, "page": page, "per_page": per_page })).into_response(),
         Err(e) => internal(e),
     }
@@ -188,6 +249,13 @@ async fn categories(State(st): State<AppState>) -> Response {
     }
 }
 
+async fn facets(State(st): State<AppState>) -> Response {
+    match st.lock().unwrap().facets() {
+        Ok(f) => Json(f).into_response(),
+        Err(e) => internal(e),
+    }
+}
+
 async fn create(State(st): State<AppState>, body: Option<Json<Value>>) -> Response {
     let Some(Json(body)) = body else { return invalid(vec![field_error("body", "body", "json_invalid", "JSON decode error".into(), &Value::Null, None)]) };
     if let Some(r) = not_object(&body) { return r; }
@@ -196,11 +264,13 @@ async fn create(State(st): State<AppState>, body: Option<Json<Value>>) -> Respon
     let url = check_url(&body, true, &mut errs);
     let description = check_str(&body, "description", false, 1000, &mut errs);
     let category = check_str(&body, "category", false, 100, &mut errs);
+    let tags = check_tags(&body, &mut errs);
     if !errs.is_empty() {
         return invalid(errs);
     }
     let (title, url) = (title.flatten().unwrap_or_default(), url.unwrap_or_default());
-    let res = st.lock().unwrap().create(&title, &url, description.flatten().as_deref(), category.flatten().as_deref());
+    let tags = tags.flatten().unwrap_or_default();
+    let res = st.lock().unwrap().create(&title, &url, description.flatten().as_deref(), category.flatten().as_deref(), &tags);
     match res {
         Ok(Write::Ok(r)) => {
             preview_later(st.clone(), r["id"].as_i64().unwrap_or(0), url);
@@ -230,10 +300,11 @@ async fn update(State(st): State<AppState>, p: Result<Path<i64>, PathRejection>,
     let url = check_url(&body, false, &mut errs);
     let description = check_str(&body, "description", false, 1000, &mut errs);
     let category = check_str(&body, "category", false, 100, &mut errs);
+    let tags = check_tags(&body, &mut errs).map(|t| t.unwrap_or_default());
     if !errs.is_empty() {
         return invalid(errs);
     }
-    let res = st.lock().unwrap().update(id, Fields { title, url, description, category });
+    let res = st.lock().unwrap().update(id, Fields { title, url, description, category, tags });
     match res {
         Ok(Write::Ok(r)) => {
             if r["link_metadata"].is_null() {
@@ -314,7 +385,7 @@ async fn save(State(st): State<AppState>, body: Option<Json<Value>>) -> Response
         Err(e) => return internal(e),
     }
     let title = clip(title.as_deref(), 200).or_else(|| clip(Some(&urls::fallback_title(&url)), 200)).unwrap_or_default();
-    match store.create(&title, &url, clip(note.as_deref(), 1000).as_deref(), clip(category.as_deref(), 100).as_deref()) {
+    match store.create(&title, &url, clip(note.as_deref(), 1000).as_deref(), clip(category.as_deref(), 100).as_deref(), &[]) {
         Ok(Write::Ok(r)) => {
             drop(store);
             preview_later(st.clone(), r["id"].as_i64().unwrap_or(0), url);
@@ -362,6 +433,7 @@ pub fn app(store: Store) -> Router {
         .route("/api/resources", get(list).post(create))
         .route("/api/resources/", get(list).post(create))
         .route("/api/resources/categories", get(categories))
+        .route("/api/resources/facets", get(facets))
         .route("/api/resources/:id", get(read_one).put(update).delete(remove))
         .route("/api/resources/:id/metadata", post(refresh_metadata))
         .route("/api/save", post(save))

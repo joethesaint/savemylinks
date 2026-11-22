@@ -12,6 +12,8 @@ pub struct Fields {
     pub url: Option<String>,
     pub description: Option<Option<String>>,
     pub category: Option<Option<String>>,
+    /// Replaces the tags when present ([] clears them).
+    pub tags: Option<Vec<String>>,
 }
 
 pub enum Write {
@@ -26,6 +28,7 @@ fn now() -> String {
 
 fn to_json(r: &Row) -> rusqlite::Result<Value> {
     let meta: Option<String> = r.get("link_metadata")?;
+    let tags: Option<String> = r.get("tags")?;
     Ok(json!({
         "id": r.get::<_, i64>("id")?,
         "title": r.get::<_, String>("title")?,
@@ -33,12 +36,19 @@ fn to_json(r: &Row) -> rusqlite::Result<Value> {
         "description": r.get::<_, Option<String>>("description")?,
         "category": r.get::<_, Option<String>>("category")?,
         "link_metadata": meta.and_then(|m| serde_json::from_str::<Value>(&m).ok()),
+        "tags": tags.and_then(|t| serde_json::from_str::<Value>(&t).ok()).filter(|v| v.is_array()).unwrap_or_else(|| json!([])),
         "created_at": r.get::<_, String>("created_at")?,
         "updated_at": r.get::<_, String>("updated_at")?,
     }))
 }
 
-const COLS: &str = "id, title, url, description, category, link_metadata, created_at, updated_at";
+const COLS: &str = "id, title, url, description, category, link_metadata, tags, created_at, updated_at";
+
+/// A tag as it appears inside the stored JSON list, for LIKE: "tag", with % _ and \ escaped.
+fn tag_pattern(tag: &str) -> String {
+    let t = tag.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_");
+    format!("%\"{t}\"%")
+}
 
 impl Store {
     pub fn open(path: &str) -> rusqlite::Result<Store> {
@@ -52,11 +62,16 @@ impl Store {
                description TEXT,
                category VARCHAR(100),
                link_metadata JSON,
+               tags JSON,
                created_at DATETIME NOT NULL,
                updated_at DATETIME NOT NULL);
              CREATE INDEX IF NOT EXISTS ix_resources_title ON resources (title);
              CREATE INDEX IF NOT EXISTS ix_resources_category ON resources (category);",
         )?;
+        // A library made before tags existed gains the column; every row keeps what it had.
+        if !conn.prepare("SELECT 1 FROM pragma_table_info('resources') WHERE name = 'tags'")?.exists([])? {
+            conn.execute("ALTER TABLE resources ADD COLUMN tags JSON", [])?;
+        }
         Ok(Store { conn })
     }
 
@@ -68,8 +83,8 @@ impl Store {
         self.conn.query_row(&format!("SELECT {COLS} FROM resources WHERE url = ?1"), [url], to_json).optional()
     }
 
-    /// Newest first; search is case-insensitive in title and description; category is exact.
-    pub fn list(&self, page: i64, per_page: i64, category: Option<&str>, search: Option<&str>) -> rusqlite::Result<(Vec<Value>, i64)> {
+    /// Newest first; search is case-insensitive in title, description and tags; category and tag are exact.
+    pub fn list(&self, page: i64, per_page: i64, category: Option<&str>, search: Option<&str>, tag: Option<&str>) -> rusqlite::Result<(Vec<Value>, i64)> {
         let mut filter = String::from("WHERE 1=1");
         let mut args: Vec<String> = vec![];
         if let Some(c) = category.filter(|c| !c.is_empty()) {
@@ -78,7 +93,11 @@ impl Store {
         }
         if let Some(s) = search.filter(|s| !s.is_empty()) {
             args.push(format!("%{s}%"));
-            filter += &format!(" AND (title LIKE ?{n} OR description LIKE ?{n})", n = args.len());
+            filter += &format!(" AND (title LIKE ?{n} OR description LIKE ?{n} OR tags LIKE ?{n})", n = args.len());
+        }
+        if let Some(t) = tag.filter(|t| !t.is_empty()) {
+            args.push(tag_pattern(t));
+            filter += &format!(" AND tags LIKE ?{} ESCAPE '\\'", args.len());
         }
         let total: i64 = self.conn.query_row(&format!("SELECT count(id) FROM resources {filter}"), rusqlite::params_from_iter(args.iter()), |r| r.get(0))?;
         let sql = format!("SELECT {COLS} FROM resources {filter} ORDER BY created_at DESC, id DESC LIMIT {per_page} OFFSET {}", (page - 1) * per_page);
@@ -93,14 +112,34 @@ impl Store {
         v
     }
 
-    pub fn create(&self, title: &str, url: &str, description: Option<&str>, category: Option<&str>) -> rusqlite::Result<Write> {
+    /// Every category and tag with its number of links, each sorted by name.
+    pub fn facets(&self) -> rusqlite::Result<Value> {
+        let total: i64 = self.conn.query_row("SELECT count(id) FROM resources", [], |r| r.get(0))?;
+        let mut stmt = self.conn.prepare("SELECT category, count(id) FROM resources WHERE category IS NOT NULL GROUP BY category ORDER BY category")?;
+        let categories: Vec<Value> = stmt
+            .query_map([], |r| Ok(json!({ "name": r.get::<_, String>(0)?, "count": r.get::<_, i64>(1)? })))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut counts = std::collections::BTreeMap::<String, i64>::new();
+        let mut stmt = self.conn.prepare("SELECT tags FROM resources WHERE tags IS NOT NULL")?;
+        for raw in stmt.query_map([], |r| r.get::<_, String>(0))? {
+            if let Ok(Value::Array(tags)) = serde_json::from_str::<Value>(&raw?) {
+                for t in tags.iter().filter_map(|t| t.as_str()) {
+                    *counts.entry(t.to_string()).or_default() += 1;
+                }
+            }
+        }
+        let tags: Vec<Value> = counts.into_iter().map(|(name, count)| json!({ "name": name, "count": count })).collect();
+        Ok(json!({ "total": total, "categories": categories, "tags": tags }))
+    }
+
+    pub fn create(&self, title: &str, url: &str, description: Option<&str>, category: Option<&str>, tags: &[String]) -> rusqlite::Result<Write> {
         if self.get_by_url(url)?.is_some() {
             return Ok(Write::Duplicate);
         }
         let t = now();
         self.conn.execute(
-            "INSERT INTO resources (title, url, description, category, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
-            params![title, url, description, category, t],
+            "INSERT INTO resources (title, url, description, category, tags, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
+            params![title, url, description, category, serde_json::to_string(tags).unwrap_or_else(|_| "[]".into()), t],
         )?;
         Ok(Write::Ok(self.get(self.conn.last_insert_rowid())?.unwrap_or(Value::Null)))
     }
@@ -120,10 +159,11 @@ impl Store {
         let url = f.url.unwrap_or_else(|| cur["url"].as_str().unwrap_or_default().to_string());
         let description = f.description.unwrap_or_else(|| cur["description"].as_str().map(String::from));
         let category = f.category.unwrap_or_else(|| cur["category"].as_str().map(String::from));
+        let tags = f.tags.map(|t| json!(t)).unwrap_or_else(|| cur["tags"].clone()).to_string();
         let meta: Option<String> = if url_changed { None } else { cur.get("link_metadata").filter(|m| !m.is_null()).map(|m| m.to_string()) };
         self.conn.execute(
-            "UPDATE resources SET title=?1, url=?2, description=?3, category=?4, link_metadata=?5, updated_at=?6 WHERE id=?7",
-            params![title, url, description, category, meta, now(), id],
+            "UPDATE resources SET title=?1, url=?2, description=?3, category=?4, link_metadata=?5, tags=?6, updated_at=?7 WHERE id=?8",
+            params![title, url, description, category, meta, tags, now(), id],
         )?;
         Ok(Write::Ok(self.get(id)?.unwrap_or(Value::Null)))
     }
@@ -155,12 +195,17 @@ mod tests {
     #[test]
     fn create_list_update_delete() {
         let s = Store::open(":memory:").unwrap();
-        assert!(matches!(s.create("A", "https://a.com/", Some("note"), Some("Web")).unwrap(), Write::Ok(_)));
-        assert!(matches!(s.create("dup", "https://a.com/", None, None).unwrap(), Write::Duplicate));
-        s.create("B", "https://b.com/", None, Some("Python")).unwrap();
-        let (rows, total) = s.list(1, 10, None, Some("NOTE")).unwrap();
+        assert!(matches!(s.create("A", "https://a.com/", Some("note"), Some("Web"), &["py".into(), "web".into()]).unwrap(), Write::Ok(_)));
+        assert!(matches!(s.create("dup", "https://a.com/", None, None, &[]).unwrap(), Write::Duplicate));
+        s.create("B", "https://b.com/", None, Some("Python"), &["py".into()]).unwrap();
+        let (rows, total) = s.list(1, 10, None, Some("NOTE"), None).unwrap();
         assert_eq!((rows.len(), total), (1, 1), "search is case-insensitive");
         assert_eq!(s.categories().unwrap(), vec!["Python", "Web"]);
+        assert_eq!(s.list(1, 10, None, None, Some("py")).unwrap().1, 2, "tag filter");
+        assert_eq!(s.list(1, 10, None, None, Some("p")).unwrap().1, 0, "a tag is matched whole");
+        let f = s.facets().unwrap();
+        assert_eq!(f["tags"], json!([{ "name": "py", "count": 2 }, { "name": "web", "count": 1 }]));
+        assert_eq!(f["total"], 2);
         let mut m = Map::new();
         m.insert("title".into(), Value::String("t".into()));
         s.set_metadata(1, "https://a.com/", &m).unwrap();

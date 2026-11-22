@@ -34,3 +34,9 @@ The demo runs in the browser on GitHub Pages, and browsers block reading other s
 can't fetch real previews. It knows the sample links' images (`KNOWN` in `demo/demo-api.js`) and
 simulates the rest. Say "Previews are simulated" wherever that matters, and never let a demo button
 claim it fetched something it didn't.
+
+## G5. A scrolling row inside a grid makes the page too wide (UI)
+
+A grid item's minimum width is its content's width, so a long one-line row (the tags on phones) pushed
+the library 1,118 px wider than the screen. Give each grid on the way down `grid-template-columns:
+minmax(0, 1fr)` (or the item `min-width: 0`), and check every new layout at 390 px for sideways scroll.

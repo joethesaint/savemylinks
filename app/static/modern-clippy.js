@@ -26,7 +26,7 @@ function injectStyles() {
   css.id = STYLE_ID;
   css.textContent = `
   .clippy-agent { position: fixed; right: 20px; bottom: 20px; z-index: 1000; touch-action: none; user-select: none; }
-  .clippy-main { cursor: grab; background-repeat: no-repeat; }
+  .clippy-main { display: block; cursor: grab; }
   .clippy-agent.is-dragging .clippy-main { cursor: grabbing; }
   .clippy-close { position: absolute; top: -6px; right: -6px; width: 24px; height: 24px; border-radius: 50%;
     border: 1px solid var(--line-strong, #6c7f84); background: var(--surface-raised, #fff); color: var(--ink, #1f2a2e);
@@ -73,11 +73,36 @@ export class ModernClippy {
     this.container.setAttribute('role', 'complementary');
     this.container.setAttribute('aria-label', 'Assistant');
 
-    this.element = document.createElement('div');
+    // Drawn on a canvas, frame by frame from the sprite sheet:
+    // - Sharp: the sprite is 1990s pixel art (a frame is about 124 x 93). Stretched as a CSS
+    //   background on a 1.5x or 2x screen it was smoothed and looked blurry. Here each sprite pixel
+    //   becomes a whole number of device pixels, with smoothing off. On a very wide page (a 4K
+    //   screen at 100%) he is drawn at 2x so he isn't a speck.
+    // - Free for LCP: a canvas never counts as the page's largest content, so a big Clippy that
+    //   arrives after the page can't make the page look slow.
+    this.frameW = w; this.frameH = h;
+    this.sprite = new Image();
+    this.sprite.src = this.mapUrl; // already loaded once by loadAgent, so this comes from the cache
+    this.element = document.createElement('canvas');
     this.element.className = 'clippy-main';
     this.element.tabIndex = 0;
+    this.element.setAttribute('role', 'img');
     this.element.setAttribute('aria-label', 'Assistant. Drag to move, or press arrow keys.');
-    this.element.style.cssText = `width:${w}px;height:${h}px;background-image:url("${this.mapUrl}")`;
+    this.ctx = this.element.getContext('2d');
+    this.lastFrame = null;
+    const fit = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const scale = Math.max(1, Math.round(dpr * (window.innerWidth >= 1800 ? 2 : 1))); // device pixels per sprite pixel
+      this.element.width = w * scale;
+      this.element.height = h * scale;
+      this.element.style.width = `${(w * scale) / dpr}px`;
+      this.element.style.height = `${(h * scale) / dpr}px`;
+      this.ctx.imageSmoothingEnabled = false;
+      if (this.lastFrame) this.renderFrame(this.lastFrame);
+    };
+    fit();
+    window.addEventListener('resize', fit); // moving to another screen or zooming changes the ratio
+    this.sprite.onload = () => this.lastFrame && this.renderFrame(this.lastFrame);
 
     this.bubble = document.createElement('div');
     this.bubble.className = 'clippy-bubble';
@@ -102,6 +127,8 @@ export class ModernClippy {
   show() {
     if (this.visible) return;
     document.body.appendChild(this.container);
+    // His size depends on the screen (see fit), so a saved spot may now push him off an edge.
+    requestAnimationFrame(() => { const r = this.container.getBoundingClientRect(); this.placeAt(r.left, r.top); });
     this.visible = true;
     store({ hidden: false });
     this.renderFrame(this.data.animations.RestPose?.frames.at(-1) ?? { images: [[0, 0]] });
@@ -178,8 +205,12 @@ export class ModernClippy {
   }
   renderFrame(frame) {
     const img = frame?.images?.[0];
-    this.element.style.visibility = img ? 'visible' : 'hidden';   // some frames are intentionally blank
-    if (img) this.element.style.backgroundPosition = `-${img[0]}px -${img[1]}px`;
+    this.lastFrame = frame;
+    const { width, height } = this.element;
+    this.ctx.clearRect(0, 0, width, height);   // some frames are intentionally blank
+    if (img && this.sprite.complete && this.sprite.naturalWidth) {
+      this.ctx.drawImage(this.sprite, img[0], img[1], this.frameW, this.frameH, 0, 0, width, height);
+    }
   }
 
   // ── idle: a small idle move every few seconds so he feels alive; never speech ──

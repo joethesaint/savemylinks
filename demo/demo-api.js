@@ -27,10 +27,16 @@
     ['https://www.smashingmagazine.com/2022/09/inline-validation-web-forms-ux/', 'Inline validation in web forms', null, 'Design', 'Smashing Magazine', 'How to design inline validation that helps instead of nags.', 21, 'https://archive.smashing.media/assets/344dbf88-fdf9-42bb-adb4-46f01eedd629/64066efe-71fa-45b6-8e86-caf46c423b64/clean-up-input-ux-pattern.jpg'],
     ['https://pytest-asyncio.readthedocs.io/', 'pytest-asyncio', null, 'Python', 'pytest-asyncio', 'Pytest support for asyncio.', 25],
   ];
+  // Sample tags, by position in SEED.
+  const SEED_TAGS = [
+    ['portfolio'], ['savemylinks', 'rust', 'python'], ['html', 'ui'], ['python', 'async'], ['learning'],
+    ['python', 'async', 'database'], ['performance'], ['ux'], ['ui', 'ux'], ['python', 'validation'],
+    ['browser'], ['ux', 'forms'], ['python', 'testing', 'async'],
+  ];
   const seed = () => ({
     next: SEED.length + 1,
     items: SEED.map(([url, title, description, category, site_name, summary, age, image], i) => ({
-      id: SEED.length - i, url, title, description, category,
+      id: SEED.length - i, url, title, description, category, tags: SEED_TAGS[i] || [],
       created_at: daysAgo(age), updated_at: daysAgo(age),
       link_metadata: { title, description: summary, site_name, ...(image ? { image } : {}) },
     })),
@@ -40,6 +46,7 @@
   // What the demo "knows" about its sample pages: "Fetch preview again" gives these back, and
   // visitors who saved the demo before the pictures were added get them on their next visit.
   const KNOWN = new Map(seed().items.map((r) => [norm0(r.url), r.link_metadata]));
+  const KNOWN_TAGS = new Map(seed().items.map((r) => [norm0(r.url), r.tags]));
   const PORTFOLIO = SEED[0][0];
 
   let memory = null;
@@ -51,6 +58,7 @@
         for (const r of db.items) {
           const k = KNOWN.get(norm0(r.url));
           if (k && k.image && r.link_metadata && !r.link_metadata.image) r.link_metadata = { ...r.link_metadata, image: k.image };
+          if (!Array.isArray(r.tags)) r.tags = KNOWN_TAGS.get(norm0(r.url)) || [];
         }
         return db;
       }
@@ -70,6 +78,19 @@
   const json = (status, body) => Promise.resolve(new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }));
   const norm = (u) => { try { const x = new URL(u); return (x.protocol + '//' + x.host.toLowerCase() + x.pathname.replace(/\/$/, '') + x.search); } catch (e) { return u; } };
 
+  // Tags exactly as app/schemas.py normalize_tags: no leading #, no quotes or commas, lowercase,
+  // spaces as -, no empties, no repeats. Returns null when a tag is too long.
+  function normalizeTags(list) {
+    const out = [];
+    for (const raw of list) {
+      const t = raw.trim().replace(/^#+/, '').trim().replace(/[",]/g, '').toLowerCase().replace(/\s+/g, '-');
+      if (!t) continue;
+      if ([...t].length > 30) return null;
+      if (!out.includes(t)) out.push(t);
+    }
+    return out;
+  }
+
   // The same checks as app/schemas.py, in FastAPI's 422 shape, so the pages show their own messages.
   function validate(body, partial) {
     const detail = [];
@@ -85,6 +106,12 @@
     }
     if (body.description && body.description.length > 1000) bad('description', 'String too long', { max_length: 1000 });
     if (body.category && body.category.length > 100) bad('category', 'String too long', { max_length: 100 });
+    if (body.tags !== undefined && body.tags !== null) {
+      if (!Array.isArray(body.tags)) bad('tags', 'Input should be a valid list');
+      else if (body.tags.length > 10) bad('tags', `List should have at most 10 items after validation, not ${body.tags.length}`, { max_length: 10 });
+      else if (body.tags.some((t) => typeof t !== 'string')) bad('tags', 'Input should be a valid string');
+      else if (!normalizeTags(body.tags)) bad('tags', 'Value error, Each tag should have at most 30 characters');
+    }
     return detail;
   }
 
@@ -109,17 +136,33 @@
     const path = url.pathname.replace(/\/+$/, '') || '/';
     const m = /^\/api\/resources\/(\d+)(\/metadata)?$/.exec(path);
 
+    if (path === '/api/resources/facets' && method === 'GET') {
+      const count = (values) => {
+        const m = new Map();
+        values.forEach((v) => m.set(v, (m.get(v) || 0) + 1));
+        return [...m].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([name, n]) => ({ name, count: n }));
+      };
+      return json(200, {
+        total: db.items.length,
+        categories: count(db.items.map((r) => r.category).filter(Boolean)),
+        tags: count(db.items.flatMap((r) => r.tags || [])),
+      });
+    }
     if (path === '/api/resources/categories' && method === 'GET') {
       return json(200, [...new Set(db.items.map((r) => r.category).filter(Boolean))].sort());
     }
     if (path === '/api/resources' && method === 'GET') {
       const q = (url.searchParams.get('search') || '').toLowerCase();
       const cat = url.searchParams.get('category');
+      const rawTag = url.searchParams.get('tag');
+      const tag = rawTag ? ((normalizeTags([rawTag]) || [rawTag])[0] || null) : null;
       const page = Math.max(1, Number(url.searchParams.get('page')) || 1);
       const per = Math.min(100, Math.max(1, Number(url.searchParams.get('per_page')) || 20));
       const hits = db.items
         .filter((r) => !cat || r.category === cat)
-        .filter((r) => !q || r.title.toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q))
+        .filter((r) => !tag || (r.tags || []).includes(tag))
+        .filter((r) => !q || r.title.toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q)
+          || (r.tags || []).some((t) => t.includes(q)))
         .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
       return json(200, { resources: hits.slice((page - 1) * per, page * per), total: hits.length, page, per_page: per });
     }
@@ -127,7 +170,7 @@
       const detail = validate(body, false);
       if (detail.length) return json(422, { detail });
       if (db.items.some((r) => norm(r.url) === norm(body.url))) return json(409, { detail: 'A resource with this URL already exists' });
-      const r = { id: db.next++, url: body.url, title: body.title, description: body.description || null, category: body.category || null, created_at: now(), updated_at: now(), link_metadata: null };
+      const r = { id: db.next++, url: body.url, title: body.title, description: body.description || null, category: body.category || null, tags: normalizeTags(body.tags || []), created_at: now(), updated_at: now(), link_metadata: null };
       previewLater(r); db.items.push(r); save(db);
       return json(201, r);
     }
@@ -149,6 +192,7 @@
         if (body.url && db.items.some((x) => x.id !== id && norm(x.url) === norm(body.url))) return json(409, { detail: 'A resource with this URL already exists' });
         if (body.url && norm(body.url) !== norm(r.url)) previewLater(r);
         for (const k of ['url', 'title', 'description', 'category']) if (body[k] !== undefined) r[k] = body[k];
+        if (body.tags !== undefined) r.tags = normalizeTags(body.tags || []);
         r.updated_at = now(); save(db);
         return json(200, r);
       }

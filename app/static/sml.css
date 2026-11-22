@@ -263,3 +263,26 @@ dialog .panel { border: 0; box-shadow: none; }
   .chip, .btn-sm, .btn-icon { min-height: 44px; }
   .btn-icon { min-width: 44px; }
 }
+
+/* ── views: cards (default), grid (pictures first), list (one line each) ── */
+.status-line { flex-wrap: wrap; }
+.view-switch { display: inline-flex; gap: 2px; padding: 2px; margin-left: auto; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-raised); }
+.view-switch .btn[aria-pressed="true"] { background: var(--brand-soft); color: var(--brand); }
+.cards[data-view="grid"] { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.cards[data-view="grid"] .card { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto; gap: var(--space-3); }
+.cards[data-view="grid"] .thumb { grid-column: 1 / -1; width: 100%; height: auto; aspect-ratio: 16 / 9; }
+.cards[data-view="grid"] .card-desc { -webkit-line-clamp: 3; }
+.cards[data-view="grid"] .card-actions { grid-column: 1; flex-direction: row; justify-self: end; }
+.cards[data-view="list"] { gap: 0; border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; background: var(--surface-raised); }
+.cards[data-view="list"] .card { grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding: var(--space-2) var(--space-4); border: 0; border-bottom: 1px solid var(--line); border-radius: 0; box-shadow: none; }
+.cards[data-view="list"] .card:last-child { border-bottom: 0; }
+.cards[data-view="list"] .thumb, .cards[data-view="list"] .card-desc, .cards[data-view="list"] .card-url { display: none; }
+.cards[data-view="list"] .card-body { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); }
+.cards[data-view="list"] .card-title { font-size: 15px; line-height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cards[data-view="list"] .card-meta { margin: 0; flex-wrap: nowrap; }
+.cards[data-view="list"] .card-meta .date { display: none; }
+.cards[data-view="list"] .card-actions { grid-column: auto; }
+.cards[data-view="list"] .card.is-selected { outline-offset: -2px; }
+@media (max-width: 720px) {
+  .cards[data-view="list"] .card-meta .site { display: none; }
+}

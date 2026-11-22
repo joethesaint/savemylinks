@@ -6,6 +6,15 @@
   // but "200" means nothing to most people (the Director, 22 Nov 2026); it stays on data-code for
   // whoever debugs, and the words carry the meaning.
   const TONE_ICON = { success: 'i-check', notice: 'i-info', danger: 'i-alert' };
+  const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // A toast slides out (120 ms) before it goes; at once when motion is reduced.
+  function dismiss(el) {
+    if (!el || !el.isConnected || el.classList.contains('is-leaving')) return;
+    if (reduceMotion()) { el.remove(); return; }
+    el.classList.add('is-leaving');
+    el.addEventListener('animationend', () => el.remove(), { once: true });
+    setTimeout(() => el.remove(), 400); // in case the animation never runs (hidden tab)
+  }
   function toast(message, { code = '', tone = '' } = {}) {
     const box = $('#toasts');
     if (!box) return;
@@ -18,11 +27,17 @@
     const close = document.createElement('button');
     close.className = 'btn btn-ghost btn-icon btn-sm'; close.type = 'button'; close.setAttribute('aria-label', 'Dismiss');
     close.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-close"/></svg>';
-    close.onclick = () => el.remove();
+    close.onclick = () => dismiss(el);
     el.append(close);
     box.append(el);
-    setTimeout(() => el.remove(), tone === 'danger' ? 8000 : 5000);
+    setTimeout(() => dismiss(el), tone === 'danger' ? 8000 : 5000);
   }
+
+  // Transitions that could fire while the page first lays out (the sliding pills) wait for this
+  // class, so nothing moves on load.
+  document.addEventListener('DOMContentLoaded', () => {
+    requestAnimationFrame(() => requestAnimationFrame(() => document.documentElement.classList.add('motion-ready')));
+  });
 
   // Theme: remembered per browser; the icon shows what a click switches to.
   function syncThemeButton() {
@@ -143,5 +158,5 @@
     return out;
   }
 
-  window.SML = { toast, categories, categoryClass, resetCategories, fieldErrors, facets, categoryPicker, tagField };
+  window.SML = { toast, dismiss, reduceMotion, categories, categoryClass, resetCategories, fieldErrors, facets, categoryPicker, tagField };
 })();

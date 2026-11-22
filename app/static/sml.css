@@ -58,6 +58,12 @@ a { color: var(--brand); }
 a:hover { color: var(--brand-hover); }
 [hidden] { display: none !important; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* No blue flash or ring on a mouse click or a tap: the ring is for keyboard users only
+   (gotcha: buttons focused by a click, or by script, must not look "stuck"). */
+* { -webkit-tap-highlight-color: transparent; }
+:focus:not(:focus-visible) { outline: none; }
+button, .btn, .chip, .card { -webkit-user-select: none; user-select: none; }
+.card-title, .card-desc, .card-url { -webkit-user-select: text; user-select: text; }
 .visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .skip-link { position: absolute; left: var(--space-4); top: -48px; background: var(--surface-raised); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); z-index: 50; }
 .skip-link:focus { top: var(--space-2); }
@@ -215,11 +221,11 @@ dialog .panel { border: 0; box-shadow: none; }
   border: 1px solid var(--line); box-shadow: var(--shadow-lift);
   animation: toast-in var(--dur-settle) var(--ease-swing);
 }
-.toast code { font: 500 13px var(--f-mono); }
+.toast-icon { flex: none; width: 20px; height: 20px; color: var(--ink-muted); }
 .toast .msg { flex: 1; }
-.toast-success { background: var(--success-soft); border-color: var(--success); } .toast-success code { color: var(--success); }
-.toast-notice { background: var(--notice-soft); border-color: var(--notice); } .toast-notice code { color: var(--notice); }
-.toast-danger { background: var(--danger-soft); border-color: var(--danger); } .toast-danger code { color: var(--danger); }
+.toast-success { background: var(--success-soft); border-color: var(--success); } .toast-success .toast-icon { color: var(--success); }
+.toast-notice { background: var(--notice-soft); border-color: var(--notice); } .toast-notice .toast-icon { color: var(--notice); }
+.toast-danger { background: var(--danger-soft); border-color: var(--danger); } .toast-danger .toast-icon { color: var(--danger); }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
 
 /* ── footer ── */

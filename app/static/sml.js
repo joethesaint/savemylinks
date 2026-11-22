@@ -2,13 +2,18 @@
 (function () {
   const $ = (sel, root = document) => root.querySelector(sel);
 
-  // Toast: the API's status code beside a plain sentence (design system: "the code is honest").
+  // Toast: an icon and a plain sentence. The status code used to show here ("the code is honest"),
+  // but "200" means nothing to most people (the Director, 22 Nov 2026); it stays on data-code for
+  // whoever debugs, and the words carry the meaning.
+  const TONE_ICON = { success: 'i-check', notice: 'i-info', danger: 'i-alert' };
   function toast(message, { code = '', tone = '' } = {}) {
     const box = $('#toasts');
     if (!box) return;
     const el = document.createElement('div');
     el.className = 'toast' + (tone ? ' toast-' + tone : '');
-    if (code !== '') { const c = document.createElement('code'); c.textContent = code; el.append(c); }
+    el.setAttribute('role', tone === 'danger' ? 'alert' : 'status');
+    if (code !== '') el.dataset.code = code;
+    el.insertAdjacentHTML('beforeend', `<svg class="icon toast-icon" aria-hidden="true"><use href="#${TONE_ICON[tone] || 'i-info'}"/></svg>`);
     const msg = document.createElement('span'); msg.className = 'msg'; msg.textContent = message; el.append(msg);
     const close = document.createElement('button');
     close.className = 'btn btn-ghost btn-icon btn-sm'; close.type = 'button'; close.setAttribute('aria-label', 'Dismiss');

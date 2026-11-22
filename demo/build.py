@@ -22,7 +22,10 @@ BANNER = (
     '<div class="demo-banner" role="note">'
     "<span><strong>Demo.</strong> Links you save here stay in this browser only. "
     'Previews are simulated. <a href="download.html">Download the full app</a> · <a href="https://github.com/joethesaint/savemylinks">Source</a></span>'
-    '<button type="button" class="btn btn-ghost btn-sm" onclick="smlDemoReset()">Reset demo</button>'
+    '<span class="demo-actions">'
+    '<button type="button" class="btn btn-ghost btn-sm" onclick="smlDemoClear()" title="Keeps only the portfolio link">Clear all</button>'
+    '<button type="button" class="btn btn-ghost btn-sm" onclick="smlDemoReset()" title="Brings back the sample links">Reset demo</button>'
+    "</span>"
     '<span data-app-detect><button type="button" class="btn btn-ghost btn-sm">Have the app? Open it</button></span>'
     "</div>"
 )
@@ -32,6 +35,7 @@ BANNER_CSS = (
     ".demo-banner a{color:inherit;text-decoration:underline}.demo-banner .btn{color:inherit;border-color:currentColor}"
     # Connected to the app on this computer: a green band, the connection set apart by a divider.
     ".demo-banner{gap:.5rem 1.5rem;transition:background-color .3s}"
+    ".demo-actions{display:inline-flex;gap:.5rem}"
     ".demo-banner.is-connected{background:#1d6b45}"
     ".demo-banner [data-app-detect]{display:inline-flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.5rem 1rem}"
     "@media (min-width:720px){.demo-banner [data-app-detect]{padding-left:1.5rem;border-left:1px solid rgba(255,255,255,.35)}}"

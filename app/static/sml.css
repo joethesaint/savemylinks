@@ -572,3 +572,17 @@ dialog[open]::backdrop { opacity: 1; transition-duration: var(--dur-move); }
   .cards:not([data-view]) .thumb-fallback, .cards[data-view="cards"] .thumb-fallback { width: 64px; height: 48px; }
 }
 @media (prefers-reduced-motion: reduce) { .cards[data-view="grid"] .card-actions { transition: none; } }
+
+/* ── Clippy's quick-save box (#36): above him, one field and one button ── */
+.clippy-quick {
+  position: absolute; bottom: calc(100% + 10px); right: 0; width: min(320px, calc(100vw - 32px));
+  display: grid; gap: var(--space-2); padding: var(--space-3);
+  background: var(--surface-raised); color: var(--ink); border: 1px solid var(--line);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-lift);
+  animation: pop-in var(--dur-move) var(--ease-out);
+}
+.clippy-quick-label { font: 600 13px/18px var(--f-sans); }
+.clippy-quick-row { display: flex; gap: var(--space-2); }
+.clippy-quick-row .input { flex: 1; min-width: 0; padding-top: 6px; padding-bottom: 6px; font-size: 14px; }
+.clippy-quick-help { margin: 0; font-size: 12px; color: var(--ink-muted); }
+@media (prefers-reduced-motion: reduce) { .clippy-quick { animation: none; } }

@@ -87,7 +87,7 @@ export class ModernClippy {
     this.element.className = 'clippy-main';
     this.element.tabIndex = 0;
     this.element.setAttribute('role', 'img');
-    this.element.setAttribute('aria-label', 'Assistant. Drag to move, or press arrow keys.');
+    this.element.setAttribute('aria-label', 'Assistant. Double-click or press s to save a link. Drag or use arrow keys to move him.');
     this.ctx = this.element.getContext('2d');
     this.lastFrame = null;
     const fit = () => {
@@ -280,11 +280,15 @@ export class ModernClippy {
     };
     this.element.addEventListener('pointerup', end);
     this.element.addEventListener('pointercancel', end);
+    // Double-click (or s on the keyboard): the page opens its quick-save box beside him.
+    const ask = () => { this.stop(); this.play('Writing', { timeout: 3000 }); this.container.dispatchEvent(new CustomEvent('clippy:save', { bubbles: true })); };
+    this.element.addEventListener('dblclick', (e) => { e.preventDefault(); ask(); });
     this.element.addEventListener('keydown', (e) => {
       const step = e.shiftKey ? 40 : 10;
       const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
       if (e.key === 'Escape') { this.closeBubble(); return; }
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.poke(); return; }
+      if (e.key === 's' || e.key === 'S') { e.preventDefault(); ask(); return; }
       if (!moves[e.key]) return;
       e.preventDefault();
       const r = this.container.getBoundingClientRect();

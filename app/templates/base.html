@@ -24,7 +24,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-    <link rel="stylesheet" href="{{ url_for('static', path='/sml.css') }}?v=15">
+    <link rel="stylesheet" href="{{ url_for('static', path='/sml.css') }}?v=16">
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='/art/icon.svg') }}">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', path='/art/icon-32.png') }}">
     <!-- Installable app (add to home screen); on Android it also appears in the Share menu. -->
@@ -97,7 +97,9 @@
 
     <script src="{{ url_for('static', path='/sml.js') }}?v=8"></script>
 
-    <!-- Assistant (Clippy). Reacts to what happens on the page; never interrupts on a timer.
+    <!-- Assistant (Clippy). Reacts to what happens on the page. Since 22 Nov (#36, the Director's ask)
+         he also offers an occasional idle tip, at most 3 a visit, never while you're busy; and a
+         double-click on him opens a quick-save box.
          Pages talk to it with events:
            window.dispatchEvent(new CustomEvent('sml:save',  { detail: { status: 201|409|422|0, category, message } }))
            window.dispatchEvent(new CustomEvent('sml:empty', { detail: { search } }))  -->
@@ -114,7 +116,7 @@
 
         function react(animation, text, tone, duration = 5000) {
             if (!agent || !agent.visible) return;
-            agent.play(animation, { timeout: 3000 });
+            if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) agent.play(animation, { timeout: 3000 });
             agent.speak(text, { tone, duration });
         }
 
@@ -137,9 +139,106 @@
         }
         window.addEventListener('sml:assistant', (e) => syncToggle(e.detail.hidden));
 
+        // ── Quick save: double-click Clippy, paste, Enter. The full form is one link away. ──
+        let quick = null;
+        function suggestTitle(raw) {
+            try {
+                const url = new URL(raw);
+                const last = url.pathname.split('/').filter(Boolean).pop();
+                let words = last ? decodeURIComponent(last).replace(/\.[a-z0-9]+$/i, '').replace(/[-_+]+/g, ' ').trim() : '';
+                if (/\d{6,}|^urn:/i.test(words) || !/[a-z]{3,}/i.test(words)) words = ''; // an ID is no title
+                const host = url.hostname.replace(/^www\./, '');
+                return words ? `${words.charAt(0).toUpperCase()}${words.slice(1)} (${host})` : host;
+            } catch { return ''; }
+        }
+        function closeQuick() { if (quick) { quick.remove(); quick = null; } }
+        async function openQuick() {
+            if (!agent || !agent.visible) return;
+            if (quick) { quick.querySelector('input').focus(); return; }
+            agent.closeBubble();
+            quick = document.createElement('form');
+            quick.className = 'clippy-quick';
+            quick.setAttribute('aria-label', 'Quick save');
+            quick.innerHTML = '<label class="clippy-quick-label" for="quickUrl">Save a link</label>'
+                + '<div class="clippy-quick-row"><input class="input" id="quickUrl" type="url" inputmode="url" placeholder="Paste a link" autocomplete="off" required>'
+                + '<button type="submit" class="btn btn-primary btn-sm">Save</button></div>'
+                + '<p class="clippy-quick-help"><a href="/add">More options</a> · Esc to close</p>';
+            agent.container.append(quick);
+            // Open toward the side with room: he may sit at any edge of the screen.
+            const at = agent.container.getBoundingClientRect();
+            if (at.left + at.width / 2 < window.innerWidth / 2) { quick.style.left = '0'; quick.style.right = 'auto'; }
+            if (at.top < quick.offsetHeight + 20) { quick.style.bottom = 'auto'; quick.style.top = 'calc(100% + 10px)'; }
+            const input = quick.querySelector('input');
+            const more = quick.querySelector('a');
+            const moreBase = more.getAttribute('href'); // add.html on the demo
+            input.addEventListener('input', () => { more.href = input.value.trim() ? moreBase + '?prefill=' + encodeURIComponent(input.value.trim()) : moreBase; });
+            quick.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); closeQuick(); agent.element.focus(); } });
+            quick.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                let url = input.value.trim();
+                if (url && !/^[a-z][a-z0-9+.-]*:/i.test(url)) url = 'https://' + url;
+                try { if (!/^https?:$/.test(new URL(url).protocol)) throw 0; }
+                catch { react('Explain', 'That doesn\'t look like a web address. It starts with https://', 'invalid', 6000); input.focus(); return; }
+                const btn = quick.querySelector('button'); btn.disabled = true; btn.textContent = 'Saving…';
+                let status = 0, message = '';
+                try {
+                    const res = await fetch('/api/resources/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, title: suggestTitle(url) || url }) });
+                    status = res.status;
+                    if (status === 422) { const d = await res.json(); message = (window.SML?.fieldErrors?.(d.detail) && Object.values(window.SML.fieldErrors(d.detail))[0]) || ''; }
+                } catch { status = 0; }
+                closeQuick();
+                if (status === 201) {
+                    agent.play('Save', { timeout: 3000 });
+                    agent.speak('Saved to your library. Its title and picture arrive in a second.', { tone: 'saved', duration: 5000 });
+                    window.dispatchEvent(new CustomEvent('sml:saved-elsewhere'));
+                } else {
+                    window.dispatchEvent(new CustomEvent('sml:save', { detail: { status: status === 409 || status === 422 ? status : 0, message } }));
+                }
+            });
+            input.focus(); // ready to paste at once; the clipboard check below may wait for permission
+            // The link you just copied, when the browser lets us read it (it may ask first).
+            try {
+                const text = (await navigator.clipboard?.readText?.()) || '';
+                const found = text.match(/https?:\/\/[^\s<>"']+/);
+                if (found && quick && !input.value) { input.value = found[0]; input.dispatchEvent(new Event('input')); input.select(); }
+            } catch { /* not allowed: paste by hand */ }
+        }
+        document.addEventListener('clippy:save', openQuick);
+        document.addEventListener('pointerdown', (e) => { if (quick && !e.target.closest('.clippy-agent')) closeQuick(); });
+
+        // ── Idle tips: one now and then while you browse, at most 3 a visit, never while you're busy ──
+        const IDLE_TIPS = [
+            'Press Ctrl+K to jump to any link, category or tag.',
+            'Double-click me to save a link quickly. Paste it and press Enter.',
+            'Press v then g for the grid, or v then l for a compact list.',
+            'Tags find links across categories. Click a tag on a card to see the rest.',
+            'Press / to search from anywhere.',
+            'Select a link with j, change it, then press . on the next one to repeat the change.',
+            'On your phone, Share a page to SaveMyLinks to save it without copying.',
+            'Kept a guessed title? Fetch preview again in the edit window gets the page\'s own.',
+        ];
+        const IDLE_KEY = 'sml-idle-tips-v1';
+        let idleSaid = 0;
+        function idleTip() {
+            if (idleSaid >= 3) return;
+            const busy = !agent || !agent.visible || quick || document.hidden || document.querySelector('dialog[open]')
+                || !agent.bubble.hidden || document.activeElement?.closest?.('input, textarea, select, [contenteditable="true"]');
+            if (!busy) {
+                let seen = [];
+                try { seen = JSON.parse(localStorage.getItem(IDLE_KEY) || '[]'); } catch { /* blocked */ }
+                let next = IDLE_TIPS.findIndex((_, i) => !seen.includes(i));
+                if (next < 0) { seen = []; next = 0; } // said them all: start again
+                seen.push(next);
+                try { localStorage.setItem(IDLE_KEY, JSON.stringify(seen)); } catch { /* blocked */ }
+                idleSaid += 1;
+                react('Explain', IDLE_TIPS[next], '', 9000);
+            }
+            setTimeout(idleTip, (busy ? 60 : 240 + Math.random() * 120) * 1000); // busy: look again in a minute
+        }
+
         async function start() {
             try {
-                const { initClippy, assistantPrefs } = await import('/static/modern-clippy.js?v=9');
+                const { initClippy, assistantPrefs } = await import('/static/modern-clippy.js?v=10');
                 agent = await initClippy({ basePath: '/static/' });
                 window.smlAssistant = agent;
                 const prefs = assistantPrefs.get();
@@ -153,6 +252,7 @@
                     setTimeout(() => agent.bubble.hidden && (assistantPrefs.set({ greeted: true }), react('Greeting', "Hi. Save a link and I'll tell you where it was filed. Hide me with the × any time.", '', 9000)), 600);
                 }
                 window.dispatchEvent(new CustomEvent('sml:assistant-ready'));
+                setTimeout(idleTip, 180 * 1000); // the first tip after three minutes
             } catch (error) {
                 console.warn('Assistant not loaded:', error.message);
             }

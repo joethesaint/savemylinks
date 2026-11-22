@@ -195,6 +195,12 @@
         if (t && !/^https?:\/\//.test(t)) { titleInput.value = t.slice(0, 200); titleEdited = true; } else suggestTitle();
         history.replaceState(null, '', location.pathname); // a reload must not save it twice
         form.requestSubmit();
+    } else if (shared.get('prefill')) {
+        // From Clippy's quick-save box ("More options"): fill the address, don't save yet.
+        urlInput.value = shared.get('prefill');
+        suggestTitle();
+        history.replaceState(null, '', location.pathname);
+        titleInput.focus();
     } else {
         urlInput.focus();
     }

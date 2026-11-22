@@ -28,7 +28,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install jinja2==3.1.2 pytest==7.4.3
+      - run: pip install jinja2==3.1.2 pytest==7.4.3 pytest-asyncio==0.21.1  # the root conftest.py loads pytest_asyncio
       - run: python -m pytest demo/test_build.py -q -p no:cacheprovider
       - run: python demo/build.py _site
       - uses: actions/upload-pages-artifact@v3

@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="SaveMyLinks: save any page in one click and find it again by category.">
     <meta name="theme-color" content="#2f6f7a">
+    <!-- Link previews (chat apps, social sites, and SaveMyLinks itself read these). -->
+    <meta property="og:site_name" content="SaveMyLinks">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="{% block og_title %}SaveMyLinks: save any page, find it again{% endblock %}">
+    <meta property="og:description" content="Save any page in one move and find it again in seconds. Free, open source, yours.">
+    <meta property="og:image" content="https://joethesaint.github.io/savemylinks/static/art/social-card.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="SaveMyLinks: a file box of saved links. Save any page in one move, find it again in seconds.">
+    <meta name="twitter:card" content="summary_large_image">
     <title>{% block title %}SaveMyLinks{% endblock %}</title>
     <script>
         // Set the theme before first paint so the page never flashes the wrong colours.

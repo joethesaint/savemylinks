@@ -74,3 +74,12 @@ def test_download_page_is_demo_only_and_links_home(tmp_path):
         assert must in page, must
     assert "download.html" in (demo / "index.html").read_text(encoding="utf-8"), "the demo banner links to it"
     assert not (build(tmp_path / "app", app=True) / "download.html").exists()
+
+
+def test_pages_have_a_link_preview(tmp_path):
+    out = build(tmp_path / "demo")
+    for page in ["index.html", "add.html", "download.html"]:
+        html = (out / page).read_text(encoding="utf-8")
+        assert 'property="og:image" content="https://' in html, page
+        assert 'name="twitter:card" content="summary_large_image"' in html, page
+    assert (out / "static" / "art" / "social-card.png").exists()

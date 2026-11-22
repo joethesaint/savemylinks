@@ -12,6 +12,7 @@
 
 <div class="library">
 <aside class="sidebar" aria-label="Browse your library">
+    <span class="side-pill" id="sidePill" aria-hidden="true"></span>
     <button type="button" class="jump-btn" id="jumpOpen" aria-keyshortcuts="Control+K">
         <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span>Jump to…</span><kbd>Ctrl K</kbd>
     </button>
@@ -68,6 +69,7 @@
     <li class="card">
         <img class="thumb" src="" alt="" loading="lazy" referrerpolicy="no-referrer" width="96" height="72">
         <div class="card-body">
+            <p class="card-site"></p>
             <h2 class="card-title"><a class="card-link" href="" target="_blank" rel="noopener noreferrer"></a></h2>
             <div class="card-url"><svg class="icon" aria-hidden="true"><use href="#i-link"/></svg><span></span></div>
             <p class="card-desc"></p>
@@ -180,7 +182,7 @@
 <script src="{{ url_for('static', path='/tips.js') }}?v=1"></script>
 <script>
 (function () {
-    const { toast, categories, categoryClass, resetCategories, fieldErrors, facets, categoryPicker, tagField } = window.SML;
+    const { toast, dismiss, reduceMotion, categories, categoryClass, resetCategories, fieldErrors, facets, categoryPicker, tagField } = window.SML;
     const $ = (s) => document.querySelector(s);
     const PER_PAGE = 24; // divides by 2, 3, 4, 6 and 8, so full grid rows at most widths
 
@@ -211,7 +213,7 @@
             const b = document.createElement('button');
             b.type = 'button'; b.className = 'chip ' + cls; b.textContent = label;
             b.setAttribute('aria-pressed', String(state.category === value));
-            b.onclick = () => { state.category = state.category === value ? '' : value; state.page = 1; syncChips(); load(); };
+            b.onclick = () => { state.category = state.category === value ? '' : value; state.page = 1; syncChips(); browse(); };
             b.dataset.value = value;
             box.append(b);
         };
@@ -226,12 +228,31 @@
         document.querySelectorAll('#categoryChips .chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.value === state.category)));
         document.querySelectorAll('#sideCategories .side-item').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.value === state.category && !state.tag)));
         document.querySelectorAll('#sideTags .side-item').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.value === state.tag)));
+        placePill();
     }
     function filterBy(kind, value) {
         if (kind === 'category') { state.category = state.category === value && !state.tag ? '' : value; state.tag = ''; }
         else state.tag = state.tag === value ? '' : value;
-        state.page = 1; syncChips(); load();
+        state.page = 1; syncChips(); browse();
     }
+
+    // The sidebar's pill slides to the chosen item (wide screens). Only its transform animates;
+    // its size is set at once. The first placement doesn't slide.
+    const sidebar = $('.sidebar'), pill = $('#sidePill');
+    const wide = matchMedia('(min-width: 1024px)');
+    function placePill() {
+        const on = wide.matches && sidebar.querySelector('.side-item[aria-pressed="true"]');
+        if (!on) { pill.classList.remove('is-on'); sidebar.classList.remove('has-pill'); return; }
+        const a = on.getBoundingClientRect(), b = sidebar.getBoundingClientRect();
+        pill.style.width = a.width + 'px'; pill.style.height = a.height + 'px';
+        pill.style.transform = `translate(${a.left - b.left + sidebar.scrollLeft}px, ${a.top - b.top + sidebar.scrollTop}px)`;
+        pill.classList.add('is-on'); sidebar.classList.add('has-pill');
+        if (!pill.classList.contains('is-placed')) requestAnimationFrame(() => pill.classList.add('is-placed'));
+    }
+    let pillFrame = 0;
+    const replacePill = () => { cancelAnimationFrame(pillFrame); pillFrame = requestAnimationFrame(placePill); };
+    addEventListener('resize', replacePill);
+    document.fonts?.ready.then(replacePill);
 
     // The sidebar: every category and tag with its count. On phones the categories stay as chips
     // above the list and the tags become one scrolling row.
@@ -254,6 +275,13 @@
             ...facetData.categories.map(c => item('category', c.name, c.name, c.count, categoryClass(c.name, categoryList))));
         $('#sideTags').replaceChildren(...facetData.tags.map(t => item('tag', t.name, '#' + t.name, t.count, '')));
         $('#sideTagsEmpty').hidden = facetData.tags.length > 0;
+        // Opened with a filter in the address, load() never writes the whole-library line: write it here.
+        const n = facetData.total, c = facetData.categories.length;
+        if ($('#summary').textContent === 'Loading your library…') {
+            $('#summary').textContent = n
+                ? `${n} ${n === 1 ? 'link' : 'links'} in ${c} ${c === 1 ? 'category' : 'categories'}. Search by title or note, or pick a category.`
+                : 'Save a page once and find it again in seconds, by its title, your note or its category.';
+        }
         syncChips();
     }
 
@@ -302,6 +330,7 @@
         li.addEventListener('click', (ev) => { if (ev.target.closest('.thumb')) li.querySelector('.card-link').click(); });
 
         li.querySelector('.site').textContent = meta.site_name || host;
+        li.querySelector('.card-site').textContent = meta.site_name || host;
         const chip = li.querySelector('.category');
         if (r.category) { chip.textContent = r.category; chip.classList.add(categoryClass(r.category, categoryList)); }
         else chip.remove();
@@ -350,6 +379,7 @@
             try {
                 const res = await fetch(`/api/resources/${r.id}`, { method: 'DELETE' });
                 if (!res.ok) throw new Error(res.status);
+                li.classList.add('is-leaving'); // shrinks away while the list reloads
                 toast(`Deleted "${r.title}".`, { code: res.status, tone: 'success' });
                 window.SMLTips?.note('mouse-delete');
                 resetCategories(); await loadCategories(); load();
@@ -372,7 +402,7 @@
             const b = document.createElement('button');
             b.type = 'button'; b.className = 'btn btn-sm'; b.textContent = label; b.disabled = disabled;
             if (current) b.setAttribute('aria-current', 'page');
-            b.onclick = () => { state.page = page; load(); window.scrollTo({ top: 0 }); };
+            b.onclick = () => { state.page = page; browse(); window.scrollTo({ top: 0 }); };
             nav.append(b);
         };
         btn('Previous', state.page - 1, false, state.page === 1);
@@ -380,9 +410,21 @@
         btn('Next', state.page + 1, false, state.page === pages);
     }
 
+    // Cards rise in only when the person changed what's shown (filter, tag, search, page); never on
+    // the first load (LCP) and never after an edit or delete, where the list should stay still.
+    let enterNext = false;
+    function browse() { enterNext = true; load(); }
+    let enterTimer = 0;
+    function playEnter(el) {
+        el.classList.add('is-entering');
+        clearTimeout(enterTimer);
+        enterTimer = setTimeout(() => el.classList.remove('is-entering'), 500); // 200 ms stagger + 220 ms
+    }
+
     let requestId = 0;
     async function load() {
         writeUrl();
+        const enter = enterNext; enterNext = false;
         const mine = ++requestId;
         $('#clearFilters').hidden = !(state.q || state.category || state.tag);
         const list = $('#resourcesList');
@@ -401,6 +443,7 @@
             if (!data.resources.length && state.page > 1) {
                 clearTimeout(loadTimer);
                 state.page = Math.max(1, Math.ceil(data.total / PER_PAGE));
+                enterNext = enter;
                 return load();
             }
             clearTimeout(loadTimer); loading.hidden = true;
@@ -409,6 +452,7 @@
             const savedId = Number(new URLSearchParams(location.search).get('saved')) || Number(sessionStorage.getItem('sml-saved')) || 0;
             sessionStorage.removeItem('sml-saved');
             list.replaceChildren(...data.resources.map(r => renderCard(r, r.id === savedId)));
+            if (enter) playEnter(list);
             // LCP: the first row of pictures is on screen at once, so it loads now, not lazily.
             list.querySelectorAll('img.thumb').forEach((im, i) => { if (i < 6) { im.loading = 'eager'; if (i === 0) im.fetchPriority = 'high'; } });
             current = data.resources;
@@ -429,6 +473,7 @@
 
             const empty = $('#emptyState');
             empty.hidden = data.resources.length > 0;
+            empty.classList.toggle('is-entering', enter && !data.resources.length);
             if (!data.resources.length) {
                 if (filtered) {
                     $('#emptyTitle').textContent = 'Nothing matches';
@@ -450,7 +495,7 @@
 
     function clearFilters() {
         state.q = ''; state.category = ''; state.tag = ''; state.page = 1;
-        $('#searchInput').value = ''; syncChips(); load();
+        $('#searchInput').value = ''; syncChips(); browse();
     }
     $('#clearFilters').onclick = clearFilters;
 
@@ -462,9 +507,9 @@
     document.addEventListener('keydown', (e) => { if (e.key === '/') window.SMLTips?.used('/'); }, true);
     search.addEventListener('input', () => {
         clearTimeout(typing);
-        typing = setTimeout(() => { state.q = search.value.trim(); state.page = 1; load(); }, 250);
+        typing = setTimeout(() => { state.q = search.value.trim(); state.page = 1; browse(); }, 250);
     });
-    search.addEventListener('keydown', (e) => { if (e.key === 'Escape' && search.value) { search.value = ''; state.q = ''; state.page = 1; load(); } });
+    search.addEventListener('keydown', (e) => { if (e.key === 'Escape' && search.value) { search.value = ''; state.q = ''; state.page = 1; browse(); } });
     if (params.get('focus') === 'search') search.focus();
 
     // ── edit ──
@@ -572,14 +617,14 @@
         el.className = 'toast toast-success';
         const msg = document.createElement('span'); msg.className = 'msg'; msg.textContent = message;
         const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-sm'; b.textContent = 'Undo';
-        let timer = setTimeout(() => el.remove(), 8000);
+        let timer = setTimeout(() => dismiss(el), 8000);
         // The toast and its Undo stay until the restore succeeds; a failure brings the button back.
         b.onclick = async () => {
             clearTimeout(timer);
             b.disabled = true; b.textContent = 'Restoring…';
-            if (await onUndo()) { el.remove(); return; }
+            if (await onUndo()) { dismiss(el); return; }
             b.disabled = false; b.textContent = 'Try Undo again';
-            timer = setTimeout(() => el.remove(), 15000);
+            timer = setTimeout(() => dismiss(el), 15000);
         };
         el.append(msg, b);
         $('#toasts').append(el);
@@ -604,6 +649,7 @@
         try { res = await fetch(`/api/resources/${r.id}`, { method: 'DELETE' }); }
         catch { offline('delete the link'); return; }
         if (!res.ok) { toast("Couldn't delete the link. Check your connection and try again.", { code: res.status, tone: 'danger' }); return; }
+        document.querySelector(`#resourcesList .card[data-id="${r.id}"]`)?.classList.add('is-leaving');
         undoToast(`Deleted "${r.title}".`, async () => {
             let back;
             try { back = await fetch('/api/resources/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: r.title, url: r.url, description: r.description, category: r.category, tags: r.tags || [] }) }); }
@@ -674,10 +720,26 @@
 
     // ── views: cards (default), grid, list; remembered per browser ──
     let viewPending = false;
+    let viewSwitchId = 0;
     function setView(v, announce) {
         if (!['cards', 'grid', 'list'].includes(v)) v = 'cards';
-        $('#resourcesList').dataset.view = v;
-        document.querySelectorAll('.view-switch [data-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
+        const list = $('#resourcesList');
+        const apply = () => {
+            list.dataset.view = v;
+            document.querySelectorAll('.view-switch [data-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
+        };
+        // A switch the person made glides each card on screen to its new place (View Transitions).
+        // Only those cards get names, and only for the switch; elsewhere it changes at once.
+        if (announce && list.dataset.view !== v && document.startViewTransition && !reduceMotion()) {
+            const all = [...list.children];
+            all.forEach((c) => { c.style.viewTransitionName = ''; });
+            const named = all.filter((c) => { const r = c.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight; });
+            named.forEach((c, i) => { c.style.viewTransitionName = 'sml-card-' + i; });
+            document.documentElement.classList.add('vt-view');
+            const mine = ++viewSwitchId; // a quicker second switch keeps the names; only the last one clears them
+            const done = () => { if (mine !== viewSwitchId) return; all.forEach((c) => { c.style.viewTransitionName = ''; }); document.documentElement.classList.remove('vt-view'); };
+            try { document.startViewTransition(apply).finished.then(done, done); } catch (e) { apply(); done(); }
+        } else apply();
         try { localStorage.setItem('sml-view', v); } catch (e) { /* blocked */ }
         if (announce) $('#selectionStatus').textContent = `${v[0].toUpperCase()}${v.slice(1)} view`;
     }
@@ -724,8 +786,8 @@
     function jumpFacets(s) {
         const has = (t) => !s || t.toLowerCase().includes(s);
         return [
-            ...facetData.categories.filter(c => has(c.name)).map(c => ({ label: c.name, hint: `Category, ${c.count}`, run: () => { state.tag = ''; state.category = c.name; state.page = 1; syncChips(); load(); } })),
-            ...facetData.tags.filter(t => has(t.name)).map(t => ({ label: '#' + t.name, hint: `Tag, ${t.count}`, run: () => { state.tag = t.name; state.page = 1; syncChips(); load(); } })),
+            ...facetData.categories.filter(c => has(c.name)).map(c => ({ label: c.name, hint: `Category, ${c.count}`, run: () => { state.tag = ''; state.category = c.name; state.page = 1; syncChips(); browse(); } })),
+            ...facetData.tags.filter(t => has(t.name)).map(t => ({ label: '#' + t.name, hint: `Tag, ${t.count}`, run: () => { state.tag = t.name; state.page = 1; syncChips(); browse(); } })),
         ];
     }
     function renderJump() {

@@ -29,7 +29,18 @@ BANNER = (
 BANNER_CSS = (
     "<style>.demo-banner{display:flex;flex-wrap:wrap;gap:.5rem 1rem;align-items:center;justify-content:center;"
     "padding:.5rem max(16px,env(safe-area-inset-left,0px));background:#2f6f7a;color:#fff;font-size:.875rem;text-align:center}"
-    ".demo-banner a{color:inherit;text-decoration:underline}.demo-banner .btn{color:inherit;border-color:currentColor}</style>"
+    ".demo-banner a{color:inherit;text-decoration:underline}.demo-banner .btn{color:inherit;border-color:currentColor}"
+    # Connected to the app on this computer: a green band, the connection set apart by a divider.
+    ".demo-banner{gap:.5rem 1.5rem;transition:background-color .3s}"
+    ".demo-banner.is-connected{background:#1d6b45}"
+    ".demo-banner [data-app-detect]{display:inline-flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.5rem 1rem}"
+    "@media (min-width:720px){.demo-banner [data-app-detect]{padding-left:1.5rem;border-left:1px solid rgba(255,255,255,.35)}}"
+    ".app-status{display:inline-flex;align-items:center;gap:.4rem}"
+    ".app-dot{width:.6rem;height:.6rem;border-radius:50%;background:#7dffb2;box-shadow:0 0 0 3px rgba(125,255,178,.25)}"
+    ".demo-banner a.app-open,[data-app-detect] a.app-open{display:inline-block;padding:.25rem .8rem;border-radius:999px;background:#fff;"
+    "color:#1d6b45;font-weight:600;text-decoration:none}"
+    ".demo-banner a.app-open:hover{background:#e8f7ee}"
+    "@media (prefers-reduced-motion:reduce){.demo-banner{transition:none}}</style>"
 )
 
 # (what the server-rendered page says, what the static page needs)

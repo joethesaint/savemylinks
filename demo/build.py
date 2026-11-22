@@ -23,6 +23,7 @@ BANNER = (
     "<span><strong>Demo.</strong> Links you save here stay in this browser only. "
     'Previews are simulated. <a href="download.html">Download the full app</a> · <a href="https://github.com/joethesaint/savemylinks">Source</a></span>'
     '<button type="button" class="btn btn-ghost btn-sm" onclick="smlDemoReset()">Reset demo</button>'
+    '<span data-app-detect><button type="button" class="btn btn-ghost btn-sm">Have the app? Open it</button></span>'
     "</div>"
 )
 BANNER_CSS = (
@@ -55,7 +56,7 @@ def render(name: str, active: str, app: bool = False) -> str:
     if app:
         return html  # the native app (native/) answers /api itself: no stand-in, no banner
     # The stand-in API must patch fetch before the app's first script runs.
-    html = html.replace('<script src="static/sml.js', '<script src="static/demo-api.js"></script>\n    <script src="static/sml.js', 1)
+    html = html.replace('<script src="static/sml.js', '<script src="static/demo-api.js"></script>\n    <script src="static/app-detect.js"></script>\n    <script src="static/sml.js', 1)
     html = html.replace("</head>", BANNER_CSS + "\n</head>", 1)
     html = re.sub(r"(<body[^>]*>)", r"\1\n    " + BANNER, html, count=1)
     return html
@@ -71,6 +72,7 @@ def build(out: Path, app: bool = False) -> Path:
     if not app:
         shutil.copy(HERE / "demo-api.js", out / "static" / "demo-api.js")
         shutil.copy(HERE / "download.html", out / "download.html")
+        shutil.copy(HERE / "app-detect.js", out / "static" / "app-detect.js")
     sml = out / "static" / "sml.js"
     sml.write_text(sml.read_text(encoding="utf-8").replace("'/?focus=search'", "'./?focus=search'"), encoding="utf-8")
     (out / "index.html").write_text(render("index.html", "library", app), encoding="utf-8")

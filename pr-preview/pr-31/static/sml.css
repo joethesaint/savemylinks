@@ -286,3 +286,13 @@ dialog .panel { border: 0; box-shadow: none; }
 @media (max-width: 720px) {
   .cards[data-view="list"] .card-meta .site { display: none; }
 }
+/* A link with no picture: a stand-in sheet in its category's colour, grid view only. */
+.thumb-fallback { display: none; }
+.cards[data-view="grid"] .thumb-fallback {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1);
+  min-width: 0; padding: var(--space-3); box-sizing: border-box; overflow: hidden;
+  background: var(--chip-bg, var(--surface-sunk)); color: var(--ink);
+  border-top: 4px solid var(--chip-tab, var(--brand));
+}
+.thumb-fallback b { font-size: 40px; line-height: 1; font-weight: 700; opacity: .85; }
+.thumb-fallback span { max-width: 100%; font-size: 12px; color: var(--ink-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

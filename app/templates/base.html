@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-    <link rel="stylesheet" href="{{ url_for('static', path='/sml.css') }}?v=4">
+    <link rel="stylesheet" href="{{ url_for('static', path='/sml.css') }}?v=5">
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='/art/icon.svg') }}">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', path='/art/icon-32.png') }}">
 </head>
@@ -68,13 +68,13 @@
     <footer class="site-footer">
         <div class="wrap">
             <span>SaveMyLinks keeps every link you save, filed by category, on your own server.</span>
-            <span>Press <kbd>/</kbd> to search.</span>
+            <span>Press <kbd>/</kbd> to search, <kbd>?</kbd> for keyboard shortcuts.</span>
         </div>
     </footer>
 
     <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 
-    <script src="{{ url_for('static', path='/sml.js') }}?v=4"></script>
+    <script src="{{ url_for('static', path='/sml.js') }}?v=5"></script>
 
     <!-- Assistant (Clippy). Reacts to what happens on the page; never interrupts on a timer.
          Pages talk to it with events:

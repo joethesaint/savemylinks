@@ -83,3 +83,13 @@ def test_pages_have_a_link_preview(tmp_path):
         assert 'property="og:image" content="https://' in html, page
         assert 'name="twitter:card" content="summary_large_image"' in html, page
     assert (out / "static" / "art" / "social-card.png").exists()
+
+
+def test_local_app_detection_is_demo_only(tmp_path):
+    demo = build(tmp_path / "demo")
+    for page in ["index.html", "download.html"]:
+        html = (demo / page).read_text(encoding="utf-8")
+        assert "static/app-detect.js" in html and "data-app-detect" in html, page
+    assert (demo / "static" / "app-detect.js").exists()
+    app = build(tmp_path / "app", app=True)
+    assert "app-detect" not in (app / "index.html").read_text(encoding="utf-8"), "the real app never probes itself"

@@ -154,3 +154,7 @@ _site/
 # Native app: generated pages and build output
 native/site/
 native/target/
+
+# README visuals: build output and intermediate frames (tools/screenshots.mjs)
+_shots/
+docs/screenshots/frames/

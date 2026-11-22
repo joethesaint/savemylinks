@@ -9,6 +9,26 @@
 - **macOS / Linux:** download the `.tar.gz`, then in a terminal: `tar xzf savemylinks-*.tar.gz && ./savemylinks-macos-arm64` (or `./savemylinks-linux-x64`).
 - **macOS blocked it?** Unsigned apps can be blocked outright. After the first attempt, open *System Settings → Privacy & Security* and choose *Open Anyway*, then run it again.
 
+## See it
+
+![Keyboard flow: select links with j, change a category with c, repeat it with a dot, delete with d and Undo, then ? for the key list](docs/screenshots/keyboard.gif)
+
+*Tidy links from the keyboard: `j` to select, `c` to change the category, `.` to repeat it on the next link, `d` to delete (with Undo), `?` for every key.*
+
+| Library (light) | Library (dark) |
+|---|---|
+| ![The library in light mode: saved links filed by category, with search](docs/screenshots/library-light.png) | ![The library in dark mode](docs/screenshots/library-dark.png) |
+
+| Save a link | Keyboard shortcuts |
+|---|---|
+| ![The save page: paste an address, get a suggested title, pick a category](docs/screenshots/save-link.png) | ![The keyboard shortcut list, opened with ?](docs/screenshots/keyboard-help.png) |
+
+| On a phone | Download page |
+|---|---|
+| <img src="docs/screenshots/phone.png" alt="The library on a phone: installable, with Share-to-save on Android" width="300"> | ![The download page: picks your system and shows each file's SHA-256](docs/screenshots/download.png) |
+
+Screenshots come from the [live demo](https://joethesaint.github.io/savemylinks/) with its sample links; regenerate them with `tools/screenshots.mjs` and `tools/make_gif.py`.
+
 **AI For Developers II Capstone Project | [ALX](https://www.alxafrica.com/)**
 
 ## 🔖 Project Description

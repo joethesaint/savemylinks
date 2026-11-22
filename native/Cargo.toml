@@ -25,6 +25,8 @@ webbrowser = "1"
 tray-icon = "0.19"
 tao = "0.30"
 png = "0.17"
+# Desktop Clippy (#36): a web view for static/desk.html (WebView2 on Windows, WKWebView on macOS).
+wry = "0.46"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_Console", "Win32_UI_WindowsAndMessaging"] }

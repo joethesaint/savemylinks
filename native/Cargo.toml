@@ -20,6 +20,15 @@ url = "2"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 webbrowser = "1"
 
+# The icon by the clock (tray.rs). Linux keeps the terminal: a tray there needs GTK.
+[target.'cfg(any(windows, target_os = "macos"))'.dependencies]
+tray-icon = "0.19"
+tao = "0.30"
+png = "0.17"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_Console", "Win32_UI_WindowsAndMessaging"] }
+
 [profile.release]
 opt-level = "z"
 lto = true

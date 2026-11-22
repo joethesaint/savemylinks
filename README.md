@@ -1,5 +1,7 @@
 # SaveMyLinks
 
+**Try it:** [live demo](https://joethesaint.github.io/savemylinks/) (runs in your browser; links you save stay on your device).
+
 **AI For Developers II Capstone Project | [ALX](https://www.alxafrica.com/)**
 
 ## 🔖 Project Description

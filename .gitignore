@@ -147,3 +147,6 @@ savemylinks.db
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Static demo build (demo/build.py)
+_site/

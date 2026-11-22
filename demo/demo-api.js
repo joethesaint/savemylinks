@@ -4,12 +4,15 @@
 // It mirrors the FastAPI routes in app/routes/resources.py: newest first, categories
 // alphabetical, 201 on save, 409 for an address already saved, 422 for a bad field.
 (function () {
-  const KEY = 'sml-demo-v1';
+  const KEY = 'sml-demo-v2'; // v2: portfolio and source first; a new key so returning visitors see it
   const realFetch = window.fetch.bind(window);
   const now = () => new Date().toISOString();
   const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString();
 
   const SEED = [
+    // Newest first in the library: the author's portfolio, then this app's source.
+    ['https://joethesaint.github.io/', 'Joseph Taiwo Bamisaye: portfolio', 'Who built SaveMyLinks.', 'Projects', 'joethesaint.github.io', 'Software engineer: backend systems, quantitative analysis, portfolio optimization and scalable web architectures.', 0.05],
+    ['https://github.com/joethesaint/savemylinks', 'SaveMyLinks source code', 'This app, on GitHub: MIT licensed.', 'Projects', 'GitHub', 'Save any page in one move and find it again in seconds. FastAPI, Rust, Jinja.', 0.1, 'https://opengraph.githubassets.com/1/joethesaint/savemylinks'],
     ['https://developer.mozilla.org/en-US/docs/Web/HTML/Element/dialog', 'The dialog element (MDN)', 'How the edit window in this app works.', 'Web', 'MDN Web Docs', 'The HTML dialog element represents a modal or non-modal dialog box.', 1],
     ['https://fastapi.tiangolo.com/tutorial/background-tasks/', 'Background tasks in FastAPI', 'How link previews are fetched after the save returns.', 'Python', 'FastAPI', 'Define background tasks to be run after returning a response.', 2],
     ['https://www.alxafrica.com/', 'ALX Africa', 'Where SaveMyLinks started, as a capstone project.', 'Learning', 'ALX Africa', 'Tech training programmes for Africa.', 3],
@@ -21,14 +24,13 @@
     ['https://developer.chrome.com/docs/extensions/develop', 'Build a Chrome extension', 'For the one-click save button.', 'Web', 'Chrome for Developers', 'Learn how to develop extensions for Chrome.', 16],
     ['https://www.smashingmagazine.com/2022/09/inline-validation-web-forms-ux/', 'Inline validation in web forms', null, 'Design', 'Smashing Magazine', 'How to design inline validation that helps instead of nags.', 21],
     ['https://pytest-asyncio.readthedocs.io/', 'pytest-asyncio', null, 'Python', 'pytest-asyncio', 'Pytest support for asyncio.', 25],
-    ['https://github.com/joethesaint/savemylinks', 'SaveMyLinks source code', 'This app, on GitHub.', 'Learning', 'GitHub', 'Open source website bookmarks: FastAPI, SQLAlchemy, Jinja.', 30],
   ];
   const seed = () => ({
     next: SEED.length + 1,
-    items: SEED.map(([url, title, description, category, site_name, summary, age], i) => ({
+    items: SEED.map(([url, title, description, category, site_name, summary, age, image], i) => ({
       id: SEED.length - i, url, title, description, category,
       created_at: daysAgo(age), updated_at: daysAgo(age),
-      link_metadata: { title, description: summary, site_name },
+      link_metadata: { title, description: summary, site_name, ...(image ? { image } : {}) },
     })),
   });
 

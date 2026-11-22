@@ -10,6 +10,22 @@
     </div>
 </div>
 
+<div class="library">
+<aside class="sidebar" aria-label="Browse your library">
+    <button type="button" class="jump-btn" id="jumpOpen" aria-keyshortcuts="Control+K">
+        <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span>Jump to…</span><kbd>Ctrl K</kbd>
+    </button>
+    <nav class="side-group side-cats" aria-labelledby="sideCatsTitle">
+        <h2 class="side-title" id="sideCatsTitle">Categories</h2>
+        <ul class="side-list" id="sideCategories"></ul>
+    </nav>
+    <nav class="side-group side-tags-group" aria-labelledby="sideTagsTitle">
+        <h2 class="side-title" id="sideTagsTitle">Tags</h2>
+        <ul class="side-list side-tags" id="sideTags"></ul>
+        <p class="side-empty" id="sideTagsEmpty" hidden>No tags yet. Add some when you save or edit a link.</p>
+    </nav>
+</aside>
+<div class="library-main">
 <div class="toolbar" role="search">
     <div class="search">
         <label for="searchInput" class="visually-hidden">Search your links</label>
@@ -45,6 +61,8 @@
 </section>
 
 <nav class="pager" id="pagination" aria-label="Pages" hidden></nav>
+</div>
+</div>
 
 <template id="cardTemplate">
     <li class="card">
@@ -56,6 +74,7 @@
             <div class="card-meta">
                 <span class="site"></span>
                 <span class="chip is-static category"></span>
+                <span class="tags"></span>
                 <span class="date"></span>
             </div>
         </div>
@@ -89,7 +108,14 @@
         </div>
         <div class="field">
             <label class="label" for="editCategory">Category <span class="opt">(optional)</span></label>
-            <input class="input" type="text" id="editCategory" list="categoryOptions" maxlength="100">
+            <select class="input select" id="editCategory"></select>
+            <input class="input" type="text" id="editCategoryNew" maxlength="100" placeholder="Name the new category" aria-label="New category name" hidden>
+        </div>
+        <div class="field">
+            <label class="label" for="editTags">Tags <span class="opt">(optional)</span></label>
+            <input class="input" type="text" id="editTags" placeholder="e.g. python, to-read" autocomplete="off" autocapitalize="off" aria-describedby="editTagsError">
+            <div class="chips tag-chips" id="editTagChips" aria-label="Tags you've used" hidden></div>
+            <p class="error" id="editTagsError" hidden></p>
         </div>
         <datalist id="categoryOptions"></datalist>
         <div class="form-actions">
@@ -129,6 +155,7 @@
             <dt><kbd>c</kbd></dt><dd>Change its category</dd>
             <dt><kbd>d</kbd></dt><dd>Delete it (you can undo)</dd>
             <dt><kbd>.</kbd></dt><dd>Do the last change again, on the selected link</dd>
+            <dt><kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>Jump to a link, category, tag or action</dd>
             <dt><kbd>/</kbd></dt><dd>Search</dd>
             <dt><kbd>v</kbd> then <kbd>c</kbd> <kbd>g</kbd> <kbd>l</kbd></dt><dd>Cards, grid or list view</dd>
             <dt><kbd>?</kbd></dt><dd>This list</dd>
@@ -137,20 +164,31 @@
         <p class="hint">Clippy teaches these as you go: after you do something the slow way twice, he shows the key once. <button type="button" class="btn btn-ghost btn-sm" id="tipsReset">Show his tips again</button></p>
     </div>
 </dialog>
+
+<dialog id="jumpDialog" class="jump" aria-label="Jump to">
+    <div class="jump-box">
+        <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+        <input class="input" id="jumpInput" type="text" placeholder="Jump to a link, category, tag or action" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="jumpList" aria-autocomplete="list">
+        <kbd>Esc</kbd>
+    </div>
+    <ul class="jump-list" id="jumpList" role="listbox" aria-label="Results"></ul>
+    <p class="jump-hint"><kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>Enter</kbd> to go</p>
+</dialog>
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', path='/tips.js') }}?v=1"></script>
 <script>
 (function () {
-    const { toast, categories, categoryClass, resetCategories, fieldErrors } = window.SML;
+    const { toast, categories, categoryClass, resetCategories, fieldErrors, facets, categoryPicker, tagField } = window.SML;
     const $ = (s) => document.querySelector(s);
     const PER_PAGE = 24; // divides by 2, 3, 4, 6 and 8, so full grid rows at most widths
 
     // The URL holds search, category and page, so Back, refresh and shared links keep the view.
     const params = new URLSearchParams(location.search);
-    const state = { q: params.get('q') || '', category: params.get('category') || '', page: Number(params.get('page')) || 1 };
+    const state = { q: params.get('q') || '', category: params.get('category') || '', tag: params.get('tag') || '', page: Number(params.get('page')) || 1 };
     let categoryList = [];
+    let facetData = { total: 0, categories: [], tags: [] };
     let lastTotal = 0;
     let editing = null;
 
@@ -158,6 +196,7 @@
         const p = new URLSearchParams();
         if (state.q) p.set('q', state.q);
         if (state.category) p.set('category', state.category);
+        if (state.tag) p.set('tag', state.tag);
         if (state.page > 1) p.set('page', state.page);
         history.replaceState(null, '', p.toString() ? '?' + p : location.pathname);
     }
@@ -180,9 +219,42 @@
         categoryList.forEach(c => make(c, c, categoryClass(c, categoryList)));
         $('#categoryOptions').innerHTML = '';
         categoryList.forEach(c => { const o = document.createElement('option'); o.value = c; $('#categoryOptions').append(o); });
+        facetData = await facets();
+        renderSidebar();
     }
     function syncChips() {
         document.querySelectorAll('#categoryChips .chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.value === state.category)));
+        document.querySelectorAll('#sideCategories .side-item').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.value === state.category && !state.tag)));
+        document.querySelectorAll('#sideTags .side-item').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.value === state.tag)));
+    }
+    function filterBy(kind, value) {
+        if (kind === 'category') { state.category = state.category === value && !state.tag ? '' : value; state.tag = ''; }
+        else state.tag = state.tag === value ? '' : value;
+        state.page = 1; syncChips(); load();
+    }
+
+    // The sidebar: every category and tag with its count. On phones the categories stay as chips
+    // above the list and the tags become one scrolling row.
+    function renderSidebar() {
+        const item = (kind, value, label, count, cls) => {
+            const li = document.createElement('li');
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'side-item'; b.dataset.value = value;
+            const name = document.createElement('span'); name.className = 'name'; name.textContent = label;
+            if (cls) { const tab = document.createElement('span'); tab.className = 'tab ' + cls; tab.setAttribute('aria-hidden', 'true'); b.append(tab); }
+            const n = document.createElement('span'); n.className = 'count'; n.textContent = count;
+            b.append(name, n);
+            b.setAttribute('aria-label', `${label}, ${count} ${count === 1 ? 'link' : 'links'}`);
+            b.onclick = () => (kind === 'all' ? clearFilters() : filterBy(kind, value));
+            li.append(b);
+            return li;
+        };
+        $('#sideCategories').replaceChildren(
+            item('all', '', 'All links', facetData.total, ''),
+            ...facetData.categories.map(c => item('category', c.name, c.name, c.count, categoryClass(c.name, categoryList))));
+        $('#sideTags').replaceChildren(...facetData.tags.map(t => item('tag', t.name, '#' + t.name, t.count, '')));
+        $('#sideTagsEmpty').hidden = facetData.tags.length > 0;
+        syncChips();
     }
 
     // The API stores UTC without a zone mark; read it as UTC.
@@ -233,6 +305,15 @@
         const chip = li.querySelector('.category');
         if (r.category) { chip.textContent = r.category; chip.classList.add(categoryClass(r.category, categoryList)); }
         else chip.remove();
+        const tagBox = li.querySelector('.tags');
+        (r.tags || []).forEach(t => {
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'tag-link'; b.textContent = '#' + t;
+            b.setAttribute('aria-label', `Show links tagged ${t}`);
+            b.onclick = () => filterBy('tag', t);
+            tagBox.append(b);
+        });
+        if (!tagBox.childElementCount) tagBox.remove();
         li.querySelector('.date').textContent = savedOn(r.created_at);
 
         const edit = li.querySelector('.edit-btn'), del = li.querySelector('.delete-btn');
@@ -303,7 +384,7 @@
     async function load() {
         writeUrl();
         const mine = ++requestId;
-        $('#clearFilters').hidden = !(state.q || state.category);
+        $('#clearFilters').hidden = !(state.q || state.category || state.tag);
         const list = $('#resourcesList');
         const loading = $('#loadingState');
         const loadTimer = setTimeout(() => { loading.hidden = false; }, 150); // no flash on fast loads
@@ -311,6 +392,7 @@
             const p = new URLSearchParams({ page: state.page, per_page: PER_PAGE });
             if (state.q) p.set('search', state.q);
             if (state.category) p.set('category', state.category);
+            if (state.tag) p.set('tag', state.tag);
             const res = await fetch(`/api/resources/?${p}`);
             if (!res.ok) throw new Error(res.status);
             const data = await res.json();
@@ -333,10 +415,10 @@
             if (sel >= 0) select(sel); // keep the keyboard selection in place after a change
             renderPager(data.total);
 
-            const filtered = state.q || state.category;
+            const filtered = state.q || state.category || state.tag;
             const n = data.total;
             $('#resultLine').textContent = filtered
-                ? `${n} ${n === 1 ? 'link matches' : 'links match'}${state.q ? ` "${state.q}"` : ''}${state.category ? ` in ${state.category}` : ''}`
+                ? `${n} ${n === 1 ? 'link' : 'links'}${state.q ? `${n === 1 ? ' matches' : ' match'} "${state.q}"` : ''}${state.category ? ` in ${state.category}` : ''}${state.tag ? ` tagged #${state.tag}` : ''}`
                 : (n ? `Showing ${(state.page - 1) * PER_PAGE + 1}–${Math.min(state.page * PER_PAGE, n)} of ${n}` : '');
 
             if (!filtered) {
@@ -350,7 +432,7 @@
             if (!data.resources.length) {
                 if (filtered) {
                     $('#emptyTitle').textContent = 'Nothing matches';
-                    $('#emptyText').textContent = `No link${state.q ? ` mentions "${state.q}"` : ''}${state.category ? ` in ${state.category}` : ''}. Try fewer words or another category.`;
+                    $('#emptyText').textContent = `No link${state.q ? ` mentions "${state.q}"` : ''}${state.category ? ` in ${state.category}` : ''}${state.tag ? ` is tagged #${state.tag}` : ''}. Try fewer words, another category or another tag.`;
                     $('#emptyAction').textContent = 'Clear search and filter';
                     $('#emptyAction').onclick = (e) => { e.preventDefault(); clearFilters(); };
                 } else {
@@ -367,7 +449,7 @@
     }
 
     function clearFilters() {
-        state.q = ''; state.category = ''; state.page = 1;
+        state.q = ''; state.category = ''; state.tag = ''; state.page = 1;
         $('#searchInput').value = ''; syncChips(); load();
     }
     $('#clearFilters').onclick = clearFilters;
@@ -391,8 +473,9 @@
         const el = $('#' + id + 'Error');
         el.textContent = msg || ''; el.hidden = !msg;
     }
+    let getEditCategory = () => '', getEditTags = () => [];
     function clearEditErrors() {
-        ['editUrl', 'editTitle', 'editDescription'].forEach(id => showErr(id, ''));
+        ['editUrl', 'editTitle', 'editDescription', 'editTags'].forEach(id => showErr(id, ''));
         dlg.querySelectorAll('[aria-invalid]').forEach(el => el.removeAttribute('aria-invalid'));
     }
     function openEdit(r) {
@@ -401,7 +484,8 @@
         $('#editUrl').value = r.url;
         $('#editTitleInput').value = r.title;
         $('#editDescription').value = r.description || '';
-        $('#editCategory').value = r.category || '';
+        getEditCategory = categoryPicker($('#editCategory'), $('#editCategoryNew'), categoryList, r.category);
+        getEditTags = tagField($('#editTags'), $('#editTagChips'), facetData.tags.map(t => t.name), r.tags || []);
         dlg.showModal();
         $('#editTitleInput').focus();
     }
@@ -415,14 +499,15 @@
             url: $('#editUrl').value.trim(),
             title: $('#editTitleInput').value.trim(),
             description: $('#editDescription').value.trim() || null,
-            category: $('#editCategory').value.trim() || null,
+            category: getEditCategory() || null,
+            tags: getEditTags(),
         };
         try {
             const res = await fetch(`/api/resources/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
             if (res.status === 409) { showErr('editUrl', 'Another saved link already has this address.'); $('#editUrl').setAttribute('aria-invalid', 'true'); return; }
             if (res.status === 422) {
                 const errs = fieldErrors((await res.json()).detail);
-                const map = { url: ['editUrl', 'editUrl'], title: ['editTitle', 'editTitleInput'], description: ['editDescription', 'editDescription'] };
+                const map = { url: ['editUrl', 'editUrl'], title: ['editTitle', 'editTitleInput'], description: ['editDescription', 'editDescription'], tags: ['editTags', 'editTags'] };
                 Object.entries(errs).forEach(([f, m]) => { if (map[f]) { showErr(map[f][0], m); $('#' + map[f][1]).setAttribute('aria-invalid', 'true'); } });
                 dlg.querySelector('[aria-invalid="true"]')?.focus();
                 return;
@@ -521,7 +606,7 @@
         if (!res.ok) { toast("Couldn't delete the link. Check your connection and try again.", { code: res.status, tone: 'danger' }); return; }
         undoToast(`Deleted "${r.title}".`, async () => {
             let back;
-            try { back = await fetch('/api/resources/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: r.title, url: r.url, description: r.description, category: r.category }) }); }
+            try { back = await fetch('/api/resources/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: r.title, url: r.url, description: r.description, category: r.category, tags: r.tags || [] }) }); }
             catch { offline(`restore "${r.title}"`); return false; }
             // 409: it is already back (e.g. restored from another tab), which is what Undo wanted.
             const ok = back.ok || back.status === 409;
@@ -598,6 +683,96 @@
     }
     document.querySelectorAll('.view-switch [data-view]').forEach((b) => { b.onclick = () => setView(b.dataset.view, true); });
     setView((() => { try { return localStorage.getItem('sml-view'); } catch (e) { return null; } })() || 'cards');
+
+    // ── Ctrl+K: jump to any link, category, tag or action ──
+    const jump = $('#jumpDialog'), jumpInput = $('#jumpInput'), jumpList = $('#jumpList');
+    let jumpItems = [], jumpSel = 0, jumpReq = 0, jumpTimer = null;
+    const ACTIONS = [
+        { label: 'Save a link', hint: 'Action', run: () => { location.href = '/add'; } },
+        { label: 'Show all links', hint: 'Action', run: () => clearFilters() },
+        { label: 'Cards view', hint: 'View', run: () => setView('cards', true) },
+        { label: 'Grid view', hint: 'View', run: () => setView('grid', true) },
+        { label: 'List view', hint: 'View', run: () => setView('list', true) },
+        { label: 'Switch light or dark', hint: 'Action', run: () => $('#themeToggle')?.click() },
+        { label: 'Keyboard shortcuts', hint: 'Help', run: () => $('#keysDialog').showModal() },
+    ];
+    function showJump(items) {
+        jumpItems = items.slice(0, 40);
+        jumpSel = Math.min(jumpSel, Math.max(0, jumpItems.length - 1));
+        jumpList.replaceChildren(...jumpItems.map((it, i) => {
+            const li = document.createElement('li');
+            li.id = 'jump-' + i; li.setAttribute('role', 'option'); li.className = 'jump-item';
+            li.setAttribute('aria-selected', String(i === jumpSel));
+            const a = document.createElement('span'); a.className = 'jump-label'; a.textContent = it.label;
+            const b = document.createElement('span'); b.className = 'jump-kind'; b.textContent = it.hint;
+            li.append(a, b);
+            li.onmousemove = () => { if (jumpSel !== i) { jumpSel = i; markJump(); } };
+            li.onclick = () => runJump(i);
+            return li;
+        }));
+        if (!jumpItems.length) {
+            const li = document.createElement('li'); li.className = 'jump-none'; li.textContent = 'Nothing matches. Try fewer letters.';
+            jumpList.append(li);
+        }
+        markJump();
+    }
+    function markJump() {
+        jumpList.querySelectorAll('.jump-item').forEach((li, i) => li.setAttribute('aria-selected', String(i === jumpSel)));
+        jumpInput.setAttribute('aria-activedescendant', jumpItems.length ? 'jump-' + jumpSel : '');
+        jumpList.querySelector(`#jump-${jumpSel}`)?.scrollIntoView({ block: 'nearest' });
+    }
+    function jumpFacets(s) {
+        const has = (t) => !s || t.toLowerCase().includes(s);
+        return [
+            ...facetData.categories.filter(c => has(c.name)).map(c => ({ label: c.name, hint: `Category, ${c.count}`, run: () => { state.tag = ''; state.category = c.name; state.page = 1; syncChips(); load(); } })),
+            ...facetData.tags.filter(t => has(t.name)).map(t => ({ label: '#' + t.name, hint: `Tag, ${t.count}`, run: () => { state.tag = t.name; state.page = 1; syncChips(); load(); } })),
+        ];
+    }
+    function renderJump() {
+        const q = jumpInput.value.trim(), s = q.toLowerCase().replace(/^#/, '');
+        const mine = ++jumpReq;
+        const actions = ACTIONS.filter(a => !s || a.label.toLowerCase().includes(s));
+        jumpSel = 0;
+        if (!s) { showJump([...actions, ...jumpFacets('')]); return; }
+        showJump([...jumpFacets(s), ...actions]);
+        clearTimeout(jumpTimer);
+        jumpTimer = setTimeout(async () => {
+            try {
+                const res = await fetch(`/api/resources/?${new URLSearchParams({ search: q, per_page: 8 })}`);
+                if (!res.ok || mine !== jumpReq) return;
+                const links = (await res.json()).resources.map(r => {
+                    let host = r.url; try { host = new URL(r.url).hostname.replace(/^www\./, ''); } catch { /* keep */ }
+                    return { label: r.title, hint: host, run: () => window.open(r.url, '_blank', 'noopener') };
+                });
+                if (mine === jumpReq) showJump([...links, ...jumpFacets(s), ...actions]);
+            } catch { /* offline: the categories, tags and actions still show */ }
+        }, 120);
+    }
+    function runJump(i) {
+        const it = jumpItems[i];
+        if (!it) return;
+        jump.close();
+        it.run();
+    }
+    function openJump() {
+        if (jump.open) { jumpInput.select(); return; }
+        document.querySelector('dialog[open]')?.close();
+        jumpInput.value = '';
+        jump.showModal();
+        jumpInput.focus();
+        renderJump();
+    }
+    jumpInput.addEventListener('input', renderJump);
+    jumpInput.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown') { e.preventDefault(); jumpSel = Math.min(jumpItems.length - 1, jumpSel + 1); markJump(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); jumpSel = Math.max(0, jumpSel - 1); markJump(); }
+        else if (e.key === 'Enter') { e.preventDefault(); runJump(jumpSel); }
+    });
+    jump.addEventListener('click', (e) => { if (e.target === jump) jump.close(); }); // a click outside closes it
+    $('#jumpOpen').onclick = openJump;
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'k') { e.preventDefault(); openJump(); }
+    });
 
     loadCategories().then(load);
 })();

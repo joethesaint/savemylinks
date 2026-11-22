@@ -226,6 +226,8 @@
             img.src = meta.image;
             img.onerror = () => img.replaceWith(standIn());
         } else img.replaceWith(standIn());
+        // As in Pocket, the picture opens the link too (a big mouse target; keyboard users have o and Enter).
+        li.addEventListener('click', (ev) => { if (ev.target.closest('.thumb')) li.querySelector('.card-link').click(); });
 
         li.querySelector('.site').textContent = meta.site_name || host;
         const chip = li.querySelector('.category');

@@ -268,11 +268,6 @@ dialog .panel { border: 0; box-shadow: none; }
 .status-line { flex-wrap: wrap; }
 .view-switch { display: inline-flex; gap: 2px; padding: 2px; margin-left: auto; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-raised); }
 .view-switch .btn[aria-pressed="true"] { background: var(--brand-soft); color: var(--brand); }
-.cards[data-view="grid"] { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
-.cards[data-view="grid"] .card { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto; gap: var(--space-3); }
-.cards[data-view="grid"] .thumb { grid-column: 1 / -1; width: 100%; height: auto; aspect-ratio: 16 / 9; }
-.cards[data-view="grid"] .card-desc { -webkit-line-clamp: 3; }
-.cards[data-view="grid"] .card-actions { grid-column: 1; flex-direction: row; justify-self: end; }
 .cards[data-view="list"] { gap: 0; border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; background: var(--surface-raised); }
 .cards[data-view="list"] .card { grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding: var(--space-2) var(--space-4); border: 0; border-bottom: 1px solid var(--line); border-radius: 0; box-shadow: none; }
 .cards[data-view="list"] .card:last-child { border-bottom: 0; }
@@ -286,13 +281,40 @@ dialog .panel { border: 0; box-shadow: none; }
 @media (max-width: 720px) {
   .cards[data-view="list"] .card-meta .site { display: none; }
 }
-/* A link with no picture: a stand-in sheet in its category's colour, grid view only. */
+/* ── grid view, after studying Pocket's cards ──
+   The picture bleeds to the card's edges (rounded top corners only); the title clamps at three
+   lines; one footer row holds the site and category on the left and the actions on the right,
+   so every card in a row ends on the same line. Unlike Pocket we keep focus rings, and the
+   stand-in colour means something (the category), not a hash of the id. */
+.cards[data-view="grid"] { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.cards[data-view="grid"] .card { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto 1fr auto; gap: var(--space-2) var(--space-3); align-items: start; }
+.cards[data-view="grid"] .card-body { display: contents; }
+.cards[data-view="grid"] .thumb {
+  grid-column: 1 / -1; grid-row: 1; width: calc(100% + 2 * var(--space-4)); max-width: none; height: auto; aspect-ratio: 16 / 9;
+  margin: calc(-1 * var(--space-4)) calc(-1 * var(--space-4)) var(--space-2); border-radius: var(--radius-lg) var(--radius-lg) 0 0; cursor: pointer;
+}
+.cards[data-view="grid"] .card-title { grid-column: 1 / -1; grid-row: 2; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.cards[data-view="grid"] .card-url { display: none; }
+.cards[data-view="grid"] .card-desc { grid-column: 1 / -1; grid-row: 3; margin: 0; font-size: 14px; color: var(--ink-muted); }
+.cards[data-view="grid"] .card-meta { grid-column: 1; grid-row: 4; align-self: center; margin: 0; flex-wrap: nowrap; min-width: 0; }
+.cards[data-view="grid"] .card-meta .site { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.cards[data-view="grid"] .card-meta .date { display: none; }
+.cards[data-view="grid"] .card-actions { grid-column: 2; grid-row: 4; align-self: center; }
+.cards[data-view="grid"] .confirm { grid-row: 5; }
+
+/* A link with no picture: a stand-in sheet in its category's colour, grid view only. Like Pocket,
+   one big cropped letter is the texture; the domain sits on it as a label. */
 .thumb-fallback { display: none; }
 .cards[data-view="grid"] .thumb-fallback {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1);
-  min-width: 0; padding: var(--space-3); box-sizing: border-box; overflow: hidden;
-  background: var(--chip-bg, var(--surface-sunk)); color: var(--ink);
-  border-top: 4px solid var(--chip-tab, var(--brand));
+  display: block; position: relative; overflow: hidden; box-sizing: border-box;
+  background: var(--chip-bg, var(--surface-sunk)); border-top: 4px solid var(--chip-tab, var(--brand));
 }
-.thumb-fallback b { font-size: 40px; line-height: 1; font-weight: 700; opacity: .85; }
-.thumb-fallback span { max-width: 100%; font-size: 12px; color: var(--ink-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thumb-fallback b {
+  position: absolute; right: -0.06em; bottom: -0.3em; font: 700 128px/1 var(--f-sans);
+  color: var(--chip-tab, var(--brand)); opacity: .55; pointer-events: none;
+}
+.thumb-fallback span {
+  position: absolute; left: var(--space-3); bottom: var(--space-3); max-width: calc(100% - 2 * var(--space-3));
+  padding: 2px var(--space-2); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--ink);
+  font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}

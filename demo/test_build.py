@@ -36,6 +36,16 @@ def test_dynamic_imports_use_a_relative_path(tmp_path):
         assert (out / "static" / "modern-clippy.js").exists()
 
 
+def test_app_build_has_no_demo_parts(tmp_path):
+    out = build(tmp_path / "site", app=True)
+    for page in ["index.html", "add.html"]:
+        html = (out / page).read_text(encoding="utf-8")
+        assert "demo-api.js" not in html and "Reset demo" not in html
+        assert not re.search(r'(href|src)="/(?!/)', html), page
+    assert not (out / "static" / "demo-api.js").exists()
+    assert (out / "static" / "modern-clippy.js").exists()
+
+
 def test_demo_api_loads_before_the_app_scripts(tmp_path):
     out = build(tmp_path / "site")
     for page in ["index.html", "add.html"]:

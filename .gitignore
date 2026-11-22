@@ -150,3 +150,7 @@ Thumbs.db
 
 # Static demo build (demo/build.py)
 _site/
+
+# Native app: generated pages and build output
+native/site/
+native/target/

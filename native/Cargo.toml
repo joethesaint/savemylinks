@@ -1,0 +1,28 @@
+[package]
+name = "savemylinks"
+version = "0.1.0"
+edition = "2021"
+description = "SaveMyLinks as one small program: your own library, real link previews, no setup."
+license = "MIT"
+publish = false
+
+[dependencies]
+axum = "0.7"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync", "time", "signal"] }
+rusqlite = { version = "0.31", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+scraper = "0.19"
+rust-embed = "8"
+mime_guess = "2"
+url = "2"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+webbrowser = "1"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

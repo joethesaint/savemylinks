@@ -44,12 +44,16 @@ REWRITES = [
 ]
 
 
-def render(name: str, active: str) -> str:
+def render(name: str, active: str, app: bool = False) -> str:
     env = Environment(loader=FileSystemLoader(str(APP / "templates")), autoescape=True)
     env.globals["url_for"] = lambda _name, path: "static" + path
     html = env.get_template(name).render(request=None, active=active)
     for old, new in REWRITES:
+        if app and old == "on your own server.":
+            continue  # the real app does keep them on your own computer
         html = html.replace(old, new)
+    if app:
+        return html  # the native app (native/) answers /api itself: no stand-in, no banner
     # The stand-in API must patch fetch before the app's first script runs.
     html = html.replace('<script src="static/sml.js', '<script src="static/demo-api.js"></script>\n    <script src="static/sml.js', 1)
     html = html.replace("</head>", BANNER_CSS + "\n</head>", 1)
@@ -57,19 +61,24 @@ def render(name: str, active: str) -> str:
     return html
 
 
-def build(out: Path) -> Path:
+def build(out: Path, app: bool = False) -> Path:
+    """app=False: the static demo. app=True: the same pages for the native app (native/site)."""
     if out.exists():
         shutil.rmtree(out)
     shutil.copytree(APP / "static", out / "static")
-    shutil.copy(HERE / "demo-api.js", out / "static" / "demo-api.js")
+    if not app:
+        shutil.copy(HERE / "demo-api.js", out / "static" / "demo-api.js")
     sml = out / "static" / "sml.js"
     sml.write_text(sml.read_text(encoding="utf-8").replace("'/?focus=search'", "'./?focus=search'"), encoding="utf-8")
-    (out / "index.html").write_text(render("index.html", "library"), encoding="utf-8")
-    (out / "add.html").write_text(render("add.html", "add"), encoding="utf-8")
-    (out / ".nojekyll").write_text("", encoding="utf-8")
+    (out / "index.html").write_text(render("index.html", "library", app), encoding="utf-8")
+    (out / "add.html").write_text(render("add.html", "add", app), encoding="utf-8")
+    if not app:
+        (out / ".nojekyll").write_text("", encoding="utf-8")
     return out
 
 
 if __name__ == "__main__":
-    target = build(Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "_site")
-    print(f"Demo built in {target}")
+    args = [a for a in sys.argv[1:] if a != "--app"]
+    app = "--app" in sys.argv
+    target = build(Path(args[0]) if args else ROOT / ("native/site" if app else "_site"), app=app)
+    print(f"{'App pages' if app else 'Demo'} built in {target}")

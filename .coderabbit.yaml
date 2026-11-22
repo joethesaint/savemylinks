@@ -3,11 +3,46 @@
 # A PR asks for a review with the "review-queue" label; a queue job swaps it for "coderabbit"
 # once an hour, which starts the review. To review one now, comment: @coderabbitai full review
 language: en-US
+# Quiet by design: one review per PR, findings inline, no extras. Each extra section and
+# status update is another GitHub notification.
+chat:
+  auto_reply: false          # it doesn't answer our "Fixed in <sha>" replies (it learns from them anyway)
+  art: false
 reviews:
   profile: chill
+  review_status: false       # no "review skipped/in progress" status posts
+  in_progress_fortune: false
+  review_info: false
+  high_level_summary: false  # the PR description already says what changed
+  estimate_code_review_effort: false
+  related_prs: false
+  related_issues: false
+  suggested_labels: false
+  suggested_reviewers: false
+  sequence_diagrams: false
+  changed_files_summary: false
+  poem: false
+  finishing_touches:
+    unit_tests:
+      enabled: false
+    autofix:
+      enabled: false
+    fix_ci:
+      enabled: false
+    resolve_merge_conflict:
+      enabled: false
+  pre_merge_checks:
+    title:
+      mode: "off"
+    description:
+      mode: "off"
+    issue_assessment:
+      mode: "off"
   auto_review:
     enabled: false
     drafts: false
+    # Pushes after the review don't trigger new ones; ask with "@coderabbitai review" if a fix needs it.
+    auto_incremental_review: false
     labels:
       - "coderabbit"
     ignore_title_keywords:
@@ -38,3 +73,9 @@ reviews:
       instructions: |
         demo/demo-api.js must answer like the FastAPI routes (status codes and response shapes).
         Dynamic import() paths must be relative ("./"), never bare.
+    - path: "native/**"
+      instructions: |
+        Rust port of the FastAPI app. Responses must match the API contract in tests/contract
+        (status codes, JSON shapes, 422 detail lists). The link-preview fetch must refuse
+        non-public addresses on every redirect hop, keep the 5 s timeout and 1 MB cap, and never
+        hold the store's Mutex across an await. Bind to 127.0.0.1 only.

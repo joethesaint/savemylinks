@@ -2,6 +2,12 @@
 
 **Try it:** [live demo](https://joethesaint.github.io/savemylinks/) (runs in your browser; links you save stay on your device).
 
+**Run your own copy:** download one file from [Releases](https://github.com/joethesaint/savemylinks/releases) (Windows, macOS or Linux) and open it. Your browser opens your own SaveMyLinks with real link previews; your library is one file on your computer (`%APPDATA%\SaveMyLinks` on Windows, `~/.local/share/savemylinks` elsewhere). No Python, no setup. The browser extension works with it as-is. Built from `native/` (Rust); the Python app below is the reference it is tested against.
+- Options: `--port 8123`, `--db path/to/library.db`, `--no-browser`. Export your library at `/api/export`.
+- **Windows:** open `savemylinks-windows-x64.exe`. It isn't code-signed yet, so SmartScreen asks once: *More info → Run anyway*.
+- **macOS / Linux:** download the `.tar.gz`, then in a terminal: `tar xzf savemylinks-*.tar.gz && ./savemylinks-macos-arm64` (or `./savemylinks-linux-x64`).
+- **macOS blocked it?** Unsigned apps can be blocked outright. After the first attempt, open *System Settings → Privacy & Security* and choose *Open Anyway*, then run it again.
+
 **AI For Developers II Capstone Project | [ALX](https://www.alxafrica.com/)**
 
 ## 🔖 Project Description
@@ -314,4 +320,6 @@ This project was developed as part of the **AI For Developers II** course offere
 
 ## 📄 License
 
-This project is part of the ALX AI For Developers II capstone program and is intended for educational purposes.
+[MIT](LICENSE) © 2025-2026 Joseph Bamisaye. Use it, change it, share it; keep the copyright notice.
+
+SaveMyLinks began as the ALX AI For Developers II capstone project.

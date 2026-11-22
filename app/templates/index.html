@@ -128,11 +128,13 @@
             <dt><kbd>?</kbd></dt><dd>This list</dd>
         </dl>
         <p class="hint">Tidying many links: change one with <kbd>c</kbd>, then <kbd>j</kbd> <kbd>.</kbd> <kbd>j</kbd> <kbd>.</kbd> for the rest.</p>
+        <p class="hint">Clippy teaches these as you go: after you do something the slow way twice, he shows the key once. <button type="button" class="btn btn-ghost btn-sm" id="tipsReset">Show his tips again</button></p>
     </div>
 </dialog>
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', path='/tips.js') }}?v=1"></script>
 <script>
 (function () {
     const { toast, categories, categoryClass, resetCategories, fieldErrors } = window.SML;
@@ -190,6 +192,8 @@
         const host = (() => { try { return new URL(r.url).hostname.replace(/^www\./, ''); } catch { return r.url; } })();
 
         li.querySelector('.card-link').href = r.url;
+        // A mouse click (detail > 0) is the slow way to open; Enter or o is not.
+        li.querySelector('.card-link').addEventListener('click', (ev) => { if (ev.detail > 0) window.SMLTips?.note('mouse-open'); });
         li.querySelector('.card-link').textContent = r.title;
         li.querySelector('.card-url span').textContent = r.url;
         li.querySelector('.card-url').title = r.url;
@@ -247,6 +251,7 @@
                 const res = await fetch(`/api/resources/${r.id}`, { method: 'DELETE' });
                 if (!res.ok) throw new Error(res.status);
                 toast(`Deleted "${r.title}".`, { code: res.status, tone: 'success' });
+                window.SMLTips?.note('mouse-delete');
                 resetCategories(); await loadCategories(); load();
             } catch (e) {
                 toast("Couldn't delete the link. Check your connection and try again.", { code: Number(e.message) || '', tone: 'danger' });
@@ -350,6 +355,8 @@
     let typing;
     const search = $('#searchInput');
     search.value = state.q;
+    search.addEventListener('mousedown', () => window.SMLTips?.note('search-click'));
+    document.addEventListener('keydown', (e) => { if (e.key === '/') window.SMLTips?.used('/'); }, true);
     search.addEventListener('input', () => {
         clearTimeout(typing);
         typing = setTimeout(() => { state.q = search.value.trim(); state.page = 1; load(); }, 250);
@@ -401,6 +408,9 @@
             }
             if (!res.ok) throw new Error(res.status);
             dlg.close();
+            const onlyCategory = body.url === editing.url && body.title === editing.title
+                && (body.description || null) === (editing.description || null) && body.category !== (editing.category || null);
+            if (onlyCategory) window.SMLTips?.note('category-dialog');
             toast(`Saved changes to "${body.title}".`, { code: res.status, tone: 'success' });
             resetCategories(); await loadCategories(); load();
         } catch (err) {
@@ -508,9 +518,11 @@
         const value = $('#categoryInput').value.trim();
         $('#categoryDialog').close();
         lastAction = { kind: 'category', value };
+        window.SMLTips?.note('category-twice');
         change(() => setCategory(categoryFor, value));
     });
     $('#keysClose').onclick = () => $('#keysDialog').close();
+    $('#tipsReset').onclick = () => { window.SMLTips?.reset(); $('#tipsReset').textContent = 'Tips will show again'; };
 
     function repeat(r) {
         if (!lastAction) { toast('Nothing to repeat yet. Change a link first (c or d), then press . on another.', { tone: 'notice' }); return; }
@@ -535,6 +547,7 @@
         };
         const act = keys[e.key];
         if (!act) return;
+        window.SMLTips?.used({ k: 'j', o: 'j' }[e.key] || e.key);
         e.preventDefault();
         act();
     });

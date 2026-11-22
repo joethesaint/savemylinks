@@ -133,3 +133,35 @@ def test_extension_save_normalizes_and_never_duplicates(api):
     assert untitled.json()["resource"]["title"] == f"my {path} (example.com)"
     bad = api.post("/api/save", json={"url": "ftp://example.com/x"})
     assert bad.status_code == 422 and isinstance(bad.json()["detail"], str)
+
+
+# ── from the first CodeRabbit review: the native app must reject these exactly as FastAPI does ──
+
+def test_non_integer_id_is_422_on_every_route(api):
+    for method in ["GET", "PUT", "DELETE"]:
+        r = api.request(method, "/api/resources/not-a-number", json={} if method == "PUT" else None)
+        assert r.status_code == 422, method
+        assert isinstance(r.json()["detail"], list)
+    assert api.post("/api/resources/not-a-number/metadata").status_code == 422
+
+
+def test_update_body_must_be_an_object(api):
+    r = make(api)
+    for body in ["[]", "null", "42"]:
+        res = api.put(f"/api/resources/{r['id']}", content=body, headers={"Content-Type": "application/json"})
+        assert res.status_code == 422, body
+    same = api.put(f"/api/resources/{r['id']}", json={})
+    assert same.status_code == 200 and same.json()["title"] == r["title"], "{} is a valid empty update"
+
+
+@pytest.mark.parametrize("extra,field", [
+    ({"note": 42}, "note"),
+    ({"title": ["x"]}, "title"),
+    ({"category": "x" * 101}, "category"),
+])
+def test_extension_save_checks_types_and_limits(api, extra, field):
+    r = api.post("/api/save", json={"url": f"https://example.com/{uuid.uuid4().hex[:8]}", **extra})
+    assert r.status_code == 422
+    assert field in [e["loc"][-1] for e in r.json()["detail"]]
+    assert api.post("/api/save", json={"url": 42}).status_code == 422
+    assert api.post("/api/save", content="[]", headers={"Content-Type": "application/json"}).status_code == 422

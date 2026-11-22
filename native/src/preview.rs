@@ -2,7 +2,7 @@
 //! addresses only (checked again on every redirect), 5 s timeout, 1 MB cap, HTML only.
 //! Open Graph wins, then Twitter, then plain tags.
 use std::collections::HashMap;
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::time::Duration;
 
 use scraper::{Html, Selector};
@@ -36,18 +36,25 @@ pub fn is_public(ip: IpAddr) -> bool {
             if let Some(v4) = v6.to_ipv4_mapped() {
                 return is_public(IpAddr::V4(v4));
             }
+            // The non-global ranges Python's ipaddress uses (IANA special-purpose registry).
             let s = v6.segments();
             !(v6.is_loopback()
                 || v6.is_unspecified()
                 || v6.is_multicast()
-                || (s[0] & 0xfe00) == 0xfc00
-                || (s[0] & 0xffc0) == 0xfe80
-                || (s[0] == 0x2001 && s[1] == 0x0db8))
+                || (s[0] & 0xfe00) == 0xfc00                                  // fc00::/7 unique local
+                || (s[0] & 0xffc0) == 0xfe80                                  // fe80::/10 link local
+                || (s[0] == 0x0064 && s[1] == 0xff9b && s[2] == 0x0001)       // 64:ff9b:1::/48 local translation
+                || (s[0] == 0x0100 && s[1] == 0 && s[2] == 0 && s[3] == 0)    // 100::/64 discard only
+                || (s[0] == 0x2001 && s[1] < 0x0200)                          // 2001::/23 protocol assignments (incl. 2001:2::/48 benchmarking)
+                || (s[0] == 0x2001 && s[1] == 0x0db8)                         // 2001:db8::/32 documentation
+                || s[0] == 0x2002)                                            // 2002::/16 6to4
         }
     }
 }
 
-async fn assert_public(url: &Url) -> Result<(), String> {
+/// The addresses the host resolves to, if every one is public. The request is then pinned to
+/// exactly these, so a second DNS answer can't send it somewhere private (DNS rebinding).
+async fn assert_public(url: &Url) -> Result<Vec<SocketAddr>, String> {
     if url.scheme() != "http" && url.scheme() != "https" {
         return Err("not http(s)".into());
     }
@@ -55,14 +62,14 @@ async fn assert_public(url: &Url) -> Result<(), String> {
     let host = host.trim_start_matches('[').trim_end_matches(']');
     let port = url.port_or_known_default().unwrap_or(80);
     let addrs = tokio::net::lookup_host((host, port)).await.map_err(|_| format!("cannot resolve {host}"))?;
-    let mut any = false;
-    for a in addrs {
-        any = true;
-        if !is_public(a.ip()) {
-            return Err(format!("{host} resolves to a non-public address"));
-        }
+    let addrs: Vec<SocketAddr> = addrs.collect();
+    if addrs.is_empty() {
+        return Err(format!("cannot resolve {host}"));
     }
-    if any { Ok(()) } else { Err(format!("cannot resolve {host}")) }
+    if let Some(bad) = addrs.iter().find(|a| !is_public(a.ip())) {
+        return Err(format!("{host} resolves to a non-public address ({})", bad.ip()));
+    }
+    Ok(addrs)
 }
 
 fn clean(v: Option<String>, limit: usize) -> Option<String> {
@@ -111,17 +118,18 @@ pub fn parse_metadata(html: &str, base: &Url) -> Map<String, Value> {
 
 /// Fetch a page and return its preview, or None when it can't be read safely.
 pub async fn fetch_metadata(raw: &str) -> Option<Map<String, Value>> {
-    let client = reqwest::Client::builder()
-        .redirect(reqwest::redirect::Policy::none())
-        .timeout(Duration::from_secs(5))
-        .user_agent(USER_AGENT)
-        .build()
-        .ok()?;
     let mut url = Url::parse(raw).ok()?;
     for _ in 0..=MAX_REDIRECTS {
-        if assert_public(&url).await.is_err() {
-            return None;
+        let addrs = assert_public(&url).await.ok()?;
+        // A client per hop, pinned to the checked addresses (an IP-literal host needs no DNS).
+        let mut builder = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .timeout(Duration::from_secs(5))
+            .user_agent(USER_AGENT);
+        if let Some(url::Host::Domain(domain)) = url.host() {
+            builder = builder.resolve_to_addrs(domain, &addrs);
         }
+        let client = builder.build().ok()?;
         let mut resp = client.get(url.clone()).send().await.ok()?;
         if resp.status().is_redirection() {
             let loc = resp.headers().get(reqwest::header::LOCATION)?.to_str().ok()?.to_string();
@@ -136,11 +144,18 @@ pub async fn fetch_metadata(raw: &str) -> Option<Map<String, Value>> {
             return None;
         }
         let mut body: Vec<u8> = Vec::new();
-        while let Ok(Some(chunk)) = resp.chunk().await {
-            body.extend_from_slice(&chunk);
-            if body.len() >= MAX_BYTES {
-                body.truncate(MAX_BYTES);
-                break;
+        loop {
+            match resp.chunk().await {
+                Ok(Some(chunk)) => {
+                    body.extend_from_slice(&chunk);
+                    if body.len() >= MAX_BYTES {
+                        body.truncate(MAX_BYTES);
+                        break;
+                    }
+                }
+                Ok(None) => break,
+                // A cut-off body is a failed fetch: keep the old preview rather than store half of one.
+                Err(_) => return None,
             }
         }
         let html = String::from_utf8_lossy(&body);
@@ -155,10 +170,11 @@ mod tests {
 
     #[test]
     fn public_and_private_addresses() {
-        for bad in ["127.0.0.1", "10.0.0.5", "192.168.1.1", "169.254.169.254", "100.64.0.1", "0.0.0.0", "::1", "fe80::1", "fd00::1", "::ffff:127.0.0.1"] {
+        for bad in ["127.0.0.1", "10.0.0.5", "192.168.1.1", "169.254.169.254", "100.64.0.1", "0.0.0.0", "::1", "fe80::1", "fd00::1", "::ffff:127.0.0.1",
+                    "100::1", "2001:2::1", "2001:db8::1", "2002:7f00:1::1", "64:ff9b:1::1"] {
             assert!(!is_public(bad.parse().unwrap()), "{bad} must be refused");
         }
-        for good in ["93.184.216.34", "1.1.1.1", "2606:4700:4700::1111"] {
+        for good in ["93.184.216.34", "1.1.1.1", "2606:4700:4700::1111", "2a00:1450:4001::1", "2001:4860:4860::8888"] {
             assert!(is_public(good.parse().unwrap()), "{good} is public");
         }
     }

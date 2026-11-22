@@ -96,6 +96,12 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+      # Artifacts lose the executable bit; restore it and ship Unix builds as .tar.gz, which keep it.
+      - name: Package
+        run: |
+          cd dist
+          for f in savemylinks-macos-arm64 savemylinks-linux-x64; do chmod +x "$f" && tar czf "$f.tar.gz" "$f" && rm "$f"; done
+          ls -la
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*

@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 
 use axum::{
     body::Body,
-    extract::{Path, Query, State},
+    extract::{rejection::PathRejection, Path, Query, State},
     http::{header, StatusCode, Uri},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -47,6 +47,36 @@ fn field_error(loc: &str, field: &str, kind: &str, msg: String, input: &Value, c
 fn internal(e: impl std::fmt::Display) -> Response {
     eprintln!("error: {e}");
     detail(StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong on this computer. Try again.")
+}
+
+/// A non-integer id is a 422 naming the path parameter, as in FastAPI (axum alone would say 400).
+fn path_id(p: Result<Path<i64>, PathRejection>) -> Result<i64, Response> {
+    p.map(|Path(id)| id).map_err(|_| {
+        invalid(vec![field_error("path", "resource_id", "int_parsing", "Input should be a valid integer, unable to parse string as an integer".into(), &Value::Null, None)])
+    })
+}
+
+/// The body must be a JSON object ({} is a valid empty update); [] or null is a 422.
+fn not_object(body: &Value) -> Option<Response> {
+    (!body.is_object()).then(|| {
+        invalid(vec![json!({ "type": "model_attributes_type", "loc": ["body"], "msg": "Input should be a valid dictionary or object to extract fields from", "input": body })])
+    })
+}
+
+/// An optional string: absent or null is fine; otherwise a string of at most `max` characters.
+fn check_opt(body: &Value, field: &str, max: usize, errs: &mut Vec<Value>) -> Option<String> {
+    match body.get(field) {
+        None | Some(Value::Null) => None,
+        Some(Value::String(s)) if s.chars().count() <= max => Some(s.clone()),
+        Some(Value::String(s)) => {
+            errs.push(field_error("body", field, "string_too_long", format!("String should have at most {max} characters"), &json!(s), Some(json!({ "max_length": max }))));
+            None
+        }
+        Some(other) => {
+            errs.push(field_error("body", field, "string_type", "Input should be a valid string".into(), other, None));
+            None
+        }
+    }
 }
 
 /// Check one string field like the Pydantic schema: required?, min 1 if present, max length.
@@ -153,6 +183,7 @@ async fn categories(State(st): State<AppState>) -> Response {
 
 async fn create(State(st): State<AppState>, body: Option<Json<Value>>) -> Response {
     let Some(Json(body)) = body else { return invalid(vec![field_error("body", "body", "json_invalid", "JSON decode error".into(), &Value::Null, None)]) };
+    if let Some(r) = not_object(&body) { return r; }
     let mut errs = vec![];
     let title = check_str(&body, "title", true, 200, &mut errs);
     let url = check_url(&body, true, &mut errs);
@@ -174,7 +205,8 @@ async fn create(State(st): State<AppState>, body: Option<Json<Value>>) -> Respon
     }
 }
 
-async fn read_one(State(st): State<AppState>, Path(id): Path<i64>) -> Response {
+async fn read_one(State(st): State<AppState>, p: Result<Path<i64>, PathRejection>) -> Response {
+    let id = match path_id(p) { Ok(id) => id, Err(r) => return r };
     match st.lock().unwrap().get(id) {
         Ok(Some(r)) => Json(r).into_response(),
         Ok(None) => detail(StatusCode::NOT_FOUND, "Resource not found"),
@@ -182,8 +214,10 @@ async fn read_one(State(st): State<AppState>, Path(id): Path<i64>) -> Response {
     }
 }
 
-async fn update(State(st): State<AppState>, Path(id): Path<i64>, body: Option<Json<Value>>) -> Response {
+async fn update(State(st): State<AppState>, p: Result<Path<i64>, PathRejection>, body: Option<Json<Value>>) -> Response {
+    let id = match path_id(p) { Ok(id) => id, Err(r) => return r };
     let Some(Json(body)) = body else { return invalid(vec![field_error("body", "body", "json_invalid", "JSON decode error".into(), &Value::Null, None)]) };
+    if let Some(r) = not_object(&body) { return r; }
     let mut errs = vec![];
     let title = check_str(&body, "title", false, 200, &mut errs).flatten();
     let url = check_url(&body, false, &mut errs);
@@ -206,7 +240,8 @@ async fn update(State(st): State<AppState>, Path(id): Path<i64>, body: Option<Js
     }
 }
 
-async fn remove(State(st): State<AppState>, Path(id): Path<i64>) -> Response {
+async fn remove(State(st): State<AppState>, p: Result<Path<i64>, PathRejection>) -> Response {
+    let id = match path_id(p) { Ok(id) => id, Err(r) => return r };
     match st.lock().unwrap().delete(id) {
         Ok(true) => Json(json!({ "message": "Resource deleted successfully" })).into_response(),
         Ok(false) => detail(StatusCode::NOT_FOUND, "Resource not found"),
@@ -214,7 +249,8 @@ async fn remove(State(st): State<AppState>, Path(id): Path<i64>) -> Response {
     }
 }
 
-async fn refresh_metadata(State(st): State<AppState>, Path(id): Path<i64>) -> Response {
+async fn refresh_metadata(State(st): State<AppState>, p: Result<Path<i64>, PathRejection>) -> Response {
+    let id = match path_id(p) { Ok(id) => id, Err(r) => return r };
     let url = match st.lock().unwrap().get(id) {
         Ok(Some(r)) => r["url"].as_str().unwrap_or_default().to_string(),
         Ok(None) => return detail(StatusCode::NOT_FOUND, "Resource not found"),
@@ -223,7 +259,7 @@ async fn refresh_metadata(State(st): State<AppState>, Path(id): Path<i64>) -> Re
     if let Some(meta) = preview::fetch_metadata(&url).await {
         let _ = st.lock().unwrap().set_metadata(id, &url, &meta);
     }
-    read_one(State(st), Path(id)).await
+    read_one(State(st), Ok(Path(id))).await
 }
 
 fn clip(text: Option<&str>, limit: usize) -> Option<String> {
@@ -242,25 +278,36 @@ fn clip(text: Option<&str>, limit: usize) -> Option<String> {
 /// repeated page: normalizes the URL, returns an existing link (200) or creates one (201).
 async fn save(State(st): State<AppState>, body: Option<Json<Value>>) -> Response {
     let Some(Json(body)) = body else { return invalid(vec![field_error("body", "body", "json_invalid", "JSON decode error".into(), &Value::Null, None)]) };
-    let Some(raw) = body.get("url").and_then(|v| v.as_str()) else {
-        return invalid(vec![field_error("body", "url", "missing", "Field required".into(), &Value::Null, None)]);
+    if let Some(r) = not_object(&body) { return r; }
+    // Types and limits as SaveRequest; long titles and notes inside the limits are clipped below.
+    let mut errs = vec![];
+    let raw = match body.get("url") {
+        None => { errs.push(field_error("body", "url", "missing", "Field required".into(), &Value::Null, None)); None }
+        Some(Value::Null) => { errs.push(field_error("body", "url", "string_type", "Input should be a valid string".into(), &Value::Null, None)); None }
+        _ => check_opt(&body, "url", 4000, &mut errs),
     };
-    let url = match urls::normalize_url(raw) {
+    let title = check_opt(&body, "title", 4000, &mut errs);
+    let note = check_opt(&body, "note", 10000, &mut errs);
+    let category = check_opt(&body, "category", 100, &mut errs);
+    if !errs.is_empty() {
+        return invalid(errs);
+    }
+    let raw = raw.unwrap_or_default();
+    let url = match urls::normalize_url(&raw) {
         Ok(u) => u,
         Err(msg) => return detail(StatusCode::UNPROCESSABLE_ENTITY, &msg),
     };
     if url.chars().count() > 500 {
         return detail(StatusCode::UNPROCESSABLE_ENTITY, "This address is longer than 500 characters and can't be saved.");
     }
-    let s = |k: &str| body.get(k).and_then(|v| v.as_str());
     let store = st.lock().unwrap();
     match store.get_by_url(&url) {
         Ok(Some(r)) => return (StatusCode::OK, Json(json!({ "resource": r, "created": false }))).into_response(),
         Ok(None) => {}
         Err(e) => return internal(e),
     }
-    let title = clip(s("title"), 200).or_else(|| clip(Some(&urls::fallback_title(&url)), 200)).unwrap_or_default();
-    match store.create(&title, &url, clip(s("note"), 1000).as_deref(), clip(s("category"), 100).as_deref()) {
+    let title = clip(title.as_deref(), 200).or_else(|| clip(Some(&urls::fallback_title(&url)), 200)).unwrap_or_default();
+    match store.create(&title, &url, clip(note.as_deref(), 1000).as_deref(), clip(category.as_deref(), 100).as_deref()) {
         Ok(Write::Ok(r)) => {
             drop(store);
             preview_later(st.clone(), r["id"].as_i64().unwrap_or(0), url);

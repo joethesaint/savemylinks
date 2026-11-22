@@ -11,7 +11,7 @@
 
   const SEED = [
     // Newest first in the library: the author's portfolio, then this app's source.
-    ['https://joethesaint.github.io/', 'Joseph Taiwo Bamisaye: portfolio', 'Who built SaveMyLinks.', 'Projects', 'joethesaint.github.io', 'Software engineer: backend systems, quantitative analysis, portfolio optimization and scalable web architectures.', 0.05],
+    ['https://joethesaint.github.io/', 'Joseph Taiwo Bamisaye: portfolio', 'Who built SaveMyLinks.', 'Projects', 'joethesaint.github.io', 'Software engineer: backend systems, quantitative analysis, portfolio optimization and scalable web architectures.', 0.05, 'https://joethesaint.github.io/og-image.jpg'],
     ['https://github.com/joethesaint/savemylinks', 'SaveMyLinks source code', 'This app, on GitHub: MIT licensed.', 'Projects', 'GitHub', 'Save any page in one move and find it again in seconds. FastAPI, Rust, Jinja.', 0.1, 'https://opengraph.githubassets.com/1/joethesaint/savemylinks'],
     ['https://developer.mozilla.org/en-US/docs/Web/HTML/Element/dialog', 'The dialog element (MDN)', 'How the edit window in this app works.', 'Web', 'MDN Web Docs', 'The HTML dialog element represents a modal or non-modal dialog box.', 1],
     ['https://fastapi.tiangolo.com/tutorial/background-tasks/', 'Background tasks in FastAPI', 'How link previews are fetched after the save returns.', 'Python', 'FastAPI', 'Define background tasks to be run after returning a response.', 2],

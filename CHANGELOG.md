@@ -2,19 +2,37 @@
 
 What changed in each release, and what the review caught before it shipped.
 
-Every pull request gets a live demo while it is reviewed, then a review by
-[CodeRabbit](https://coderabbit.ai) (one an hour, in queue order). Its findings are answered in
-the PR, fixed or deferred with a reason, before the final review and merge. The tables below
-list them, so you can see what the review found that we missed. They come from the PR threads
+Every pull request gets a live demo while it is reviewed. CI (tests, the API contract, builds,
+the demo) is the gate for merging. [CodeRabbit](https://coderabbit.ai) gives a second opinion
+(one review an hour, in queue order), which may arrive after the merge. Its findings are fixed
+in a follow-up or deferred with a reason. The tables below list them, so you can see what the
+review found that we missed. They come from the PR threads
 via `python tools/changelog.py <PR numbers>`.
 
 Plans and ideas live in [CHANGELOG_ROADMAP.md](CHANGELOG_ROADMAP.md).
 
 ## Unreleased
 
+- **Keyboard shortcuts and dot-repeat** ([#9](https://github.com/joethesaint/savemylinks/pull/9)):
+  `j/k` select, `o` open, `e` edit, `c` category, `d` delete with Undo, `.` repeat, `?` help.
+- **Clippy teaches Vim habits** ([#24](https://github.com/joethesaint/savemylinks/pull/24)): after
+  the slow way twice, one "Did you know?" tip for the faster key.
+- **Installable on phones with share-to-save; a download page with SHA-256 checksums; link
+  previews for SaveMyLinks' own pages** ([#11](https://github.com/joethesaint/savemylinks/pull/11)).
 - **License:** SaveMyLinks is MIT licensed ([#10](https://github.com/joethesaint/savemylinks/pull/10)).
 - **Live demo for every PR**, posted on the PR while it is reviewed; this changelog with the
-  review findings.
+  review findings ([#12](https://github.com/joethesaint/savemylinks/pull/12)).
+
+### Reviewed by CodeRabbit
+
+| PR | What CodeRabbit found that we missed | Where | Severity | Status |
+|---|---|---|---|---|
+| [#9](https://github.com/joethesaint/savemylinks/pull/9) | Keep Undo available when restoration fails | `app/templates/index.html` | Major | Fixed in `7d1ef88` |
+| [#9](https://github.com/joethesaint/savemylinks/pull/9) | Expose the selected link to assistive technology | `app/templates/index.html` | Minor | Fixed in `7d1ef88` |
+| [#9](https://github.com/joethesaint/savemylinks/pull/9) | Handle rejected mutation requests | `app/templates/index.html` | Minor | Fixed in `7d1ef88` |
+| [#9](https://github.com/joethesaint/savemylinks/pull/9) | Correct the page after deletions finish, not before | `app/templates/index.html` | Minor | Fixed in `7d1ef88` |
+| [#11](https://github.com/joethesaint/savemylinks/pull/11) | Review requested after merge; still in progress | | | Pending |
+| [#24](https://github.com/joethesaint/savemylinks/pull/24) | Merged on green CI; not yet reviewed | | | Pending |
 
 ## v0.1.0 · 22 November 2026
 

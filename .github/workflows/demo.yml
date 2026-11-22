@@ -18,9 +18,12 @@ permissions:
   contents: write        # push to the gh-pages branch
   pull-requests: write   # comment the preview link
 
-# One writer to gh-pages at a time; never cancel a half-finished publish.
+# Main publishes and PR previews queue separately: GitHub keeps only one job waiting per
+# group, so a shared group let a PR's preview clean-up cancel a waiting main publish (#24's
+# merge). Main runs one at a time and is never cancelled; each PR has its own queue. If two
+# pushes to gh-pages meet, the deploy step fetches and retries.
 concurrency:
-  group: gh-pages
+  group: ${{ github.event_name == 'pull_request' && format('gh-pages-pr-{0}', github.event.pull_request.number) || 'gh-pages-main' }}
   cancel-in-progress: false
 
 jobs:
@@ -46,6 +49,7 @@ jobs:
           folder: _site
           branch: gh-pages
           clean-exclude: pr-preview/
+          attempt-limit: 5
 
       - name: Publish or remove the PR preview
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository

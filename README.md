@@ -320,4 +320,6 @@ This project was developed as part of the **AI For Developers II** course offere
 
 ## 📄 License
 
-This project is part of the ALX AI For Developers II capstone program and is intended for educational purposes.
+[MIT](LICENSE) © 2025-2026 Joseph Bamisaye. Use it, change it, share it; keep the copyright notice.
+
+SaveMyLinks began as the ALX AI For Developers II capstone project.

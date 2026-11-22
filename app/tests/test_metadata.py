@@ -178,3 +178,31 @@ def test_existing_database_gains_the_column_and_keeps_its_rows(tmp_path):
         assert "link_metadata" in {c["name"] for c in inspect(conn).get_columns("resources")}
         assert conn.execute(text("SELECT title, link_metadata FROM resources")).all() == [("Old", None)]
     engine.dispose()
+
+
+# ── a title guessed from the address gives way to the page's own (a LinkedIn post's ID, 22 Nov) ──
+
+@pytest.mark.asyncio
+async def test_guessed_title_gives_way_to_the_page_title(async_session):
+    from app.models import Resource
+    from app.services.urls import looks_guessed
+
+    li = "https://www.linkedin.com/feed/update/urn:li:activity:7503440251881947136/"
+    assert looks_guessed("Urn:li:activity:7503440251881947136 (linkedin.com)", li)
+    assert looks_guessed("Background tasks (fastapi.tiangolo.com)", "https://fastapi.tiangolo.com/tutorial/background-tasks/")
+    assert not looks_guessed("My notes on FastAPI tasks", "https://fastapi.tiangolo.com/tutorial/background-tasks/")
+
+    guessed = Resource(title="Urn:li:activity:7503440251881947136 (linkedin.com)", url=li)
+    typed = Resource(title="Ada's career post", url=li + "?x=1")
+    async_session.add_all([guessed, typed])
+    await async_session.commit()
+
+    async def page(url):
+        return {"title": "Ada on LinkedIn: By this time next year…", "site_name": "LinkedIn"}
+
+    await metadata.refresh_resource_metadata(guessed.id, guessed.url, fetcher=page)
+    await metadata.refresh_resource_metadata(typed.id, typed.url, fetcher=page)
+    await async_session.refresh(guessed)
+    await async_session.refresh(typed)
+    assert guessed.title == "Ada on LinkedIn: By this time next year…"
+    assert typed.title == "Ada's career post", "a title the person typed is never replaced"

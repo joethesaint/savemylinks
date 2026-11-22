@@ -178,6 +178,16 @@ impl Store {
             "UPDATE resources SET link_metadata = ?1 WHERE id = ?2 AND url = ?3",
             params![Value::Object(meta.clone()).to_string(), id, url],
         )?;
+        // A title guessed from the address (a LinkedIn post's ID, say) gives way to the page's own.
+        let page_title = meta.get("title").and_then(|t| t.as_str()).map(str::trim).unwrap_or("");
+        if !page_title.is_empty() {
+            if let Some(cur) = self.get(id)? {
+                if cur["url"].as_str() == Some(url) && crate::urls::looks_guessed(cur["title"].as_str().unwrap_or(""), url) {
+                    let t: String = page_title.chars().take(200).collect();
+                    self.conn.execute("UPDATE resources SET title = ?1 WHERE id = ?2 AND url = ?3", params![t, id, url])?;
+                }
+            }
+        }
         Ok(())
     }
 
@@ -210,6 +220,11 @@ mod tests {
         m.insert("title".into(), Value::String("t".into()));
         s.set_metadata(1, "https://a.com/", &m).unwrap();
         assert!(s.get(1).unwrap().unwrap()["link_metadata"].is_object());
+        assert_eq!(s.get(1).unwrap().unwrap()["title"], "A", "a typed title stays");
+        s.create("b (b.com)", "https://b.com/b", None, None, &[]).unwrap();
+        let id = s.get_by_url("https://b.com/b").unwrap().unwrap()["id"].as_i64().unwrap();
+        s.set_metadata(id, "https://b.com/b", &m).unwrap();
+        assert_eq!(s.get(id).unwrap().unwrap()["title"], "t", "a guessed title gives way to the page's");
         let f = Fields { url: Some("https://c.com/".into()), ..Default::default() };
         let Write::Ok(r) = s.update(1, f).unwrap() else { panic!() };
         assert!(r["link_metadata"].is_null(), "a new URL clears the preview");

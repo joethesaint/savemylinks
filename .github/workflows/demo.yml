@@ -1,28 +1,26 @@
-# Publishes the static demo (demo/build.py) to GitHub Pages when main changes.
-# The demo runs the app's real pages; demo/demo-api.js answers their API calls in the browser.
+# Static demo (demo/build.py) on GitHub Pages.
+# On every pull request: test and build only, so a broken demo fails on the PR, before merge.
+# On main: test, build and publish.
 name: Demo site
 
 on:
+  pull_request:
+    paths: ["app/templates/**", "app/static/**", "demo/**", ".github/workflows/demo.yml", "conftest.py", "pytest.ini"]
   push:
     branches: [main]
-    paths: ["app/templates/**", "app/static/**", "demo/**", ".github/workflows/demo.yml"]
+    paths: ["app/templates/**", "app/static/**", "demo/**", ".github/workflows/demo.yml", "conftest.py", "pytest.ini"]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: demo-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -34,5 +32,17 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - id: deployment
         uses: actions/deploy-pages@v4

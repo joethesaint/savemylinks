@@ -118,7 +118,7 @@
 
         async function start() {
             try {
-                const { initClippy, assistantPrefs } = await import('/static/modern-clippy.js?v=4');
+                const { initClippy, assistantPrefs } = await import('/static/modern-clippy.js?v=5');
                 agent = await initClippy({ basePath: '/static/' });
                 window.smlAssistant = agent;
                 const prefs = assistantPrefs.get();

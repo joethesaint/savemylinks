@@ -21,7 +21,7 @@ HERE = Path(__file__).resolve().parent
 BANNER = (
     '<div class="demo-banner" role="note">'
     "<span><strong>Demo.</strong> Links you save here stay in this browser only. "
-    'Previews are simulated. <a href="https://github.com/joethesaint/savemylinks">Source and full app</a></span>'
+    'Previews are simulated. <a href="download.html">Download the full app</a> · <a href="https://github.com/joethesaint/savemylinks">Source</a></span>'
     '<button type="button" class="btn btn-ghost btn-sm" onclick="smlDemoReset()">Reset demo</button>'
     "</div>"
 )
@@ -66,8 +66,11 @@ def build(out: Path, app: bool = False) -> Path:
     if out.exists():
         shutil.rmtree(out)
     shutil.copytree(APP / "static", out / "static")
+    # The service worker sits at the root so its scope covers every page (installable app).
+    shutil.copy(APP / "static" / "sw.js", out / "sw.js")
     if not app:
         shutil.copy(HERE / "demo-api.js", out / "static" / "demo-api.js")
+        shutil.copy(HERE / "download.html", out / "download.html")
     sml = out / "static" / "sml.js"
     sml.write_text(sml.read_text(encoding="utf-8").replace("'/?focus=search'", "'./?focus=search'"), encoding="utf-8")
     (out / "index.html").write_text(render("index.html", "library", app), encoding="utf-8")

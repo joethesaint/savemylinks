@@ -227,7 +227,7 @@ dialog .panel { border: 0; box-shadow: none; }
   .display { font-size: 32px; line-height: 36px; }
   .nav { display: none; }
   .split { grid-template-columns: minmax(0, 1fr); }
-  .promise { order: -1; }
+  /* The form comes first on phones: shared links land here to be saved (was: explainer first). */
   .promise .well img { max-width: 180px; }
   .card { grid-template-columns: 72px minmax(0, 1fr); }
   .card.no-image { grid-template-columns: minmax(0, 1fr); }
@@ -248,4 +248,10 @@ dialog .panel { border: 0; box-shadow: none; }
   #assistantToggle { width: 40px; padding: 0; }
   .site-header .wrap { gap: var(--space-2); }
   .header-tools { gap: 0; }
+}
+
+/* Touch screens: every tap target at least 44px (category chips, icon and small buttons). */
+@media (pointer: coarse) {
+  .chip, .btn-sm, .btn-icon { min-height: 44px; }
+  .btn-icon { min-width: 44px; }
 }

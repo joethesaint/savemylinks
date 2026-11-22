@@ -2,7 +2,8 @@
 
 **Try it:** [live demo](https://joethesaint.github.io/savemylinks/) (runs in your browser; links you save stay on your device).
 
-**Run your own copy:** download one file from [Releases](https://github.com/joethesaint/savemylinks/releases) (Windows, macOS or Linux) and open it. Your browser opens your own SaveMyLinks with real link previews; your library is one file on your computer (`%APPDATA%\SaveMyLinks` on Windows, `~/.local/share/savemylinks` elsewhere). No Python, no setup. The browser extension works with it as-is. Built from `native/` (Rust); the Python app below is the reference it is tested against.
+**Run your own copy:** get it from the [download page](https://joethesaint.github.io/savemylinks/download.html) (picks your system, shows each file's SHA-256) or from [Releases](https://github.com/joethesaint/savemylinks/releases) (Windows, macOS or Linux) and open it. Your browser opens your own SaveMyLinks with real link previews; your library is one file on your computer (`%APPDATA%\SaveMyLinks` on Windows, `~/.local/share/savemylinks` elsewhere). No Python, no setup. The browser extension works with it as-is. Built from `native/` (Rust); the Python app below is the reference it is tested against.
+- **On a phone:** open the live demo and choose *Add to Home screen* / *Install app*. On Android, SaveMyLinks then appears in the *Share* menu: share any page to it and it's saved.
 - Options: `--port 8123`, `--db path/to/library.db`, `--no-browser`. Export your library at `/api/export`.
 - **Windows:** open `savemylinks-windows-x64.exe`. It isn't code-signed yet, so SmartScreen asks once: *More info → Run anyway*.
 - **macOS / Linux:** download the `.tar.gz`, then in a terminal: `tar xzf savemylinks-*.tar.gz && ./savemylinks-macos-arm64` (or `./savemylinks-linux-x64`).

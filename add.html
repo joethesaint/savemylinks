@@ -35,7 +35,7 @@
 <style>.demo-banner{display:flex;flex-wrap:wrap;gap:.5rem 1rem;align-items:center;justify-content:center;padding:.5rem max(16px,env(safe-area-inset-left,0px));background:#2f6f7a;color:#fff;font-size:.875rem;text-align:center}.demo-banner a{color:inherit;text-decoration:underline}.demo-banner .btn{color:inherit;border-color:currentColor}</style>
 </head>
 <body>
-    <div class="demo-banner" role="note"><span><strong>Demo.</strong> Links you save here stay in this browser only. Previews are simulated. <a href="download.html">Download the full app</a> · <a href="https://github.com/joethesaint/savemylinks">Source</a></span><button type="button" class="btn btn-ghost btn-sm" onclick="smlDemoReset()">Reset demo</button></div>
+    <div class="demo-banner" role="note"><span><strong>Demo.</strong> Links you save here stay in this browser only. Previews are simulated. <a href="download.html">Download the full app</a> · <a href="https://github.com/joethesaint/savemylinks">Source</a></span><button type="button" class="btn btn-ghost btn-sm" onclick="smlDemoReset()">Reset demo</button><span data-app-detect><button type="button" class="btn btn-ghost btn-sm">Have the app? Open it</button></span></div>
     <a href="#main-content" class="skip-link">Skip to content</a>
 
     <!-- Line icons: 16px, 1.6 stroke, round caps, currentColor (design system). -->
@@ -153,6 +153,7 @@
     <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 
     <script src="static/demo-api.js"></script>
+    <script src="static/app-detect.js"></script>
     <script src="static/sml.js?v=5"></script>
 
     <!-- Assistant (Clippy). Reacts to what happens on the page; never interrupts on a timer.

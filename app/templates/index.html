@@ -210,11 +210,22 @@
         else if (fresh) { desc.textContent = 'Fetching the page title, picture and summary…'; desc.classList.add('pending'); }
         else desc.remove();
 
+        // No picture: a stand-in sheet in the category's colour (shown in grid view only).
+        const standIn = () => {
+            const d = document.createElement('div');
+            d.className = 'thumb thumb-fallback' + (r.category ? ' ' + categoryClass(r.category, categoryList) : '');
+            d.setAttribute('aria-hidden', 'true');
+            const b = document.createElement('b'); b.textContent = (host[0] || '?').toUpperCase();
+            const s = document.createElement('span'); s.textContent = host;
+            d.append(b, s);
+            li.classList.add('no-image');
+            return d;
+        };
         const img = li.querySelector('.thumb');
         if (meta.image && /^https?:\/\//i.test(meta.image)) {
             img.src = meta.image;
-            img.onerror = () => { img.remove(); li.classList.add('no-image'); };
-        } else { img.remove(); li.classList.add('no-image'); }
+            img.onerror = () => img.replaceWith(standIn());
+        } else img.replaceWith(standIn());
 
         li.querySelector('.site').textContent = meta.site_name || host;
         const chip = li.querySelector('.category');

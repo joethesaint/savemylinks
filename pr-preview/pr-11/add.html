@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="SaveMyLinks: save any page in one click and find it again by category.">
     <meta name="theme-color" content="#2f6f7a">
+    <!-- Link previews (chat apps, social sites, and SaveMyLinks itself read these). -->
+    <meta property="og:site_name" content="SaveMyLinks">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="SaveMyLinks: save any page, find it again">
+    <meta property="og:description" content="Save any page in one move and find it again in seconds. Free, open source, yours.">
+    <meta property="og:image" content="https://joethesaint.github.io/savemylinks/static/art/social-card.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="SaveMyLinks: a file box of saved links. Save any page in one move, find it again in seconds.">
+    <meta name="twitter:card" content="summary_large_image">
     <title>Save a link · SaveMyLinks</title>
     <script>
         // Set the theme before first paint so the page never flashes the wrong colours.
@@ -14,7 +24,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-    <link rel="stylesheet" href="static/sml.css?v=4">
+    <link rel="stylesheet" href="static/sml.css?v=6">
     <link rel="icon" type="image/svg+xml" href="static/art/icon.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="static/art/icon-32.png">
     <!-- Installable app (add to home screen); on Android it also appears in the Share menu. -->
@@ -136,14 +146,14 @@
     <footer class="site-footer">
         <div class="wrap">
             <span>SaveMyLinks keeps every link you save, filed by category, on your own server. This demo keeps them in your browser.</span>
-            <span>Press <kbd>/</kbd> to search.</span>
+            <span>Press <kbd>/</kbd> to search, <kbd>?</kbd> for keyboard shortcuts.</span>
         </div>
     </footer>
 
     <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 
     <script src="static/demo-api.js"></script>
-    <script src="static/sml.js?v=4"></script>
+    <script src="static/sml.js?v=5"></script>
 
     <!-- Assistant (Clippy). Reacts to what happens on the page; never interrupts on a timer.
          Pages talk to it with events:

@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="SaveMyLinks: save any page in one click and find it again by category.">
     <meta name="theme-color" content="#2f6f7a">
+    <!-- Link previews (chat apps, social sites, and SaveMyLinks itself read these). -->
+    <meta property="og:site_name" content="SaveMyLinks">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="SaveMyLinks: save any page, find it again">
+    <meta property="og:description" content="Save any page in one move and find it again in seconds. Free, open source, yours.">
+    <meta property="og:image" content="https://joethesaint.github.io/savemylinks/static/art/social-card.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="SaveMyLinks: a file box of saved links. Save any page in one move, find it again in seconds.">
+    <meta name="twitter:card" content="summary_large_image">
     <title>Library · SaveMyLinks</title>
     <script>
         // Set the theme before first paint so the page never flashes the wrong colours.
@@ -14,7 +24,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-    <link rel="stylesheet" href="static/sml.css?v=4">
+    <link rel="stylesheet" href="static/sml.css?v=6">
     <link rel="icon" type="image/svg+xml" href="static/art/icon.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="static/art/icon-32.png">
     <!-- Installable app (add to home screen); on Android it also appears in the Share menu. -->
@@ -96,6 +106,7 @@
 </div>
 
 <ul class="cards" id="resourcesList"></ul>
+<p class="visually-hidden" id="selectionStatus" aria-live="polite"></p>
 
 <section class="empty" id="emptyState" hidden>
     <img src="static/art/folder-empty.svg" alt="" width="220" height="220">
@@ -159,20 +170,57 @@
     </form>
 </dialog>
 
+<dialog id="categoryDialog" aria-labelledby="categoryTitle">
+    <form class="panel form" id="categoryForm" method="dialog" novalidate>
+        <div class="dialog-head">
+            <h2 class="title" id="categoryTitle">Change category</h2>
+            <button type="button" class="btn btn-ghost btn-icon" id="categoryClose" aria-label="Close without changing"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+        </div>
+        <div class="field">
+            <label class="label" for="categoryInput">Category <span class="opt">(leave empty to remove it)</span></label>
+            <input class="input" type="text" id="categoryInput" list="categoryOptions" maxlength="100" autocomplete="off">
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Move it</button>
+        </div>
+        <p class="hint">Then select another link and press <kbd>.</kbd> to move it too.</p>
+    </form>
+</dialog>
+
+<dialog id="keysDialog" aria-labelledby="keysTitle">
+    <div class="panel">
+        <div class="dialog-head">
+            <h2 class="title" id="keysTitle">Keyboard shortcuts</h2>
+            <button type="button" class="btn btn-ghost btn-icon" id="keysClose" aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+        </div>
+        <dl class="keys">
+            <dt><kbd>j</kbd> <kbd>k</kbd></dt><dd>Next and previous link</dd>
+            <dt><kbd>o</kbd></dt><dd>Open the selected link</dd>
+            <dt><kbd>e</kbd></dt><dd>Edit it</dd>
+            <dt><kbd>c</kbd></dt><dd>Change its category</dd>
+            <dt><kbd>d</kbd></dt><dd>Delete it (you can undo)</dd>
+            <dt><kbd>.</kbd></dt><dd>Do the last change again, on the selected link</dd>
+            <dt><kbd>/</kbd></dt><dd>Search</dd>
+            <dt><kbd>?</kbd></dt><dd>This list</dd>
+        </dl>
+        <p class="hint">Tidying many links: change one with <kbd>c</kbd>, then <kbd>j</kbd> <kbd>.</kbd> <kbd>j</kbd> <kbd>.</kbd> for the rest.</p>
+    </div>
+</dialog>
+
         </div>
     </main>
 
     <footer class="site-footer">
         <div class="wrap">
             <span>SaveMyLinks keeps every link you save, filed by category, on your own server. This demo keeps them in your browser.</span>
-            <span>Press <kbd>/</kbd> to search.</span>
+            <span>Press <kbd>/</kbd> to search, <kbd>?</kbd> for keyboard shortcuts.</span>
         </div>
     </footer>
 
     <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 
     <script src="static/demo-api.js"></script>
-    <script src="static/sml.js?v=4"></script>
+    <script src="static/sml.js?v=5"></script>
 
     <!-- Assistant (Clippy). Reacts to what happens on the page; never interrupts on a timer.
          Pages talk to it with events:
@@ -358,7 +406,6 @@
                 const res = await fetch(`/api/resources/${r.id}`, { method: 'DELETE' });
                 if (!res.ok) throw new Error(res.status);
                 toast(`Deleted "${r.title}".`, { code: res.status, tone: 'success' });
-                if (lastTotal - 1 <= (state.page - 1) * PER_PAGE && state.page > 1) state.page -= 1;
                 resetCategories(); await loadCategories(); load();
             } catch (e) {
                 toast("Couldn't delete the link. Check your connection and try again.", { code: Number(e.message) || '', tone: 'danger' });
@@ -403,12 +450,20 @@
             if (!res.ok) throw new Error(res.status);
             const data = await res.json();
             if (mine !== requestId) return; // a newer search already answered
+            // Past the last page (e.g. after deletions): go to the last page that has links.
+            if (!data.resources.length && state.page > 1) {
+                clearTimeout(loadTimer);
+                state.page = Math.max(1, Math.ceil(data.total / PER_PAGE));
+                return load();
+            }
             clearTimeout(loadTimer); loading.hidden = true;
             lastTotal = data.total;
 
             const savedId = Number(new URLSearchParams(location.search).get('saved')) || Number(sessionStorage.getItem('sml-saved')) || 0;
             sessionStorage.removeItem('sml-saved');
             list.replaceChildren(...data.resources.map(r => renderCard(r, r.id === savedId)));
+            current = data.resources;
+            if (sel >= 0) select(sel); // keep the keyboard selection in place after a change
             renderPager(data.total);
 
             const filtered = state.q || state.category;
@@ -525,6 +580,124 @@
             toast("Couldn't reach the server.", { tone: 'danger' });
         } finally { b.disabled = false; }
     };
+
+    // ── keyboard: verb + object, and "." repeats the last change (see the ? list) ──
+    let current = [];        // the links on screen, in order
+    let sel = -1;            // the selected one, or -1
+    let lastAction = null;   // { kind: 'category', value } | { kind: 'delete' }
+    let categoryFor = null;
+    let busy = false;        // a change is on its way to the server: change keys wait for it
+    async function change(fn) {
+        if (busy) return;
+        busy = true;
+        try { await fn(); } finally { busy = false; }
+    }
+    const cards = () => [...document.querySelectorAll('#resourcesList .card')];
+
+    function select(i) {
+        const list = cards();
+        if (!list.length) { sel = -1; return; }
+        sel = Math.max(0, Math.min(list.length - 1, i));
+        list.forEach((c, n) => c.classList.toggle('is-selected', n === sel));
+        // Focus the link itself, so a screen reader reads which link e, c, d and . will act on.
+        list[sel].querySelector('.card-link').focus({ preventScroll: true });
+        list[sel].scrollIntoView({ block: 'nearest' });
+        $('#selectionStatus').textContent = `Selected ${sel + 1} of ${list.length}: ${current[sel]?.title ?? ''}`;
+    }
+
+    function undoToast(message, onUndo) {
+        const el = document.createElement('div');
+        el.className = 'toast toast-success';
+        const msg = document.createElement('span'); msg.className = 'msg'; msg.textContent = message;
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-sm'; b.textContent = 'Undo';
+        let timer = setTimeout(() => el.remove(), 8000);
+        // The toast and its Undo stay until the restore succeeds; a failure brings the button back.
+        b.onclick = async () => {
+            clearTimeout(timer);
+            b.disabled = true; b.textContent = 'Restoring…';
+            if (await onUndo()) { el.remove(); return; }
+            b.disabled = false; b.textContent = 'Try Undo again';
+            timer = setTimeout(() => el.remove(), 15000);
+        };
+        el.append(msg, b);
+        $('#toasts').append(el);
+    }
+
+    async function refresh() { resetCategories(); await loadCategories(); await load(); }
+
+    const offline = (what) => toast(`Couldn't ${what}. Check your connection and try again.`, { tone: 'danger' });
+
+    async function setCategory(r, value) {
+        let res;
+        try { res = await fetch(`/api/resources/${r.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: value || null }) }); }
+        catch { offline(`change the category of "${r.title}"`); return; }
+        if (!res.ok) { toast(`Couldn't change the category of "${r.title}".`, { code: res.status, tone: 'danger' }); return; }
+        toast(value ? `Moved "${r.title}" to ${value}.` : `Removed the category from "${r.title}".`, { code: res.status, tone: 'success' });
+        await refresh();
+    }
+
+    // Fast delete from the keyboard: no question first, an Undo after (it saves the link again).
+    async function deleteWithUndo(r) {
+        let res;
+        try { res = await fetch(`/api/resources/${r.id}`, { method: 'DELETE' }); }
+        catch { offline('delete the link'); return; }
+        if (!res.ok) { toast("Couldn't delete the link. Check your connection and try again.", { code: res.status, tone: 'danger' }); return; }
+        undoToast(`Deleted "${r.title}".`, async () => {
+            let back;
+            try { back = await fetch('/api/resources/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: r.title, url: r.url, description: r.description, category: r.category }) }); }
+            catch { offline(`restore "${r.title}"`); return false; }
+            // 409: it is already back (e.g. restored from another tab), which is what Undo wanted.
+            const ok = back.ok || back.status === 409;
+            toast(ok ? `Restored "${r.title}".` : `Couldn't restore "${r.title}".`, { code: back.status, tone: ok ? 'success' : 'danger' });
+            if (ok) await refresh();
+            return ok;
+        });
+        await refresh();
+    }
+
+    function openCategory(r) {
+        categoryFor = r;
+        $('#categoryInput').value = r.category || '';
+        $('#categoryDialog').showModal();
+        $('#categoryInput').select();
+    }
+    $('#categoryClose').onclick = () => $('#categoryDialog').close();
+    $('#categoryForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const value = $('#categoryInput').value.trim();
+        $('#categoryDialog').close();
+        lastAction = { kind: 'category', value };
+        change(() => setCategory(categoryFor, value));
+    });
+    $('#keysClose').onclick = () => $('#keysDialog').close();
+
+    function repeat(r) {
+        if (!lastAction) { toast('Nothing to repeat yet. Change a link first (c or d), then press . on another.', { tone: 'notice' }); return; }
+        if (lastAction.kind === 'category') return setCategory(r, lastAction.value);
+        if (lastAction.kind === 'delete') return deleteWithUndo(r);
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        if (e.target.closest('input, textarea, select, [contenteditable="true"]') || document.querySelector('dialog[open]')) return;
+        const r = sel >= 0 ? current[sel] : null;
+        const needs = (fn) => () => (r ? fn() : select(0)); // a verb with nothing selected selects the first link
+        const keys = {
+            j: () => select(sel + 1),
+            k: () => select(sel < 0 ? 0 : sel - 1),
+            o: needs(() => cards()[sel].querySelector('.card-link').click()),
+            e: needs(() => openEdit(r)),
+            c: needs(() => openCategory(r)),
+            d: needs(() => change(() => { lastAction = { kind: 'delete' }; return deleteWithUndo(r); })),
+            '.': needs(() => change(() => repeat(r))),
+            '?': () => $('#keysDialog').showModal(),
+        };
+        const act = keys[e.key];
+        if (!act) return;
+        e.preventDefault();
+        act();
+    });
+    if (params.get('keys')) $('#keysDialog').showModal();
 
     loadCategories().then(load);
 })();

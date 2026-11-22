@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# Reviews are opt-in by label so the hourly allowance goes to PRs that need a second opinion.
+# A PR asks for a review with the "review-queue" label; a queue job swaps it for "coderabbit"
+# once an hour, which starts the review. To review one now, comment: @coderabbitai full review
+language: en-US
+reviews:
+  profile: chill
+  auto_review:
+    enabled: false
+    drafts: false
+    labels:
+      - "coderabbit"
+    ignore_title_keywords:
+      - "WIP"
+      - "skip review"
+  path_filters:
+    - "!_site/**"
+    - "!**/*.db"
+    - "!app/static/agents/**"
+  path_instructions:
+    - path: "app/services/**"
+      instructions: |
+        Saved URLs come from users. Check URL handling for SSRF (private, loopback and link-local
+        addresses, redirects), timeouts, response-size limits and HTML parsing of untrusted pages.
+    - path: "app/routes/**"
+      instructions: |
+        Check status codes match the API contract the pages rely on: 201 on create, 409 for a
+        duplicate URL, 422 for invalid fields, 404 for a missing resource.
+    - path: "app/templates/**"
+      instructions: |
+        Check accessibility (labels, focus, aria-live for status), and that links work under a
+        sub-path: the static demo serves these pages from /savemylinks/.
+    - path: "app/static/**"
+      instructions: |
+        Vanilla JS, no build step. Respect prefers-reduced-motion. The assistant (Clippy) must never
+        block the page or interrupt on a timer with speech.
+    - path: "demo/**"
+      instructions: |
+        demo/demo-api.js must answer like the FastAPI routes (status codes and response shapes).
+        Dynamic import() paths must be relative ("./"), never bare.

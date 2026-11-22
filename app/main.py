@@ -8,7 +8,7 @@ and route registration following the established architecture patterns.
 import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -108,6 +108,7 @@ async def home(request: Request):
     )
 
 
+@app.get("/add.html", response_class=HTMLResponse, include_in_schema=False)
 @app.get("/add", response_class=HTMLResponse)
 async def add_resource_page(request: Request):
     """
@@ -123,6 +124,12 @@ async def add_resource_page(request: Request):
         "add.html",
         {"request": request, "title": "Add Resource - SaveMyLinks", "active": "add"}
     )
+
+
+@app.get("/sw.js", include_in_schema=False)
+async def service_worker() -> FileResponse:
+    """The service worker, served from the root so its scope covers every page."""
+    return FileResponse("app/static/sw.js", media_type="application/javascript", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/health")

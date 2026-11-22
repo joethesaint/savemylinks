@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="SaveMyLinks: save any page in one click and find it again by category.">
     <meta name="theme-color" content="#2f6f7a">
+    <!-- Link previews (chat apps, social sites, and SaveMyLinks itself read these). -->
+    <meta property="og:site_name" content="SaveMyLinks">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="{% block og_title %}SaveMyLinks: save any page, find it again{% endblock %}">
+    <meta property="og:description" content="Save any page in one move and find it again in seconds. Free, open source, yours.">
+    <meta property="og:image" content="https://joethesaint.github.io/savemylinks/static/art/social-card.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="SaveMyLinks: a file box of saved links. Save any page in one move, find it again in seconds.">
+    <meta name="twitter:card" content="summary_large_image">
     <title>{% block title %}SaveMyLinks{% endblock %}</title>
     <script>
         // Set the theme before first paint so the page never flashes the wrong colours.
@@ -14,9 +24,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-    <link rel="stylesheet" href="{{ url_for('static', path='/sml.css') }}?v=5">
+    <link rel="stylesheet" href="{{ url_for('static', path='/sml.css') }}?v=6">
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='/art/icon.svg') }}">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', path='/art/icon-32.png') }}">
+    <!-- Installable app (add to home screen); on Android it also appears in the Share menu. -->
+    <link rel="manifest" href="{{ url_for('static', path='/manifest.webmanifest') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', path='/art/apple-touch-icon.png') }}">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="SaveMyLinks">
 </head>
 <body>
     <a href="#main-content" class="skip-link">Skip to content</a>
@@ -140,6 +155,10 @@
         // Load after the page so it never delays the content.
         if (document.readyState === 'complete') setTimeout(start, 300);
         else window.addEventListener('load', () => setTimeout(start, 300));
+    </script>
+    <script>
+        // Installable and opens offline (sw.js sits at the app's root so it covers every page).
+        if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
     </script>
     {% block scripts %}{% endblock %}
 </body>

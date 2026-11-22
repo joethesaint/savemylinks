@@ -52,3 +52,34 @@ def test_demo_api_loads_before_the_app_scripts(tmp_path):
         html = (out / page).read_text(encoding="utf-8")
         assert html.index("static/demo-api.js") < html.index("static/sml.js")
         assert "Reset demo" in html
+
+
+def test_installable_app_files(tmp_path):
+    import json
+    for app in (False, True):
+        out = build(tmp_path / f"site-{app}", app=app)
+        assert (out / "sw.js").exists(), "the service worker must sit at the root"
+        m = json.loads((out / "static" / "manifest.webmanifest").read_text(encoding="utf-8"))
+        assert m["share_target"]["params"] == {"title": "title", "text": "text", "url": "url"}
+        for icon in m["icons"]:
+            assert (out / "static" / icon["src"]).exists(), icon["src"]
+        html = (out / "index.html").read_text(encoding="utf-8")
+        assert 'rel="manifest"' in html and "./sw.js" in html
+
+
+def test_download_page_is_demo_only_and_links_home(tmp_path):
+    demo = build(tmp_path / "demo")
+    page = (demo / "download.html").read_text(encoding="utf-8")
+    for must in ["releases/latest", "LICENSE", "github.com/joethesaint/savemylinks", 'href="./"', "digest"]:
+        assert must in page, must
+    assert "download.html" in (demo / "index.html").read_text(encoding="utf-8"), "the demo banner links to it"
+    assert not (build(tmp_path / "app", app=True) / "download.html").exists()
+
+
+def test_pages_have_a_link_preview(tmp_path):
+    out = build(tmp_path / "demo")
+    for page in ["index.html", "add.html", "download.html"]:
+        html = (out / page).read_text(encoding="utf-8")
+        assert 'property="og:image" content="https://' in html, page
+        assert 'name="twitter:card" content="summary_large_image"' in html, page
+    assert (out / "static" / "art" / "social-card.png").exists()

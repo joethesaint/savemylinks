@@ -175,7 +175,22 @@
         btn.disabled = false; $('#savingIcon').hidden = true; btn.querySelector('span').textContent = 'Save link';
     });
 
-    urlInput.focus();
+    // Share-to-save: Android's Share menu opens this page with ?title=&text=&url= (see
+    // manifest.webmanifest). Apps often put the link inside "text", so take the first http(s)
+    // address from url or text, fill the form, and save at once.
+    const shared = new URLSearchParams(location.search);
+    const sharedUrl = [shared.get('url'), shared.get('text')]
+        .map((s) => (s || '').match(/https?:\/\/[^\s<>"']+/))
+        .find(Boolean)?.[0].replace(/[).,;!?]+$/, '');
+    if (sharedUrl) {
+        urlInput.value = sharedUrl;
+        const t = (shared.get('title') || '').trim();
+        if (t && !/^https?:\/\//.test(t)) { titleInput.value = t.slice(0, 200); titleEdited = true; } else suggestTitle();
+        history.replaceState(null, '', location.pathname); // a reload must not save it twice
+        form.requestSubmit();
+    } else {
+        urlInput.focus();
+    }
 })();
 </script>
 {% endblock %}

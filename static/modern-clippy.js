@@ -50,7 +50,10 @@ function injectStyles() {
 }
 
 export class ModernClippy {
-  constructor(agent, mapUrl) {
+  constructor(agent, mapUrl, { desktop = false } = {}) {
+    // desktop: shown by the native app in its own small window (static/desk.html). His drag moves
+    // that window, his × hides it, and he keeps no position of his own.
+    this.desktop = desktop;
     this.data = agent;
     this.mapUrl = mapUrl;
     this.timer = null;
@@ -120,7 +123,7 @@ export class ModernClippy {
 
     this.container.append(this.bubble, this.element, this.closeBtn);
     this.setupDrag();
-    this.restorePosition();
+    if (!this.desktop) this.restorePosition();
   }
 
   // ── visibility ──
@@ -143,6 +146,7 @@ export class ModernClippy {
     this.visible = false;
   }
   dismiss() {
+    if (this.desktop) { try { window.ipc?.postMessage('hide'); } catch { /* not in the app */ } return; }
     const done = () => { this.hide(); store({ hidden: true }); window.dispatchEvent(new CustomEvent('sml:assistant', { detail: { hidden: true } })); };
     if (reducedMotion() || !this.hasAnimation('Hide')) return done();
     this.stopIdle();
@@ -268,6 +272,11 @@ export class ModernClippy {
       if (!start || e.pointerId !== start.id) return;
       // A few pixels of wobble is still a click, not a drag.
       if (!start.moved && Math.hypot(e.clientX - start.x, e.clientY - start.y) < 4) return;
+      if (this.desktop) { // the window moves, not Clippy inside it; the system takes over the drag
+        start = null;
+        try { window.ipc?.postMessage('drag'); } catch { /* not in the app */ }
+        return;
+      }
       if (!start.moved) { start.moved = true; this.container.classList.add('is-dragging'); this.stopIdle(); }
       this.placeAt(e.clientX - start.dx, e.clientY - start.dy);
     });
@@ -313,20 +322,20 @@ export class ModernClippy {
   }
 }
 
-export async function loadAgent(basePath = '/static/', name = 'Clippy') {
+export async function loadAgent(basePath = '/static/', name = 'Clippy', options = {}) {
   const dir = join(basePath, `agents/${name}`);
   const mapUrl = join(dir, 'map.png');
   const [agent] = await Promise.all([
     fetch(join(dir, 'agent.json')).then((r) => { if (!r.ok) throw new Error(`agent.json: HTTP ${r.status}`); return r.json(); }),
     new Promise((ok, fail) => { const i = new Image(); i.onload = ok; i.onerror = () => fail(new Error(`map.png failed to load: ${mapUrl}`)); i.src = mapUrl; }),
   ]);
-  return new ModernClippy(agent, mapUrl);
+  return new ModernClippy(agent, mapUrl, options);
 }
 
 // Creates the agent. Shows it unless the person hid it before (store: sml.assistant.hidden).
-export async function initClippy({ basePath = '/static/', show = true } = {}) {
-  const agent = await loadAgent(basePath);
-  if (show && !store().hidden) agent.show();
+export async function initClippy({ basePath = '/static/', show = true, desktop = false } = {}) {
+  const agent = await loadAgent(basePath, 'Clippy', { desktop });
+  if (show && (desktop || !store().hidden)) agent.show();
   return agent;
 }
 

@@ -23,6 +23,11 @@
 <div class="status-line">
     <span id="resultLine" aria-live="polite"></span>
     <button type="button" class="btn btn-ghost btn-sm" id="clearFilters" hidden>Clear search and filter</button>
+    <div class="view-switch" role="group" aria-label="How to show your links">
+        <button type="button" class="btn btn-ghost btn-icon btn-sm" data-view="cards" aria-label="Cards view" title="Cards (v then c)"><svg class="icon" aria-hidden="true"><use href="#i-view-cards"/></svg></button>
+        <button type="button" class="btn btn-ghost btn-icon btn-sm" data-view="grid" aria-label="Grid view" title="Grid (v then g)"><svg class="icon" aria-hidden="true"><use href="#i-view-grid"/></svg></button>
+        <button type="button" class="btn btn-ghost btn-icon btn-sm" data-view="list" aria-label="List view" title="List (v then l)"><svg class="icon" aria-hidden="true"><use href="#i-view-list"/></svg></button>
+    </div>
 </div>
 
 <div id="loadingState" class="cards" aria-hidden="true">
@@ -125,6 +130,7 @@
             <dt><kbd>d</kbd></dt><dd>Delete it (you can undo)</dd>
             <dt><kbd>.</kbd></dt><dd>Do the last change again, on the selected link</dd>
             <dt><kbd>/</kbd></dt><dd>Search</dd>
+            <dt><kbd>v</kbd> then <kbd>c</kbd> <kbd>g</kbd> <kbd>l</kbd></dt><dd>Cards, grid or list view</dd>
             <dt><kbd>?</kbd></dt><dd>This list</dd>
         </dl>
         <p class="hint">Tidying many links: change one with <kbd>c</kbd>, then <kbd>j</kbd> <kbd>.</kbd> <kbd>j</kbd> <kbd>.</kbd> for the rest.</p>
@@ -204,11 +210,22 @@
         else if (fresh) { desc.textContent = 'Fetching the page title, picture and summary…'; desc.classList.add('pending'); }
         else desc.remove();
 
+        // No picture: a stand-in sheet in the category's colour (shown in grid view only).
+        const standIn = () => {
+            const d = document.createElement('div');
+            d.className = 'thumb thumb-fallback' + (r.category ? ' ' + categoryClass(r.category, categoryList) : '');
+            d.setAttribute('aria-hidden', 'true');
+            const b = document.createElement('b'); b.textContent = (host[0] || '?').toUpperCase();
+            const s = document.createElement('span'); s.textContent = host;
+            d.append(b, s);
+            li.classList.add('no-image');
+            return d;
+        };
         const img = li.querySelector('.thumb');
         if (meta.image && /^https?:\/\//i.test(meta.image)) {
             img.src = meta.image;
-            img.onerror = () => { img.remove(); li.classList.add('no-image'); };
-        } else { img.remove(); li.classList.add('no-image'); }
+            img.onerror = () => img.replaceWith(standIn());
+        } else img.replaceWith(standIn());
 
         li.querySelector('.site').textContent = meta.site_name || host;
         const chip = li.querySelector('.category');
@@ -533,6 +550,14 @@
     document.addEventListener('keydown', (e) => {
         if (e.ctrlKey || e.metaKey || e.altKey) return;
         if (e.target.closest('input, textarea, select, [contenteditable="true"]') || document.querySelector('dialog[open]')) return;
+        // Two-key views, as in Pocket: v then c (cards), g (grid) or l (list).
+        if (viewPending) {
+            viewPending = false;
+            const v = { c: 'cards', g: 'grid', l: 'list' }[e.key];
+            if (v) { e.preventDefault(); setView(v, true); }
+            return;
+        }
+        if (e.key === 'v') { e.preventDefault(); viewPending = true; setTimeout(() => { viewPending = false; }, 1500); return; }
         const r = sel >= 0 ? current[sel] : null;
         const needs = (fn) => () => (r ? fn() : select(0)); // a verb with nothing selected selects the first link
         const keys = {
@@ -552,6 +577,18 @@
         act();
     });
     if (params.get('keys')) $('#keysDialog').showModal();
+
+    // ── views: cards (default), grid, list; remembered per browser ──
+    let viewPending = false;
+    function setView(v, announce) {
+        if (!['cards', 'grid', 'list'].includes(v)) v = 'cards';
+        $('#resourcesList').dataset.view = v;
+        document.querySelectorAll('.view-switch [data-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
+        try { localStorage.setItem('sml-view', v); } catch (e) { /* blocked */ }
+        if (announce) $('#selectionStatus').textContent = `${v[0].toUpperCase()}${v.slice(1)} view`;
+    }
+    document.querySelectorAll('.view-switch [data-view]').forEach((b) => { b.onclick = () => setView(b.dataset.view, true); });
+    setView((() => { try { return localStorage.getItem('sml-view'); } catch (e) { return null; } })() || 'cards');
 
     loadCategories().then(load);
 })();

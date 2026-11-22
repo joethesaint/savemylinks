@@ -92,6 +92,43 @@
         </div>
     </form>
 </dialog>
+
+<dialog id="categoryDialog" aria-labelledby="categoryTitle">
+    <form class="panel form" id="categoryForm" method="dialog" novalidate>
+        <div class="dialog-head">
+            <h2 class="title" id="categoryTitle">Change category</h2>
+            <button type="button" class="btn btn-ghost btn-icon" id="categoryClose" aria-label="Close without changing"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+        </div>
+        <div class="field">
+            <label class="label" for="categoryInput">Category <span class="opt">(leave empty to remove it)</span></label>
+            <input class="input" type="text" id="categoryInput" list="categoryOptions" maxlength="100" autocomplete="off">
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Move it</button>
+        </div>
+        <p class="hint">Then select another link and press <kbd>.</kbd> to move it too.</p>
+    </form>
+</dialog>
+
+<dialog id="keysDialog" aria-labelledby="keysTitle">
+    <div class="panel">
+        <div class="dialog-head">
+            <h2 class="title" id="keysTitle">Keyboard shortcuts</h2>
+            <button type="button" class="btn btn-ghost btn-icon" id="keysClose" aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+        </div>
+        <dl class="keys">
+            <dt><kbd>j</kbd> <kbd>k</kbd></dt><dd>Next and previous link</dd>
+            <dt><kbd>o</kbd></dt><dd>Open the selected link</dd>
+            <dt><kbd>e</kbd></dt><dd>Edit it</dd>
+            <dt><kbd>c</kbd></dt><dd>Change its category</dd>
+            <dt><kbd>d</kbd></dt><dd>Delete it (you can undo)</dd>
+            <dt><kbd>.</kbd></dt><dd>Do the last change again, on the selected link</dd>
+            <dt><kbd>/</kbd></dt><dd>Search</dd>
+            <dt><kbd>?</kbd></dt><dd>This list</dd>
+        </dl>
+        <p class="hint">Tidying many links: change one with <kbd>c</kbd>, then <kbd>j</kbd> <kbd>.</kbd> <kbd>j</kbd> <kbd>.</kbd> for the rest.</p>
+    </div>
+</dialog>
 {% endblock %}
 
 {% block scripts %}
@@ -260,6 +297,8 @@
             const savedId = Number(new URLSearchParams(location.search).get('saved')) || Number(sessionStorage.getItem('sml-saved')) || 0;
             sessionStorage.removeItem('sml-saved');
             list.replaceChildren(...data.resources.map(r => renderCard(r, r.id === savedId)));
+            current = data.resources;
+            if (sel >= 0) select(sel); // keep the keyboard selection in place after a change
             renderPager(data.total);
 
             const filtered = state.q || state.category;
@@ -376,6 +415,98 @@
             toast("Couldn't reach the server.", { tone: 'danger' });
         } finally { b.disabled = false; }
     };
+
+    // ── keyboard: verb + object, and "." repeats the last change (see the ? list) ──
+    let current = [];        // the links on screen, in order
+    let sel = -1;            // the selected one, or -1
+    let lastAction = null;   // { kind: 'category', value } | { kind: 'delete' }
+    let categoryFor = null;
+    const cards = () => [...document.querySelectorAll('#resourcesList .card')];
+
+    function select(i) {
+        const list = cards();
+        if (!list.length) { sel = -1; return; }
+        sel = Math.max(0, Math.min(list.length - 1, i));
+        list.forEach((c, n) => c.classList.toggle('is-selected', n === sel));
+        list[sel].scrollIntoView({ block: 'nearest' });
+    }
+
+    function undoToast(message, onUndo) {
+        const el = document.createElement('div');
+        el.className = 'toast toast-success';
+        const msg = document.createElement('span'); msg.className = 'msg'; msg.textContent = message;
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-sm'; b.textContent = 'Undo';
+        b.onclick = () => { el.remove(); onUndo(); };
+        el.append(msg, b);
+        $('#toasts').append(el);
+        setTimeout(() => el.remove(), 8000);
+    }
+
+    async function refresh() { resetCategories(); await loadCategories(); await load(); }
+
+    async function setCategory(r, value) {
+        const res = await fetch(`/api/resources/${r.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: value || null }) });
+        if (!res.ok) { toast(`Couldn't change the category of "${r.title}".`, { code: res.status, tone: 'danger' }); return; }
+        toast(value ? `Moved "${r.title}" to ${value}.` : `Removed the category from "${r.title}".`, { code: res.status, tone: 'success' });
+        await refresh();
+    }
+
+    // Fast delete from the keyboard: no question first, an Undo after (it saves the link again).
+    async function deleteWithUndo(r) {
+        const res = await fetch(`/api/resources/${r.id}`, { method: 'DELETE' });
+        if (!res.ok) { toast("Couldn't delete the link. Check your connection and try again.", { code: res.status, tone: 'danger' }); return; }
+        undoToast(`Deleted "${r.title}".`, async () => {
+            const back = await fetch('/api/resources/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: r.title, url: r.url, description: r.description, category: r.category }) });
+            toast(back.ok ? `Restored "${r.title}".` : `Couldn't restore "${r.title}".`, { code: back.status, tone: back.ok ? 'success' : 'danger' });
+            await refresh();
+        });
+        if (lastTotal - 1 <= (state.page - 1) * PER_PAGE && state.page > 1) state.page -= 1;
+        await refresh();
+    }
+
+    function openCategory(r) {
+        categoryFor = r;
+        $('#categoryInput').value = r.category || '';
+        $('#categoryDialog').showModal();
+        $('#categoryInput').select();
+    }
+    $('#categoryClose').onclick = () => $('#categoryDialog').close();
+    $('#categoryForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const value = $('#categoryInput').value.trim();
+        $('#categoryDialog').close();
+        lastAction = { kind: 'category', value };
+        setCategory(categoryFor, value);
+    });
+    $('#keysClose').onclick = () => $('#keysDialog').close();
+
+    function repeat(r) {
+        if (!lastAction) { toast('Nothing to repeat yet. Change a link first (c or d), then press . on another.', { tone: 'notice' }); return; }
+        if (lastAction.kind === 'category') setCategory(r, lastAction.value);
+        else if (lastAction.kind === 'delete') deleteWithUndo(r);
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        if (e.target.closest('input, textarea, select, [contenteditable="true"]') || document.querySelector('dialog[open]')) return;
+        const r = sel >= 0 ? current[sel] : null;
+        const needs = (fn) => () => (r ? fn() : select(0)); // a verb with nothing selected selects the first link
+        const keys = {
+            j: () => select(sel + 1),
+            k: () => select(sel < 0 ? 0 : sel - 1),
+            o: needs(() => cards()[sel].querySelector('.card-link').click()),
+            e: needs(() => openEdit(r)),
+            c: needs(() => openCategory(r)),
+            d: needs(() => { lastAction = { kind: 'delete' }; deleteWithUndo(r); }),
+            '.': needs(() => repeat(r)),
+            '?': () => $('#keysDialog').showModal(),
+        };
+        const act = keys[e.key];
+        if (!act) return;
+        e.preventDefault();
+        act();
+    });
+    if (params.get('keys')) $('#keysDialog').showModal();
 
     loadCategories().then(load);
 })();

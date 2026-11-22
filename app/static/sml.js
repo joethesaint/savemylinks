@@ -39,6 +39,12 @@
   });
 
   // "/" jumps to search from anywhere (or to the library's search from another page).
+  // "?" on a page without the shortcut list goes to the library and opens it there.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== '?' || e.ctrlKey || e.metaKey || e.altKey || $('#keysDialog')) return;
+    if (e.target.closest('input, textarea, select, [contenteditable="true"], dialog')) return;
+    location.href = './?keys=1';
+  });
   document.addEventListener('keydown', (e) => {
     if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
     const t = e.target;

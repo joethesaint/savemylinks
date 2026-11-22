@@ -249,3 +249,11 @@ dialog .panel { border: 0; box-shadow: none; }
   .site-header .wrap { gap: var(--space-2); }
   .header-tools { gap: 0; }
 }
+
+/* ── keyboard (j/k select, ? lists the keys) ── */
+.card.is-selected { outline: 2px solid var(--brand); outline-offset: 2px; }
+.keys { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-2) var(--space-4); align-items: baseline; margin: 0; }
+.keys dt { white-space: nowrap; }
+.keys dd { margin: 0; color: var(--ink); }
+.keys kbd, .hint kbd { font: 12px/20px var(--f-mono); color: var(--ink); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: var(--radius-sm); padding: 0 6px; background: var(--surface); }
+.hint { color: var(--ink-muted); font-size: 13px; margin: var(--space-3) 0 0; }

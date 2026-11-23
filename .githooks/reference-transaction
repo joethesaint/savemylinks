@@ -1,0 +1,8 @@
+#!/bin/sh
+# Every agent and human: no branch deletes, no moves that drop commits (reset, amend, rebase, branch -f). Git calls this per state; only "prepared" can still stop the change.
+[ "$1" = "prepared" ] || exit 0
+G="$(git rev-parse --show-toplevel)/.claude/hooks/coexist-guard.cjs"
+# A worktree on an older branch may not have the guard yet: use the main checkout's copy.
+[ -f "$G" ] || G="$(git rev-parse --path-format=absolute --git-common-dir)/../.claude/hooks/coexist-guard.cjs"
+[ -f "$G" ] || exit 0
+exec node "$G" reftx

@@ -26,14 +26,74 @@ const claimDir = cwd => {
   return dir
 }
 const safe = branch => branch.replace(/[^\w.-]/g, '_')
+const isLive = c => Boolean(c) && Date.now() - c.at < CLAIM_HOURS * 3600e3
 const liveClaims = cwd => {
   const dir = claimDir(cwd)
   if (!dir) return []
   return fs.readdirSync(dir).filter(f => f.endsWith('.json')).map(f => {
     try { return JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')) } catch { return null }
-  }).filter(c => c && Date.now() - c.at < CLAIM_HOURS * 3600e3)
+  }).filter(isLive)
 }
 const heldByOther = (branch, cwd) => liveClaims(cwd).find(c => c.branch === branch && c.worktree !== holder(cwd))
+
+// --- Changing a claim ------------------------------------------------------------------------
+// The rule: two agents never hold the same branch at once. Three things keep it (23 Nov 2026):
+//   1. Looking for a claim and writing one happen under a lock, so two agents that claim in the
+//      same instant cannot both be told "Claimed". (Before: six out of six were.)
+//   2. Only the holder releases a live claim. (Before: any agent could release any claim.)
+//   3. The holder's own commits and pushes restart its 4 hours, so a claim does not run out
+//      under an agent that is still working.
+// A claim file is written to a temp name and renamed into place, so a reader never sees half a file.
+const claimFile = (branch, cwd) => path.join(claimDir(cwd), `${safe(branch)}.json`)
+const readClaim = (branch, cwd) => { try { return JSON.parse(fs.readFileSync(claimFile(branch, cwd), 'utf8')) } catch { return null } }
+const writeClaim = (branch, claim, cwd) => {
+  const file = claimFile(branch, cwd)
+  const tmp = `${file}.${process.pid}.tmp`
+  fs.writeFileSync(tmp, JSON.stringify(claim))
+  fs.renameSync(tmp, file)
+}
+const sleep = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+const LOCK_STALE_MS = 10000
+// mkdir either makes the folder or fails, never both, so only one process is inside fn at a time.
+// A lock left by a process that died is taken over after 10 seconds.
+const withClaimLock = (branch, cwd, fn) => {
+  const lock = `${claimFile(branch, cwd)}.lock`
+  const deadline = Date.now() + LOCK_STALE_MS + 5000
+  for (;;) {
+    try { fs.mkdirSync(lock); break } catch (e) {
+      if (e.code !== 'EEXIST') throw e
+      let age = 0
+      try { age = Date.now() - fs.statSync(lock).mtimeMs } catch { continue }
+      if (age > LOCK_STALE_MS) { try { fs.rmdirSync(lock) } catch { /* another process took it over */ } continue }
+      if (Date.now() > deadline) throw new Error(`could not lock the claim on ${branch}; try again`)
+      sleep(25 + Math.floor(Math.random() * 50))
+    }
+  }
+  try { return fn() } finally { try { fs.rmdirSync(lock) } catch { /* already gone */ } }
+}
+const minutesLeft = c => Math.max(0, Math.round((c.at + CLAIM_HOURS * 3600e3 - Date.now()) / 60000))
+// Returns { ok: true } or { ok: false, held: <the other agent's live claim> }.
+const takeClaim = (branch, note, cwd) => withClaimLock(branch, cwd, () => {
+  const cur = readClaim(branch, cwd)
+  if (isLive(cur) && cur.worktree !== holder(cwd)) return { ok: false, held: cur }
+  writeClaim(branch, { branch, agent: AGENT, worktree: holder(cwd), note: note || (cur && cur.worktree === holder(cwd) ? cur.note : 'working'), at: Date.now() }, cwd)
+  return { ok: true }
+})
+// Returns { ok: true, was } or { ok: false, held }. COEXIST_ALLOW=1 is the human's override.
+const dropClaim = (branch, cwd) => withClaimLock(branch, cwd, () => {
+  const cur = readClaim(branch, cwd)
+  if (isLive(cur) && cur.worktree !== holder(cwd) && process.env.COEXIST_ALLOW !== '1') return { ok: false, held: cur }
+  fs.rmSync(claimFile(branch, cwd), { force: true })
+  return { ok: true, was: cur }
+})
+// Called when the holder commits or pushes: its claim starts a fresh 4 hours. Does nothing for a
+// branch this worktree has not claimed, or one another agent has taken since.
+const renewOwn = (branch, cwd) => {
+  if (!branch || !claimDir(cwd)) return
+  const cur = readClaim(branch, cwd)
+  if (!cur || cur.worktree !== holder(cwd)) return
+  try { takeClaim(branch, cur.note, cwd) } catch { /* a renewal that fails must not stop the commit */ }
+}
 
 // Each rule: pattern on the shell command, reason shown to the agent.
 const RULES = [
@@ -78,6 +138,7 @@ const pretool = input => {
   if (/\bgit\s+(commit|push|merge|cherry-pick)\b/.test(cmd) && branch) {
     const other = heldByOther(branch, cwd)
     if (other) block(`Branch "${branch}" is claimed by ${other.agent} in ${other.worktree} since ${new Date(other.at).toISOString()} (${other.note}). Work on your own branch or ask the human.`)
+    renewOwn(branch, cwd)
   }
   const pushTarget = cmd.match(/\bgit\s+push\s+\S+\s+(?:\S+:)?(\S+)/)
   if (pushTarget && PROTECTED.includes(pushTarget[1].replace(/^refs\/heads\//, ''))) {
@@ -88,7 +149,7 @@ const pretool = input => {
 const status = cwd => {
   const claims = liveClaims(cwd)
   const lines = ['Agent coexistence: read the agent-coexist skill before writing.', 'Live branch claims:']
-  lines.push(...(claims.length ? claims.map(c => `  ${c.branch}  <- ${c.agent} in ${c.worktree}  (${c.note}, ${Math.round((Date.now() - c.at) / 60000)} min ago)`) : ['  none']))
+  lines.push(...(claims.length ? claims.map(c => `  ${c.branch}  <- ${c.agent} in ${c.worktree}  (${c.note}, ${Math.round((Date.now() - c.at) / 60000)} min ago, ${minutesLeft(c)} min left)`) : ['  none']))
   lines.push('Worktrees:', ...git('worktree list', cwd).split('\n').map(l => `  ${l}`))
   return lines.join('\n')
 }
@@ -105,6 +166,7 @@ const prepush = remote => {
     }
     const other = heldByOther(branch)
     if (other) { console.error(`[coexist-guard] ${branch} is claimed by ${other.agent} in ${other.worktree} (${other.note}).`); process.exit(1) }
+    renewOwn(branch)
   }
 }
 // reference-transaction hook: git calls it for every ref change, from any tool or agent.
@@ -143,6 +205,7 @@ const precommit = () => {
   const branch = git('branch --show-current')
   const other = branch && heldByOther(branch)
   if (other) { console.error(`[coexist-guard] ${branch} is claimed by ${other.agent} in ${other.worktree} (${other.note}). Commit on your own branch.`); process.exit(1) }
+  renewOwn(branch)
 }
 
 const execSyncOk = cmd => { try { execSync(cmd, { stdio: 'ignore' }); return true } catch { return false } }
@@ -155,14 +218,18 @@ else if (mode === 'session') { const i = readStdin(); process.stdout.write(statu
 else if (mode === 'status') console.log(status())
 else if (mode === 'claim') {
   const [branch = git('branch --show-current'), ...note] = args
-  const held = heldByOther(branch)
-  if (held) { console.error(`${branch} is already claimed by ${held.agent} in ${held.worktree} (${held.note}).`); process.exit(1) }
-  fs.writeFileSync(path.join(claimDir(), `${safe(branch)}.json`), JSON.stringify({ branch, agent: AGENT, worktree: holder(), note: note.join(' ') || 'working', at: Date.now() }))
-  console.log(`Claimed ${branch} for ${CLAIM_HOURS}h as ${AGENT} (${holder()}).`)
+  const res = takeClaim(branch, note.join(' '))
+  if (!res.ok) { const h = res.held; console.error(`${branch} is already claimed by ${h.agent} in ${h.worktree} (${h.note}), ${minutesLeft(h)} min left. Work on your own branch, or ask the human.`); process.exit(1) }
+  console.log(`Claimed ${branch} for ${CLAIM_HOURS}h as ${AGENT} (${holder()}). Your commits and pushes on it renew the claim.`)
 } else if (mode === 'release') {
   const branch = args[0] || git('branch --show-current')
-  fs.rmSync(path.join(claimDir(), `${safe(branch)}.json`), { force: true })
-  console.log(`Released ${branch}.`)
+  const res = dropClaim(branch)
+  if (!res.ok) {
+    const h = res.held
+    console.error(`[coexist-guard] ${branch} is held by ${h.agent} in ${h.worktree} (${h.note}). Only its holder releases it: run release from that worktree. If that session is gone, the claim runs out in ${minutesLeft(h)} min, or the human can run: COEXIST_ALLOW=1 node .claude/hooks/coexist-guard.cjs release ${branch}`)
+    process.exit(1)
+  }
+  console.log(res.was ? `Released ${branch}.` : `${branch} had no claim.`)
 } else if (mode === 'prepush') prepush(args[0] || 'remote')
 else if (mode === 'reftx') reftx()
 else if (mode === 'precommit') precommit()

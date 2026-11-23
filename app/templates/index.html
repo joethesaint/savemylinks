@@ -738,7 +738,11 @@
             document.documentElement.classList.add('vt-view');
             const mine = ++viewSwitchId; // a quicker second switch keeps the names; only the last one clears them
             const done = () => { if (mine !== viewSwitchId) return; all.forEach((c) => { c.style.viewTransitionName = ''; }); document.documentElement.classList.remove('vt-view'); };
-            try { document.startViewTransition(apply).finished.then(done, done); } catch (e) { apply(); done(); }
+            try {
+                const vt = document.startViewTransition(apply);
+                vt.ready.catch(() => {});
+                vt.finished.then(done, done);
+            } catch (e) { apply(); done(); }
         } else apply();
         try { localStorage.setItem('sml-view', v); } catch (e) { /* blocked */ }
         if (announce) $('#selectionStatus').textContent = `${v[0].toUpperCase()}${v.slice(1)} view`;

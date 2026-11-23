@@ -47,8 +47,6 @@
   --shadow-lift: 0 2px 0 #0b1012, 0 8px 20px rgba(0,0,0,.5);
 }
 
-/* Smooth page-to-page navigation where the browser supports it. */
-@view-transition { navigation: auto; }
 
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -253,7 +251,6 @@ dialog .panel { border: 0; box-shadow: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
-  @view-transition { navigation: none; }
 }
 
 /* Phones: the header keeps every control, with shorter labels. */

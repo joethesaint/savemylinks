@@ -33,6 +33,17 @@
     setTimeout(() => dismiss(el), tone === 'danger' ? 8000 : 5000);
   }
 
+  // Any cross-document or unexpected view transition that aborts (e.g. navigation cancel)
+  // must not leave an unhandled rejection in the browser console.
+  if ('onpagereveal' in window) {
+    window.addEventListener('pagereveal', (e) => {
+      if (e.viewTransition) {
+        e.viewTransition.ready?.catch(() => {});
+        e.viewTransition.finished?.catch(() => {});
+      }
+    });
+  }
+
   // Transitions that could fire while the page first lays out (the sliding pills) wait for this
   // class, so nothing moves on load.
   document.addEventListener('DOMContentLoaded', () => {

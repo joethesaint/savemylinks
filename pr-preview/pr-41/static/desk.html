@@ -1,0 +1,94 @@
+<!doctype html>
+<!-- Desktop Clippy (#36, step 2): the native app shows this page in a small see-through window that
+     stays on top of other windows. Double-click him (or press s) to save a link. Dragging him moves
+     the window; the window grows only while the save box or a message shows. Talks to the app
+     through window.ipc: "drag", "open", "close", "hide". -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clippy · SaveMyLinks</title>
+<link rel="stylesheet" href="/static/sml.css?v=16">
+<style>
+  html, body { background: transparent !important; margin: 0; height: 100%; overflow: hidden; }
+  .clippy-agent { right: 8px !important; bottom: 8px !important; left: auto !important; top: auto !important; }
+  .clippy-quick { right: 0; left: auto; }
+</style>
+</head>
+<body>
+<div id="toasts" hidden></div>
+<script src="/static/sml.js?v=8"></script>
+<script type="module">
+  const post = (m) => { try { window.ipc?.postMessage(m); } catch { /* not in the app */ } };
+  const { initClippy } = await import('/static/modern-clippy.js?v=11');
+  const agent = await initClippy({ basePath: '/static/', desktop: true });
+  agent.show();
+
+  let shrinkTimer = null;
+  const grow = () => { clearTimeout(shrinkTimer); post('open'); };
+  const shrinkSoon = (ms) => { clearTimeout(shrinkTimer); shrinkTimer = setTimeout(() => post('close'), ms); };
+
+  function suggestTitle(raw) {
+    try {
+      const url = new URL(raw);
+      const last = url.pathname.split('/').filter(Boolean).pop();
+      let words = last ? decodeURIComponent(last).replace(/\.[a-z0-9]+$/i, '').replace(/[-_+]+/g, ' ').trim() : '';
+      if (/\d{6,}|^urn:/i.test(words) || !/[a-z]{3,}/i.test(words)) words = '';
+      const host = url.hostname.replace(/^www\./, '');
+      return words ? `${words.charAt(0).toUpperCase()}${words.slice(1)} (${host})` : host;
+    } catch { return ''; }
+  }
+  function say(anim, text, tone, ms) {
+    grow();
+    agent.play(anim, { timeout: 3000 });
+    agent.speak(text, { tone, duration: ms });
+    shrinkSoon(ms + 400);
+  }
+
+  let quick = null;
+  function closeQuick() { if (quick) { quick.remove(); quick = null; shrinkSoon(150); } }
+  async function openQuick() {
+    if (quick) { quick.querySelector('input').focus(); return; }
+    grow();
+    agent.closeBubble();
+    await new Promise((r) => setTimeout(r, 60)); // let the window grow first
+    quick = document.createElement('form');
+    quick.className = 'clippy-quick';
+    quick.setAttribute('aria-label', 'Quick save');
+    quick.innerHTML = '<label class="clippy-quick-label" for="quickUrl">Save a link</label>'
+      + '<div class="clippy-quick-row"><input class="input" id="quickUrl" type="url" inputmode="url" placeholder="Paste a link" autocomplete="off" required>'
+      + '<button type="submit" class="btn btn-primary btn-sm">Save</button></div>'
+      + '<p class="clippy-quick-help">Enter to save · Esc to close</p>';
+    agent.container.append(quick);
+    const input = quick.querySelector('input');
+    input.focus();
+    quick.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); closeQuick(); } });
+    quick.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      let url = input.value.trim();
+      if (url && !/^[a-z][a-z0-9+.-]*:/i.test(url)) url = 'https://' + url;
+      try { if (!/^https?:$/.test(new URL(url).protocol)) throw 0; }
+      catch { say('Explain', 'That doesn\'t look like a web address. It starts with https://', 'invalid', 5000); input.focus(); return; }
+      const btn = quick.querySelector('button'); btn.disabled = true; btn.textContent = 'Saving…';
+      let status = 0;
+      try {
+        const res = await fetch('/api/resources/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, title: suggestTitle(url) || url }) });
+        status = res.status;
+      } catch { status = 0; }
+      quick.remove(); quick = null;
+      if (status === 201) say('Save', 'Saved to your library.', 'saved', 3500);
+      else if (status === 409) say('LookDown', 'Already saved. This link is in your library.', 'duplicate', 4500);
+      else if (status === 422) say('Explain', 'Not saved. Check the address.', 'invalid', 4500);
+      else say('Alert', 'Couldn\'t reach your library. Is SaveMyLinks running?', 'invalid', 5000);
+    });
+    try {
+      const text = (await navigator.clipboard?.readText?.()) || '';
+      const found = text.match(/https?:\/\/[^\s<>"']+/);
+      if (found && quick && !input.value) { input.value = found[0]; input.select(); }
+    } catch { /* not allowed: paste by hand */ }
+  }
+  document.addEventListener('clippy:save', openQuick);
+  window.addEventListener('blur', () => { if (quick && !quick.querySelector('input').value) closeQuick(); });
+</script>
+</body>
+</html>

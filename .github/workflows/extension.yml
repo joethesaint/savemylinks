@@ -1,0 +1,24 @@
+# The browser extension (extension/): its background script against a fake browser and app.
+name: Extension
+
+on:
+  pull_request:
+    paths: ["extension/**", "tests/extension/**", ".github/workflows/extension.yml"]
+  push:
+    branches: [main]
+    paths: ["extension/**", "tests/extension/**", ".github/workflows/extension.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --check extension/background.js && node --check extension/options.js
+      - run: node --test tests/extension/background.test.mjs

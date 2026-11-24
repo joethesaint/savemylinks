@@ -158,3 +158,12 @@ native/target/
 # README visuals: build output and intermediate frames (tools/screenshots.mjs)
 _shots/
 docs/screenshots/frames/
+
+# Agent working files (kept privately, not in this repo)
+.claude/
+.trae/
+CLAUDE.md
+AGENTS.md
+logs/
+.agents/
+.githooks/

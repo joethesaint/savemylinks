@@ -9,7 +9,7 @@ in a follow-up or deferred with a reason. The tables below list them, so you can
 review found that we missed. They come from the PR threads
 via `python tools/changelog.py <PR numbers>`.
 
-Plans and ideas live in [CHANGELOG_ROADMAP.md](CHANGELOG_ROADMAP.md).
+Plans and ideas live in the [issues](https://github.com/joethesaint/savemylinks/issues).
 
 ## Unreleased
 

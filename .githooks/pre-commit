@@ -1,7 +1,0 @@
-#!/bin/sh
-# Every agent and human: no commits on a branch another worktree has claimed.
-G="$(git rev-parse --show-toplevel)/.claude/hooks/coexist-guard.cjs"
-# A worktree on an older branch may not have the guard yet: use the main checkout's copy.
-[ -f "$G" ] || G="$(git rev-parse --path-format=absolute --git-common-dir)/../.claude/hooks/coexist-guard.cjs"
-[ -f "$G" ] || exit 0
-exec node "$G" precommit

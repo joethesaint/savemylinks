@@ -1,3 +1,2 @@
 * text=auto
-.githooks/* text eol=lf
 *.cjs text eol=lf

@@ -474,6 +474,18 @@ class TestWebRoutes:
         assert "text/html" in response.headers["content-type"]
 
     @pytest.mark.asyncio
+    async def test_add_page_category_suggestion(self, client: AsyncClient):
+        """The save form carries the hint the page fills from the suggest-category route."""
+        response = await client.get("/add")
+
+        assert response.status_code == 200
+        page = response.text
+        assert 'id="categorySuggestion"' in page
+        assert 'aria-live="polite"' in page
+        assert "/api/resources/suggest-category?url=" in page
+        assert "encodeURIComponent(url)" in page
+
+    @pytest.mark.asyncio
     async def test_health_check(self, client: AsyncClient):
         """Test health check endpoint."""
         response = await client.get("/health")

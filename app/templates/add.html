@@ -36,6 +36,7 @@
                     <option value="__new">New category…</option>
                 </select>
                 <input class="input" type="text" id="categoryNew" maxlength="100" placeholder="Name the new category" aria-label="New category name" hidden>
+                <p class="help" id="categorySuggestion" aria-live="polite" hidden></p>
                 <p class="error" id="categoryError" hidden></p>
             </div>
 
@@ -121,6 +122,65 @@
         if (v && !/^[a-z][a-z0-9+.-]*:/i.test(v)) urlInput.value = 'https://' + v; // forgiving: "example.com" works
         suggestTitle();
     });
+
+    // Issue #18: propose the category this site is usually filed under. It only proposes (a hint
+    // with a button); the category changes when the person taps, and not before.
+    const categorySelect = $('#category'), categoryNew = $('#categoryNew');
+    const suggestion = $('#categorySuggestion');
+    let suggestTimer = null, suggestSeq = 0;
+
+    function hideSuggestion() {
+        suggestion.hidden = true;
+        suggestion.replaceChildren();
+    }
+
+    function useCategory(name) {
+        let option = Array.from(categorySelect.options).find(o => o.value === name);
+        if (!option) {
+            option = document.createElement('option');
+            option.value = name; option.textContent = name;
+            categorySelect.insertBefore(option, categorySelect.querySelector('option[value="__new"]'));
+        }
+        categorySelect.value = name;
+        categorySelect.dispatchEvent(new Event('change')); // exactly what a person's pick does
+        hideSuggestion();
+    }
+
+    function showSuggestion(name) {
+        hideSuggestion();
+        const label = document.createElement('span');
+        label.textContent = `Suggested: ${name} `;
+        const use = document.createElement('button');
+        use.type = 'button'; use.className = 'btn btn-sm';
+        use.textContent = `Use ${name}`;
+        use.onclick = () => useCategory(name);
+        suggestion.append(label, use);
+        suggestion.hidden = false;
+    }
+
+    async function suggestCategory() {
+        hideSuggestion();
+        const raw = urlInput.value.trim();
+        if (!raw || getCategory()) return; // nothing to ask about, or the person already chose
+        const url = /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : 'https://' + raw;
+        const seq = ++suggestSeq;
+        try {
+            const res = await fetch('/api/resources/suggest-category?url=' + encodeURIComponent(url));
+            if (!res.ok) return; // fail quietly: no hint, no toast
+            const { category } = await res.json();
+            if (seq !== suggestSeq || !category || getCategory()) return; // stale, none, or chosen meanwhile
+            showSuggestion(category);
+        } catch { /* fail quietly: no hint, no toast */ }
+    }
+
+    urlInput.addEventListener('blur', suggestCategory);
+    urlInput.addEventListener('input', () => {
+        hideSuggestion();
+        clearTimeout(suggestTimer);
+        suggestTimer = setTimeout(suggestCategory, 500); // ask once the person pauses
+    });
+    categorySelect.addEventListener('change', hideSuggestion);
+    categoryNew.addEventListener('input', hideSuggestion);
 
     function setError(field, msg, html) {
         const el = $('#' + field + 'Error'), input = $('#' + field);

@@ -7,12 +7,27 @@ using SQLAlchemy 2.0 async patterns.
 
 from typing import Optional, Sequence
 from collections import Counter
+from urllib.parse import urlsplit
 from sqlalchemy import String, cast, select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
 from app.models import Resource
 from app.schemas import ResourceCreate, ResourceUpdate
+from app.services.urls import UnsupportedURLError, normalize_url
+
+
+def _site(url: str) -> Optional[str]:
+    """The site a URL belongs to: its host, lowercased and without a leading "www.".
+
+    normalize_url does the parsing and makes http and https count as the same
+    address; only the host is taken from its canonical form.
+    """
+    try:
+        host = urlsplit(normalize_url(url)).hostname
+    except (UnsupportedURLError, ValueError):
+        return None
+    return host.removeprefix("www.") if host else None
 
 
 class ResourceCRUD:
@@ -177,6 +192,32 @@ class ResourceCRUD:
             "categories": [{"name": c, "count": n} for c, n in cats.all() if c],
             "tags": [{"name": t, "count": counts[t]} for t in sorted(counts)],
         }
+
+    @staticmethod
+    async def suggest_category(db: AsyncSession, url: str) -> Optional[str]:
+        """Suggest the category the user files links from this site under most often.
+
+        A suggestion needs at least three links from the same site in one category.
+        A tie at the top, or too little history, suggests nothing. Read-only.
+        """
+        site = _site(url)
+        if not site:
+            return None
+
+        result = await db.execute(
+            select(Resource.url, Resource.category)
+            .where(Resource.category.is_not(None))
+        )
+        counts: Counter = Counter()
+        for stored_url, category in result.all():
+            if category and _site(stored_url) == site:
+                counts[category] += 1
+
+        if not counts:
+            return None
+        top = max(counts.values())
+        leaders = [category for category, count in counts.items() if count == top]
+        return leaders[0] if top >= 3 and len(leaders) == 1 else None
 
     @staticmethod
     async def update(

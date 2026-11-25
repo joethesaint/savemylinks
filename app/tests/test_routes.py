@@ -293,6 +293,72 @@ class TestResourceRoutes:
         assert "Development" in categories
 
     @pytest.mark.asyncio
+    async def test_suggest_category(self, client: AsyncClient):
+        """Test suggesting a category from the site's history."""
+        # Three links from github.com filed under Code
+        for i in range(3):
+            await client.post("/api/resources/", json={
+                "title": f"Repo {i}",
+                "url": f"https://github.com/user/repo{i}",
+                "category": "Code"
+            })
+
+        response = await client.get(
+            "/api/resources/suggest-category",
+            params={"url": "https://github.com/other/repo"}
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"category": "Code"}
+
+    @pytest.mark.asyncio
+    async def test_suggest_category_too_few_links(self, client: AsyncClient):
+        """Test that two links are not enough for a suggestion."""
+        for i in range(2):
+            await client.post("/api/resources/", json={
+                "title": f"Repo {i}",
+                "url": f"https://github.com/user/repo{i}",
+                "category": "Code"
+            })
+
+        response = await client.get(
+            "/api/resources/suggest-category",
+            params={"url": "https://github.com/other/repo"}
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"category": None}
+
+    @pytest.mark.asyncio
+    async def test_suggest_category_no_links(self, client: AsyncClient):
+        """Test that a site with no links suggests nothing."""
+        response = await client.get(
+            "/api/resources/suggest-category",
+            params={"url": "https://example.com/page"}
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"category": None}
+
+    @pytest.mark.asyncio
+    async def test_suggest_category_requires_url(self, client: AsyncClient):
+        """Test that the url parameter is required."""
+        response = await client.get("/api/resources/suggest-category")
+
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_suggest_category_not_captured_by_id_route(self, client: AsyncClient):
+        """Test that /{resource_id} does not capture the suggest-category path."""
+        response = await client.get(
+            "/api/resources/suggest-category",
+            params={"url": "https://example.com/page"}
+        )
+
+        assert response.status_code == 200
+        assert "category" in response.json()
+
+    @pytest.mark.asyncio
     async def test_update_resource_success(self, client: AsyncClient):
         """Test successful resource update."""
         # Create a resource first

@@ -281,3 +281,97 @@ class TestResourceCRUD:
         """Test that deleting a nonexistent resource returns False."""
         deleted = await resource_crud.delete(async_session, 999)
         assert deleted is False
+
+    @pytest.mark.asyncio
+    async def test_suggest_category_after_three_links(self, async_session: AsyncSession):
+        """Test that three links from one site under a category suggest it."""
+        for path in ("one", "two", "three"):
+            await resource_crud.create(async_session, ResourceCreate(
+                title=path, url=f"https://github.com/{path}", category="Code"
+            ))
+
+        suggested = await resource_crud.suggest_category(async_session, "https://github.com/four")
+        assert suggested == "Code"
+
+    @pytest.mark.asyncio
+    async def test_suggest_category_needs_three_links(self, async_session: AsyncSession):
+        """Test that two links are not enough for a suggestion."""
+        for path in ("one", "two"):
+            await resource_crud.create(async_session, ResourceCreate(
+                title=path, url=f"https://github.com/{path}", category="Code"
+            ))
+
+        suggested = await resource_crud.suggest_category(async_session, "https://github.com/three")
+        assert suggested is None
+
+    @pytest.mark.asyncio
+    async def test_suggest_category_treats_www_and_schemes_as_one_site(self, async_session: AsyncSession):
+        """Test that www. and http/https variants of a host count as one site."""
+        for url in ("http://www.github.com/a", "https://github.com/b", "http://github.com/c"):
+            await resource_crud.create(async_session, ResourceCreate(
+                title=url, url=url, category="Code"
+            ))
+
+        suggested = await resource_crud.suggest_category(async_session, "https://www.github.com/d")
+        assert suggested == "Code"
+
+    @pytest.mark.asyncio
+    async def test_suggest_category_tie_returns_none(self, async_session: AsyncSession):
+        """Test that a tie at the top suggests nothing."""
+        for path in ("a", "b", "c"):
+            await resource_crud.create(async_session, ResourceCreate(
+                title=path, url=f"https://github.com/{path}", category="Code"
+            ))
+        for path in ("d", "e", "f"):
+            await resource_crud.create(async_session, ResourceCreate(
+                title=path, url=f"https://github.com/{path}", category="Tools"
+            ))
+
+        suggested = await resource_crud.suggest_category(async_session, "https://github.com/g")
+        assert suggested is None
+
+    @pytest.mark.asyncio
+    async def test_suggest_category_without_history_returns_none(self, async_session: AsyncSession):
+        """Test that a site with no saved links suggests nothing."""
+        suggested = await resource_crud.suggest_category(async_session, "https://github.com/a")
+        assert suggested is None
+
+    @pytest.mark.asyncio
+    async def test_suggest_category_ignores_uncategorised_links(self, async_session: AsyncSession):
+        """Test that links without a category do not count towards a suggestion."""
+        for path in ("one", "two"):
+            await resource_crud.create(async_session, ResourceCreate(
+                title=path, url=f"https://github.com/{path}", category="Code"
+            ))
+        for path in ("three", "four", "five"):
+            await resource_crud.create(async_session, ResourceCreate(
+                title=path, url=f"https://github.com/{path}", category=None
+            ))
+
+        suggested = await resource_crud.suggest_category(async_session, "https://github.com/six")
+        assert suggested is None
+
+    @pytest.mark.asyncio
+    async def test_suggest_category_ignores_empty_categories(self, async_session: AsyncSession):
+        """Test that links saved with an empty category ("" is allowed by the schema) are never suggested."""
+        for path in ("one", "two", "three"):
+            await resource_crud.create(async_session, ResourceCreate(
+                title=path, url=f"https://github.com/{path}", category=""
+            ))
+
+        suggested = await resource_crud.suggest_category(async_session, "https://github.com/four")
+        assert suggested is None
+
+    async def test_suggest_category_ignores_other_sites(self, async_session: AsyncSession):
+        """Test that links from another site do not count."""
+        for path in ("one", "two"):
+            await resource_crud.create(async_session, ResourceCreate(
+                title=path, url=f"https://github.com/{path}", category="Code"
+            ))
+        for path in ("one", "two", "three"):
+            await resource_crud.create(async_session, ResourceCreate(
+                title=path, url=f"https://gitlab.com/{path}", category="Code"
+            ))
+
+        suggested = await resource_crud.suggest_category(async_session, "https://github.com/three")
+        assert suggested is None

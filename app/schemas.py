@@ -81,6 +81,11 @@ class Facet(BaseModel):
     count: int
 
 
+class CategorySuggestion(BaseModel):
+    """The category suggested for a URL, or null when there is no clear one."""
+    category: Optional[str] = Field(None, description="Suggested category, or null")
+
+
 class Facets(BaseModel):
     """What the sidebar lists: every category and tag with how many links have it."""
     total: int

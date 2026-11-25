@@ -20,6 +20,7 @@ from app.schemas import (
     ResourceUpdate,
     ResourceList,
     Facets,
+    CategorySuggestion,
     MessageResponse,
     ErrorResponse
 )
@@ -142,6 +143,15 @@ async def get_categories(db: AsyncSession = Depends(get_db)) -> list[str]:
 async def get_facets(db: AsyncSession = Depends(get_db)) -> Facets:
     """Every category and tag with how many links have it: what the sidebar lists."""
     return Facets(**await resource_crud.facets(db))
+
+
+@router.get("/suggest-category", response_model=CategorySuggestion)
+async def suggest_category(
+    url: str = Query(..., description="The URL to suggest a category for"),
+    db: AsyncSession = Depends(get_db)
+) -> CategorySuggestion:
+    """The category this site's links are usually filed under, or null if unclear."""
+    return CategorySuggestion(category=await resource_crud.suggest_category(db, url))
 
 
 @router.get(

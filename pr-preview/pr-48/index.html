@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SaveMyLinks: save any page in one click and find it again by category.">
+    <meta name="theme-color" content="#2f6f7a">
+    <!-- Link previews (chat apps, social sites, and SaveMyLinks itself read these). -->
+    <meta property="og:site_name" content="SaveMyLinks">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="SaveMyLinks: save any page, find it again">
+    <meta property="og:description" content="Save any page in one move and find it again in seconds. Free, open source, yours.">
+    <meta property="og:image" content="https://joethesaint.github.io/savemylinks/static/art/social-card.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="SaveMyLinks: a file box of saved links. Save any page in one move, find it again in seconds.">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>Library · SaveMyLinks</title>
+    <script>
+        // Set the theme before first paint so the page never flashes the wrong colours.
+        try { const t = localStorage.getItem('theme'); if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+              else if (matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.dataset.theme = 'dark'; } catch (e) {}
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="static/sml.css?v=16">
+    <link rel="icon" type="image/svg+xml" href="static/art/icon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="static/art/icon-32.png">
+    <!-- Installable app (add to home screen); on Android it also appears in the Share menu. -->
+    <link rel="manifest" href="static/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="static/art/apple-touch-icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="SaveMyLinks">
+<style>.demo-banner{display:flex;flex-wrap:wrap;gap:.5rem 1rem;align-items:center;justify-content:center;padding:.5rem max(16px,env(safe-area-inset-left,0px));background:#2f6f7a;color:#fff;font-size:.875rem;text-align:center}.demo-banner a{color:inherit;text-decoration:underline}.demo-banner .btn{color:inherit;border-color:currentColor}.demo-banner{gap:.5rem 1.5rem;transition:background-color .3s}.demo-actions{display:inline-flex;gap:.5rem}.demo-banner.is-connected{background:#1d6b45}.demo-banner [data-app-detect]{display:inline-flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.5rem 1rem}@media (min-width:720px){.demo-banner [data-app-detect]{padding-left:1.5rem;border-left:1px solid rgba(255,255,255,.35)}}.app-status{display:inline-flex;align-items:center;gap:.4rem}.app-dot{width:.6rem;height:.6rem;border-radius:50%;background:#7dffb2;box-shadow:0 0 0 3px rgba(125,255,178,.25)}.demo-banner a.app-open,[data-app-detect] a.app-open{display:inline-block;padding:.25rem .8rem;border-radius:999px;background:#fff;color:#1d6b45;font-weight:600;text-decoration:none}.demo-banner a.app-open:hover{background:#e8f7ee}@media (prefers-reduced-motion:reduce){.demo-banner{transition:none}}</style>
+</head>
+<body>
+    <div class="demo-banner" role="note"><span><strong>Demo.</strong> Links you save here stay in this browser only. Previews are simulated. <a href="download.html">Download the full app</a> · <a href="https://github.com/joethesaint/savemylinks">Source</a></span><span class="demo-actions"><button type="button" class="btn btn-ghost btn-sm" onclick="smlDemoClear()" title="Keeps only the portfolio link">Clear all</button><button type="button" class="btn btn-ghost btn-sm" onclick="smlDemoReset()" title="Brings back the sample links">Reset demo</button></span><span data-app-detect><button type="button" class="btn btn-ghost btn-sm">Have the app? Open it</button></span></div>
+    <a href="#main-content" class="skip-link">Skip to content</a>
+
+    <!-- Line icons: 16px, 1.6 stroke, round caps, currentColor (design system). -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></symbol>
+        <symbol id="i-link" viewBox="0 0 16 16"><path d="M6.5 9.5 9.5 6.5"/><path d="M7 4.5 8.6 3a2.8 2.8 0 0 1 4 4L11 8.6"/><path d="M9 11.5 7.4 13a2.8 2.8 0 0 1-4-4L5 7.4"/></symbol>
+        <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></symbol>
+        <symbol id="i-edit" viewBox="0 0 16 16"><path d="M10.5 2.5l3 3L6 13H3v-3z"/></symbol>
+        <symbol id="i-trash" viewBox="0 0 16 16"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/></symbol>
+        <symbol id="i-close" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></symbol>
+        <symbol id="i-sun" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1"/></symbol>
+        <symbol id="i-moon" viewBox="0 0 16 16"><path d="M13 9.5A5.5 5.5 0 1 1 6.5 3a4.5 4.5 0 0 0 6.5 6.5z"/></symbol>
+        <symbol id="i-clip" viewBox="0 0 16 16"><path d="M10.5 5.5 6 10a1.4 1.4 0 0 0 2 2l5-5a2.8 2.8 0 0 0-4-4L4 8a4.2 4.2 0 0 0 6 6l3.5-3.5"/></symbol>
+        <symbol id="i-refresh" viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v2.5h-2.5"/></symbol>
+        <symbol id="i-check" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><path d="M5.2 8.2l1.9 1.9 3.7-3.9"/></symbol>
+        <symbol id="i-info" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><path d="M8 7.2v3.8M8 5h.01"/></symbol>
+        <symbol id="i-alert" viewBox="0 0 16 16"><path d="M8 2l6.3 11H1.7z"/><path d="M8 6.5v3M8 11.5h.01"/></symbol>
+        <symbol id="i-view-cards" viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="11" height="4.5" rx="1"/><rect x="2.5" y="9" width="11" height="4.5" rx="1"/></symbol>
+        <symbol id="i-view-grid" viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"/><rect x="9" y="9" width="4.5" height="4.5" rx="1"/></symbol>
+        <symbol id="i-view-list" viewBox="0 0 16 16"><path d="M2.5 4h11M2.5 8h11M2.5 12h11"/></symbol>
+    </svg>
+
+    <header class="site-header">
+        <div class="wrap">
+            <a class="brand" href="./" aria-label="SaveMyLinks library">
+                <img src="static/art/icon.svg" alt="" width="28" height="28">
+                SaveMyLinks
+            </a>
+            <nav class="nav" aria-label="Main">
+                <a href="./" aria-current="page">Library</a>
+                <a href="add.html" >Save a link</a>
+            </nav>
+            <div class="header-tools">
+                <button type="button" id="assistantToggle" class="btn btn-ghost btn-sm" aria-pressed="true" hidden>
+                    <svg class="icon" aria-hidden="true"><use href="#i-clip"/></svg><span>Hide assistant</span>
+                </button>
+                <button type="button" id="themeToggle" class="btn btn-ghost btn-icon" aria-label="Switch to dark theme">
+                    <svg class="icon" aria-hidden="true"><use href="#i-moon"/></svg>
+                </button>
+                
+                <a class="btn btn-primary" href="add.html" aria-label="Save a link"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span>Save<span class="wide-only"> a link</span></span></a>
+                
+            </div>
+        </div>
+    </header>
+
+    <main id="main-content">
+        <div class="wrap">
+            
+<div class="page-head">
+    <div>
+        <h1 class="display">Your links, filed.</h1>
+        <p class="lede" id="summary">Loading your library…</p>
+    </div>
+</div>
+
+<div class="library">
+<aside class="sidebar" aria-label="Browse your library">
+    <span class="side-pill" id="sidePill" aria-hidden="true"></span>
+    <button type="button" class="jump-btn" id="jumpOpen" aria-keyshortcuts="Control+K">
+        <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span>Jump to…</span><kbd>Ctrl K</kbd>
+    </button>
+    <nav class="side-group side-cats" aria-labelledby="sideCatsTitle">
+        <h2 class="side-title" id="sideCatsTitle">Categories</h2>
+        <ul class="side-list" id="sideCategories"></ul>
+    </nav>
+    <nav class="side-group side-tags-group" aria-labelledby="sideTagsTitle">
+        <h2 class="side-title" id="sideTagsTitle">Tags</h2>
+        <ul class="side-list side-tags" id="sideTags"></ul>
+        <p class="side-empty" id="sideTagsEmpty" hidden>No tags yet. Add some when you save or edit a link.</p>
+    </nav>
+    <section class="side-group side-move" aria-labelledby="sideMoveTitle">
+        <h2 class="side-title" id="sideMoveTitle">Move your links</h2>
+        <button type="button" class="btn btn-ghost btn-sm" id="importBtn" title="Add links from a JSON file; ones you already have are skipped">Import JSON</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="exportBtn" title="Download every link as a JSON file">Export JSON</button>
+        <input type="file" id="importFile" accept=".json,application/json" hidden>
+    </section>
+</aside>
+<div class="library-main">
+<div class="toolbar" role="search">
+    <div class="search">
+        <label for="searchInput" class="visually-hidden">Search your links</label>
+        <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+        <input class="input" type="search" id="searchInput" placeholder="Search titles and notes" autocomplete="off">
+        <kbd aria-hidden="true">/</kbd>
+    </div>
+    <div class="chips" id="categoryChips" aria-label="Filter by category"></div>
+</div>
+
+<div class="status-line">
+    <span id="resultLine" aria-live="polite"></span>
+    <button type="button" class="btn btn-ghost btn-sm" id="clearFilters" hidden>Clear search and filter</button>
+    <div class="view-switch" role="group" aria-label="How to show your links">
+        <button type="button" class="btn btn-ghost btn-icon btn-sm" data-view="cards" aria-label="Cards view" title="Cards (v then c)"><svg class="icon" aria-hidden="true"><use href="#i-view-cards"/></svg></button>
+        <button type="button" class="btn btn-ghost btn-icon btn-sm" data-view="grid" aria-label="Grid view" title="Grid (v then g)"><svg class="icon" aria-hidden="true"><use href="#i-view-grid"/></svg></button>
+        <button type="button" class="btn btn-ghost btn-icon btn-sm" data-view="list" aria-label="List view" title="List (v then l)"><svg class="icon" aria-hidden="true"><use href="#i-view-list"/></svg></button>
+    </div>
+</div>
+
+<div id="loadingState" class="cards" aria-hidden="true">
+    <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+</div>
+
+<ul class="cards" id="resourcesList"></ul>
+<p class="visually-hidden" id="selectionStatus" aria-live="polite"></p>
+
+<section class="empty" id="emptyState" hidden>
+    <img src="static/art/folder-empty.svg" alt="" width="220" height="220">
+    <h2 class="title" id="emptyTitle">No links yet</h2>
+    <p id="emptyText">Paste any web address and SaveMyLinks files it in under a second, then adds the page's own title, picture and summary so you can recognise it later.</p>
+    <a class="btn btn-primary" id="emptyAction" href="add.html"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>Save your first link</a>
+</section>
+
+<nav class="pager" id="pagination" aria-label="Pages" hidden></nav>
+</div>
+</div>
+
+<template id="cardTemplate">
+    <li class="card">
+        <img class="thumb" src="" alt="" loading="lazy" referrerpolicy="no-referrer" width="96" height="72">
+        <div class="card-body">
+            <p class="card-site"></p>
+            <h2 class="card-title"><a class="card-link" href="" target="_blank" rel="noopener noreferrer"></a></h2>
+            <div class="card-url"><svg class="icon" aria-hidden="true"><use href="#i-link"/></svg><span></span></div>
+            <p class="card-desc"></p>
+            <div class="card-meta">
+                <span class="site"></span>
+                <span class="chip is-static category"></span>
+                <span class="tags"></span>
+                <span class="date"></span>
+            </div>
+        </div>
+        <div class="card-actions">
+            <button type="button" class="btn btn-ghost btn-icon edit-btn"><svg class="icon" aria-hidden="true"><use href="#i-edit"/></svg></button>
+            <button type="button" class="btn btn-ghost btn-icon delete-btn"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg></button>
+        </div>
+    </li>
+</template>
+
+<dialog id="editDialog" aria-labelledby="editTitle">
+    <form class="panel form" id="editForm" method="dialog" novalidate>
+        <div class="dialog-head">
+            <h2 class="title" id="editTitle">Edit link</h2>
+            <button type="button" class="btn btn-ghost btn-icon" id="editClose" aria-label="Close without saving"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+        </div>
+        <div class="field">
+            <label class="label" for="editUrl">Web address</label>
+            <input class="input" type="url" id="editUrl" required aria-describedby="editUrlError">
+            <p class="error" id="editUrlError" hidden></p>
+        </div>
+        <div class="field">
+            <label class="label" for="editTitleInput">Title</label>
+            <input class="input" type="text" id="editTitleInput" required maxlength="200" aria-describedby="editTitleError">
+            <p class="error" id="editTitleError" hidden></p>
+        </div>
+        <div class="field">
+            <label class="label" for="editDescription">Note <span class="opt">(optional)</span></label>
+            <textarea class="textarea" id="editDescription" maxlength="1000" aria-describedby="editDescriptionError"></textarea>
+            <p class="error" id="editDescriptionError" hidden></p>
+        </div>
+        <div class="field">
+            <label class="label" for="editCategory">Category <span class="opt">(optional)</span></label>
+            <select class="input select" id="editCategory"></select>
+            <input class="input" type="text" id="editCategoryNew" maxlength="100" placeholder="Name the new category" aria-label="New category name" hidden>
+        </div>
+        <div class="field">
+            <label class="label" for="editTags">Tags <span class="opt">(optional)</span></label>
+            <input class="input" type="text" id="editTags" placeholder="e.g. python, to-read" autocomplete="off" autocapitalize="off" aria-describedby="editTagsError">
+            <div class="chips tag-chips" id="editTagChips" aria-label="Tags you've used" hidden></div>
+            <p class="error" id="editTagsError" hidden></p>
+        </div>
+        <datalist id="categoryOptions"></datalist>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="editSave">Save changes</button>
+            <button type="button" class="btn" id="editRefresh"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>Fetch preview again</button>
+        </div>
+    </form>
+</dialog>
+
+<dialog id="categoryDialog" aria-labelledby="categoryTitle">
+    <form class="panel form" id="categoryForm" method="dialog" novalidate>
+        <div class="dialog-head">
+            <h2 class="title" id="categoryTitle">Change category</h2>
+            <button type="button" class="btn btn-ghost btn-icon" id="categoryClose" aria-label="Close without changing"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+        </div>
+        <div class="field">
+            <label class="label" for="categoryInput">Category <span class="opt">(leave empty to remove it)</span></label>
+            <input class="input" type="text" id="categoryInput" list="categoryOptions" maxlength="100" autocomplete="off">
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Move it</button>
+        </div>
+        <p class="hint">Then select another link and press <kbd>.</kbd> to move it too.</p>
+    </form>
+</dialog>
+
+<dialog id="keysDialog" aria-labelledby="keysTitle">
+    <div class="panel">
+        <div class="dialog-head">
+            <h2 class="title" id="keysTitle">Keyboard shortcuts</h2>
+            <button type="button" class="btn btn-ghost btn-icon" id="keysClose" aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+        </div>
+        <dl class="keys">
+            <dt><kbd>j</kbd> <kbd>k</kbd></dt><dd>Next and previous link</dd>
+            <dt><kbd>o</kbd></dt><dd>Open the selected link</dd>
+            <dt><kbd>e</kbd></dt><dd>Edit it</dd>
+            <dt><kbd>c</kbd></dt><dd>Change its category</dd>
+            <dt><kbd>d</kbd></dt><dd>Delete it (you can undo)</dd>
+            <dt><kbd>.</kbd></dt><dd>Do the last change again, on the selected link</dd>
+            <dt><kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>Jump to a link, category, tag or action</dd>
+            <dt><kbd>/</kbd></dt><dd>Search</dd>
+            <dt><kbd>v</kbd> then <kbd>c</kbd> <kbd>g</kbd> <kbd>l</kbd></dt><dd>Cards, grid or list view</dd>
+            <dt><kbd>?</kbd></dt><dd>This list</dd>
+        </dl>
+        <p class="hint">Tidying many links: change one with <kbd>c</kbd>, then <kbd>j</kbd> <kbd>.</kbd> <kbd>j</kbd> <kbd>.</kbd> for the rest.</p>
+        <p class="hint">Clippy teaches these as you go: after you do something the slow way twice, he shows the key once. <button type="button" class="btn btn-ghost btn-sm" id="tipsReset">Show his tips again</button></p>
+    </div>
+</dialog>
+
+<dialog id="jumpDialog" class="jump" aria-label="Jump to">
+    <div class="jump-box">
+        <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+        <input class="input" id="jumpInput" type="text" placeholder="Jump to a link, category, tag or action" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="jumpList" aria-autocomplete="list">
+        <kbd>Esc</kbd>
+    </div>
+    <ul class="jump-list" id="jumpList" role="listbox" aria-label="Results"></ul>
+    <p class="jump-hint"><kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>Enter</kbd> to go</p>
+</dialog>
+
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <div class="wrap">
+            <span>SaveMyLinks keeps every link you save, filed by category, on your own server. This demo keeps them in your browser.</span>
+            <span>Press <kbd>/</kbd> to search, <kbd>?</kbd> for keyboard shortcuts.</span>
+        </div>
+    </footer>
+
+    <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+    <script src="static/demo-api.js"></script>
+    <script src="static/app-detect.js"></script>
+    <script src="static/sml.js?v=8"></script>
+
+    <!-- Assistant (Clippy). Reacts to what happens on the page. Since 22 Nov (#36, the Director's ask)
+         he also offers an occasional idle tip, at most 3 a visit, never while you're busy; and a
+         double-click on him opens a quick-save box.
+         Pages talk to it with events:
+           window.dispatchEvent(new CustomEvent('sml:save',  { detail: { status: 201|409|422|0, category, message } }))
+           window.dispatchEvent(new CustomEvent('sml:empty', { detail: { search } }))  -->
+    <script type="module">
+        let agent = null;
+        const toggle = document.getElementById('assistantToggle');
+
+        const reactions = {
+            201: (d) => ['Congratulate', `Saved${d.category ? ' to ' + d.category : ''}.`, 'saved'],
+            409: () => ['LookDown', 'Already saved. This URL is in your library.', 'duplicate'],
+            422: (d) => ['Explain', `Not saved. ${d.message || 'Check the highlighted fields.'}`, 'invalid'],
+            0:   () => ['Alert', "Couldn't reach the server. Check your connection and try again.", 'invalid'],
+        };
+
+        function react(animation, text, tone, duration = 5000) {
+            if (!agent || !agent.visible) return;
+            if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) agent.play(animation, { timeout: 3000 });
+            agent.speak(text, { tone, duration });
+        }
+
+        window.addEventListener('sml:save', (e) => {
+            const d = e.detail || {};
+            const r = (reactions[d.status] || reactions[0])(d);
+            react(...r, d.status === 201 ? 4000 : 8000);
+        });
+        window.addEventListener('sml:empty', (e) => {
+            const q = e.detail && e.detail.search;
+            if (q) react('Searching', `Nothing matches "${q}". Try fewer words or another category.`, '');
+            else react('GestureUp', 'No links yet. Use "Save a link" at the top to save your first one.', '', 8000);
+        });
+
+        function syncToggle(hidden) {
+            if (!toggle) return;
+            toggle.hidden = false;
+            toggle.setAttribute('aria-pressed', String(!hidden));
+            toggle.querySelector('span:last-child').textContent = hidden ? 'Show assistant' : 'Hide assistant';
+        }
+        window.addEventListener('sml:assistant', (e) => syncToggle(e.detail.hidden));
+
+        // ── Quick save: double-click Clippy, paste, Enter. The full form is one link away. ──
+        let quick = null;
+        function suggestTitle(raw) {
+            try {
+                const url = new URL(raw);
+                const last = url.pathname.split('/').filter(Boolean).pop();
+                let words = last ? decodeURIComponent(last).replace(/\.[a-z0-9]+$/i, '').replace(/[-_+]+/g, ' ').trim() : '';
+                if (/\d{6,}|^urn:/i.test(words) || !/[a-z]{3,}/i.test(words)) words = ''; // an ID is no title
+                const host = url.hostname.replace(/^www\./, '');
+                return words ? `${words.charAt(0).toUpperCase()}${words.slice(1)} (${host})` : host;
+            } catch { return ''; }
+        }
+        function closeQuick() { if (quick) { quick.remove(); quick = null; } }
+        async function openQuick() {
+            if (!agent || !agent.visible) return;
+            if (quick) { quick.querySelector('input').focus(); return; }
+            agent.closeBubble();
+            quick = document.createElement('form');
+            quick.className = 'clippy-quick';
+            quick.setAttribute('aria-label', 'Quick save');
+            quick.innerHTML = '<label class="clippy-quick-label" for="quickUrl">Save a link</label>'
+                + '<div class="clippy-quick-row"><input class="input" id="quickUrl" type="url" inputmode="url" placeholder="Paste a link" autocomplete="off" required>'
+                + '<button type="submit" class="btn btn-primary btn-sm">Save</button></div>'
+                + '<p class="clippy-quick-help"><a href="add.html">More options</a> · Esc to close</p>';
+            agent.container.append(quick);
+            // Open toward the side with room: he may sit at any edge of the screen.
+            const at = agent.container.getBoundingClientRect();
+            if (at.left + at.width / 2 < window.innerWidth / 2) { quick.style.left = '0'; quick.style.right = 'auto'; }
+            if (at.top < quick.offsetHeight + 20) { quick.style.bottom = 'auto'; quick.style.top = 'calc(100% + 10px)'; }
+            const input = quick.querySelector('input');
+            const more = quick.querySelector('a');
+            const moreBase = more.getAttribute('href'); // add.html on the demo
+            input.addEventListener('input', () => { more.href = input.value.trim() ? moreBase + '?prefill=' + encodeURIComponent(input.value.trim()) : moreBase; });
+            quick.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); closeQuick(); agent.element.focus(); } });
+            quick.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                let url = input.value.trim();
+                if (url && !/^[a-z][a-z0-9+.-]*:/i.test(url)) url = 'https://' + url;
+                try { if (!/^https?:$/.test(new URL(url).protocol)) throw 0; }
+                catch { react('Explain', 'That doesn\'t look like a web address. It starts with https://', 'invalid', 6000); input.focus(); return; }
+                const btn = quick.querySelector('button'); btn.disabled = true; btn.textContent = 'Saving…';
+                let status = 0, message = '';
+                try {
+                    const res = await fetch('/api/resources/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, title: suggestTitle(url) || url }) });
+                    status = res.status;
+                    if (status === 422) { const d = await res.json(); message = (window.SML?.fieldErrors?.(d.detail) && Object.values(window.SML.fieldErrors(d.detail))[0]) || ''; }
+                } catch { status = 0; }
+                closeQuick();
+                if (status === 201) {
+                    agent.play('Save', { timeout: 3000 });
+                    agent.speak('Saved to your library. Its title and picture arrive in a second.', { tone: 'saved', duration: 5000 });
+                    window.dispatchEvent(new CustomEvent('sml:saved-elsewhere'));
+                } else {
+                    window.dispatchEvent(new CustomEvent('sml:save', { detail: { status: status === 409 || status === 422 ? status : 0, message } }));
+                }
+            });
+            input.focus(); // ready to paste at once; the clipboard check below may wait for permission
+            // The link you just copied, when the browser lets us read it (it may ask first).
+            try {
+                const text = (await navigator.clipboard?.readText?.()) || '';
+                const found = text.match(/https?:\/\/[^\s<>"']+/);
+                if (found && quick && !input.value) { input.value = found[0]; input.dispatchEvent(new Event('input')); input.select(); }
+            } catch { /* not allowed: paste by hand */ }
+        }
+        document.addEventListener('clippy:save', openQuick);
+        document.addEventListener('pointerdown', (e) => { if (quick && !e.target.closest('.clippy-agent')) closeQuick(); });
+
+        // ── Idle tips: one now and then while you browse, at most 3 a visit, never while you're busy ──
+        const IDLE_TIPS = [
+            'Press Ctrl+K to jump to any link, category or tag.',
+            'Double-click me to save a link quickly. Paste it and press Enter.',
+            'Press v then g for the grid, or v then l for a compact list.',
+            'Tags find links across categories. Click a tag on a card to see the rest.',
+            'Press / to search from anywhere.',
+            'Select a link with j, change it, then press . on the next one to repeat the change.',
+            'On your phone, Share a page to SaveMyLinks to save it without copying.',
+            'Kept a guessed title? Fetch preview again in the edit window gets the page\'s own.',
+        ];
+        const IDLE_KEY = 'sml-idle-tips-v1';
+        let idleSaid = 0;
+        function idleTip() {
+            if (idleSaid >= 3) return;
+            const busy = !agent || !agent.visible || quick || document.hidden || document.querySelector('dialog[open]')
+                || !agent.bubble.hidden || document.activeElement?.closest?.('input, textarea, select, [contenteditable="true"]');
+            if (!busy) {
+                let seen = [];
+                try { seen = JSON.parse(localStorage.getItem(IDLE_KEY) || '[]'); } catch { /* blocked */ }
+                let next = IDLE_TIPS.findIndex((_, i) => !seen.includes(i));
+                if (next < 0) { seen = []; next = 0; } // said them all: start again
+                seen.push(next);
+                try { localStorage.setItem(IDLE_KEY, JSON.stringify(seen)); } catch { /* blocked */ }
+                idleSaid += 1;
+                react('Explain', IDLE_TIPS[next], '', 9000);
+            }
+            setTimeout(idleTip, (busy ? 60 : 240 + Math.random() * 120) * 1000); // busy: look again in a minute
+        }
+
+        async function start() {
+            try {
+                const { initClippy, assistantPrefs } = await import('./static/modern-clippy.js?v=11');
+                agent = await initClippy({ basePath: './static/' });
+                window.smlAssistant = agent;
+                const prefs = assistantPrefs.get();
+                syncToggle(!!prefs.hidden);
+                toggle.addEventListener('click', () => {
+                    if (agent.visible) agent.dismiss();
+                    else { agent.show(); syncToggle(false); }
+                });
+                // Greet once per browser, not on every page load.
+                if (agent.visible && !prefs.greeted) {
+                    setTimeout(() => agent.bubble.hidden && (assistantPrefs.set({ greeted: true }), react('Greeting', "Hi. Save a link and I'll tell you where it was filed. Hide me with the × any time.", '', 9000)), 600);
+                }
+                window.dispatchEvent(new CustomEvent('sml:assistant-ready'));
+                setTimeout(idleTip, 180 * 1000); // the first tip after three minutes
+            } catch (error) {
+                console.warn('Assistant not loaded:', error.message);
+            }
+        }
+
+        // Load after the page so it never delays the content.
+        if (document.readyState === 'complete') setTimeout(start, 300);
+        else window.addEventListener('load', () => setTimeout(start, 300));
+    </script>
+    <script>
+        // Installable and opens offline (sw.js sits at the app's root so it covers every page).
+        if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+    </script>
+    
+<script src="static/tips.js?v=1"></script>
+<script src="static/transfer.js?v=1"></script>
+<script>
+(function () {
+    const { toast, dismiss, reduceMotion, categories, categoryClass, resetCategories, fieldErrors, facets, categoryPicker, tagField } = window.SML;
+    const $ = (s) => document.querySelector(s);
+    const PER_PAGE = 24; // divides by 2, 3, 4, 6 and 8, so full grid rows at most widths
+
+    // The URL holds search, category and page, so Back, refresh and shared links keep the view.
+    const params = new URLSearchParams(location.search);
+    const state = { q: params.get('q') || '', category: params.get('category') || '', tag: params.get('tag') || '', page: Number(params.get('page')) || 1 };
+    let categoryList = [];
+    let facetData = { total: 0, categories: [], tags: [] };
+    let lastTotal = 0;
+    let editing = null;
+
+    function writeUrl() {
+        const p = new URLSearchParams();
+        if (state.q) p.set('q', state.q);
+        if (state.category) p.set('category', state.category);
+        if (state.tag) p.set('tag', state.tag);
+        if (state.page > 1) p.set('page', state.page);
+        history.replaceState(null, '', p.toString() ? '?' + p : location.pathname);
+    }
+
+    async function loadCategories() {
+        categoryList = await categories();
+        const box = $('#categoryChips');
+        box.innerHTML = '';
+        if (!categoryList.length) { box.hidden = true; return; }
+        box.hidden = false;
+        const make = (label, value, cls) => {
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'chip ' + cls; b.textContent = label;
+            b.setAttribute('aria-pressed', String(state.category === value));
+            b.onclick = () => { state.category = state.category === value ? '' : value; state.page = 1; syncChips(); browse(); };
+            b.dataset.value = value;
+            box.append(b);
+        };
+        make('All', '', '');
+        categoryList.forEach(c => make(c, c, categoryClass(c, categoryList)));
+        $('#categoryOptions').innerHTML = '';
+        categoryList.forEach(c => { const o = document.createElement('option'); o.value = c; $('#categoryOptions').append(o); });
+        facetData = await facets();
+        renderSidebar();
+    }
+    function syncChips() {
+        document.querySelectorAll('#categoryChips .chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.value === state.category)));
+        document.querySelectorAll('#sideCategories .side-item').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.value === state.category && !state.tag)));
+        document.querySelectorAll('#sideTags .side-item').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.value === state.tag)));
+        placePill();
+    }
+    function filterBy(kind, value) {
+        if (kind === 'category') { state.category = state.category === value && !state.tag ? '' : value; state.tag = ''; }
+        else state.tag = state.tag === value ? '' : value;
+        state.page = 1; syncChips(); browse();
+    }
+
+    // The sidebar's pill slides to the chosen item (wide screens). Only its transform animates;
+    // its size is set at once. The first placement doesn't slide.
+    const sidebar = $('.sidebar'), pill = $('#sidePill');
+    const wide = matchMedia('(min-width: 1024px)');
+    function placePill() {
+        const on = wide.matches && sidebar.querySelector('.side-item[aria-pressed="true"]');
+        if (!on) { pill.classList.remove('is-on'); sidebar.classList.remove('has-pill'); return; }
+        const a = on.getBoundingClientRect(), b = sidebar.getBoundingClientRect();
+        pill.style.width = a.width + 'px'; pill.style.height = a.height + 'px';
+        pill.style.transform = `translate(${a.left - b.left + sidebar.scrollLeft}px, ${a.top - b.top + sidebar.scrollTop}px)`;
+        pill.classList.add('is-on'); sidebar.classList.add('has-pill');
+        if (!pill.classList.contains('is-placed')) requestAnimationFrame(() => pill.classList.add('is-placed'));
+    }
+    let pillFrame = 0;
+    const replacePill = () => { cancelAnimationFrame(pillFrame); pillFrame = requestAnimationFrame(placePill); };
+    addEventListener('resize', replacePill);
+    document.fonts?.ready.then(replacePill);
+
+    // The sidebar: every category and tag with its count. On phones the categories stay as chips
+    // above the list and the tags become one scrolling row.
+    function renderSidebar() {
+        const item = (kind, value, label, count, cls) => {
+            const li = document.createElement('li');
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'side-item'; b.dataset.value = value;
+            const name = document.createElement('span'); name.className = 'name'; name.textContent = label;
+            if (cls) { const tab = document.createElement('span'); tab.className = 'tab ' + cls; tab.setAttribute('aria-hidden', 'true'); b.append(tab); }
+            const n = document.createElement('span'); n.className = 'count'; n.textContent = count;
+            b.append(name, n);
+            b.setAttribute('aria-label', `${label}, ${count} ${count === 1 ? 'link' : 'links'}`);
+            b.onclick = () => (kind === 'all' ? clearFilters() : filterBy(kind, value));
+            li.append(b);
+            return li;
+        };
+        $('#sideCategories').replaceChildren(
+            item('all', '', 'All links', facetData.total, ''),
+            ...facetData.categories.map(c => item('category', c.name, c.name, c.count, categoryClass(c.name, categoryList))));
+        $('#sideTags').replaceChildren(...facetData.tags.map(t => item('tag', t.name, '#' + t.name, t.count, '')));
+        $('#sideTagsEmpty').hidden = facetData.tags.length > 0;
+        // Opened with a filter in the address, load() never writes the whole-library line: write it here.
+        const n = facetData.total, c = facetData.categories.length;
+        if ($('#summary').textContent === 'Loading your library…') {
+            $('#summary').textContent = n
+                ? `${n} ${n === 1 ? 'link' : 'links'} in ${c} ${c === 1 ? 'category' : 'categories'}. Search by title or note, or pick a category.`
+                : 'Save a page once and find it again in seconds, by its title, your note or its category.';
+        }
+        syncChips();
+    }
+
+    // The API stores UTC without a zone mark; read it as UTC.
+    const asDate = (iso) => new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(iso) ? iso : iso + 'Z');
+    function savedOn(iso) {
+        return 'Saved ' + asDate(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    function renderCard(r, highlight) {
+        const li = $('#cardTemplate').content.firstElementChild.cloneNode(true);
+        li.dataset.id = r.id;
+        const meta = r.link_metadata || {};
+        const host = (() => { try { return new URL(r.url).hostname.replace(/^www\./, ''); } catch { return r.url; } })();
+
+        li.querySelector('.card-link').href = r.url;
+        // A mouse click (detail > 0) is the slow way to open; Enter or o is not.
+        li.querySelector('.card-link').addEventListener('click', (ev) => { if (ev.detail > 0) window.SMLTips?.note('mouse-open'); });
+        li.querySelector('.card-link').textContent = r.title;
+        li.querySelector('.card-url span').textContent = r.url;
+        li.querySelector('.card-url').title = r.url;
+
+        const desc = li.querySelector('.card-desc');
+        const fresh = !r.link_metadata && Date.now() - asDate(r.created_at).getTime() < 60000;
+        if (r.description || meta.description) desc.textContent = r.description || meta.description;
+        else if (fresh) { desc.textContent = 'Fetching the page title, picture and summary…'; desc.classList.add('pending'); }
+        else desc.remove();
+
+        // No picture: a stand-in sheet in the category's colour (shown in grid view only).
+        const standIn = () => {
+            const d = document.createElement('div');
+            d.className = 'thumb thumb-fallback' + (r.category ? ' ' + categoryClass(r.category, categoryList) : '');
+            d.setAttribute('aria-hidden', 'true');
+            const b = document.createElement('b'); b.textContent = (host[0] || '?').toUpperCase();
+            const s = document.createElement('span'); s.textContent = host;
+            d.append(b, s);
+            li.classList.add('no-image');
+            return d;
+        };
+        const img = li.querySelector('.thumb');
+        if (meta.image && /^https?:\/\//i.test(meta.image)) {
+            img.src = meta.image;
+            img.onerror = () => img.replaceWith(standIn());
+        } else img.replaceWith(standIn());
+        // As in Pocket, the picture opens the link too (a big mouse target; keyboard users have o and Enter).
+        li.addEventListener('click', (ev) => { if (ev.target.closest('.thumb')) li.querySelector('.card-link').click(); });
+
+        li.querySelector('.site').textContent = meta.site_name || host;
+        li.querySelector('.card-site').textContent = meta.site_name || host;
+        const chip = li.querySelector('.category');
+        if (r.category) { chip.textContent = r.category; chip.classList.add(categoryClass(r.category, categoryList)); }
+        else chip.remove();
+        const tagBox = li.querySelector('.tags');
+        (r.tags || []).forEach(t => {
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'tag-link'; b.textContent = '#' + t;
+            b.setAttribute('aria-label', `Show links tagged ${t}`);
+            b.onclick = () => filterBy('tag', t);
+            tagBox.append(b);
+        });
+        if (!tagBox.childElementCount) tagBox.remove();
+        li.querySelector('.date').textContent = savedOn(r.created_at);
+
+        const edit = li.querySelector('.edit-btn'), del = li.querySelector('.delete-btn');
+        edit.setAttribute('aria-label', `Edit "${r.title}"`); edit.title = 'Edit';
+        del.setAttribute('aria-label', `Delete "${r.title}"`); del.title = 'Delete';
+        edit.onclick = () => openEdit(r);
+        del.onclick = () => askDelete(li, r);
+
+        if (highlight) li.style.boxShadow = '0 0 0 2px var(--brand), var(--shadow-lift)';
+        if (fresh) setTimeout(() => refreshCard(r.id), 2500);
+        return li;
+    }
+
+    // A just-saved link gets its preview a moment later: fetch that one card again, once.
+    async function refreshCard(id) {
+        const li = document.querySelector(`.card[data-id="${id}"]`);
+        if (!li) return;
+        const res = await fetch(`/api/resources/${id}`);
+        if (!res.ok) return;
+        const r = await res.json();
+        if (!r.link_metadata) { const d = li.querySelector('.card-desc.pending'); if (d) d.remove(); return; }
+        li.replaceWith(renderCard(r, false));
+    }
+
+    function askDelete(li, r) {
+        if (li.querySelector('.confirm')) return;
+        const box = document.createElement('div');
+        box.className = 'confirm';
+        box.innerHTML = '<p>Delete this link?</p><button type="button" class="btn btn-danger btn-sm">Delete</button><button type="button" class="btn btn-sm">Keep</button>';
+        const [yes, no] = box.querySelectorAll('button');
+        no.onclick = () => { box.remove(); li.querySelector('.delete-btn').focus(); };
+        yes.onclick = async () => {
+            yes.disabled = true; yes.textContent = 'Deleting…';
+            try {
+                const res = await fetch(`/api/resources/${r.id}`, { method: 'DELETE' });
+                if (!res.ok) throw new Error(res.status);
+                li.classList.add('is-leaving'); // shrinks away while the list reloads
+                toast(`Deleted "${r.title}".`, { code: res.status, tone: 'success' });
+                window.SMLTips?.note('mouse-delete');
+                resetCategories(); await loadCategories(); load();
+            } catch (e) {
+                toast("Couldn't delete the link. Check your connection and try again.", { code: Number(e.message) || '', tone: 'danger' });
+                yes.disabled = false; yes.textContent = 'Delete';
+            }
+        };
+        li.append(box);
+        no.focus();
+    }
+
+    function renderPager(total) {
+        const nav = $('#pagination');
+        const pages = Math.ceil(total / PER_PAGE);
+        nav.innerHTML = '';
+        if (pages <= 1) { nav.hidden = true; return; }
+        nav.hidden = false;
+        const btn = (label, page, current, disabled) => {
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'btn btn-sm'; b.textContent = label; b.disabled = disabled;
+            if (current) b.setAttribute('aria-current', 'page');
+            b.onclick = () => { state.page = page; browse(); window.scrollTo({ top: 0 }); };
+            nav.append(b);
+        };
+        btn('Previous', state.page - 1, false, state.page === 1);
+        for (let i = 1; i <= pages; i++) btn(String(i), i, i === state.page, false);
+        btn('Next', state.page + 1, false, state.page === pages);
+    }
+
+    // Cards rise in only when the person changed what's shown (filter, tag, search, page); never on
+    // the first load (LCP) and never after an edit or delete, where the list should stay still.
+    let enterNext = false;
+    function browse() { enterNext = true; load(); }
+    let enterTimer = 0;
+    function playEnter(el) {
+        el.classList.add('is-entering');
+        clearTimeout(enterTimer);
+        enterTimer = setTimeout(() => el.classList.remove('is-entering'), 500); // 200 ms stagger + 220 ms
+    }
+
+    let requestId = 0;
+    async function load() {
+        writeUrl();
+        const enter = enterNext; enterNext = false;
+        const mine = ++requestId;
+        $('#clearFilters').hidden = !(state.q || state.category || state.tag);
+        const list = $('#resourcesList');
+        const loading = $('#loadingState');
+        const loadTimer = setTimeout(() => { loading.hidden = false; }, 150); // no flash on fast loads
+        try {
+            const p = new URLSearchParams({ page: state.page, per_page: PER_PAGE });
+            if (state.q) p.set('search', state.q);
+            if (state.category) p.set('category', state.category);
+            if (state.tag) p.set('tag', state.tag);
+            const res = await fetch(`/api/resources/?${p}`);
+            if (!res.ok) throw new Error(res.status);
+            const data = await res.json();
+            if (mine !== requestId) return; // a newer search already answered
+            // Past the last page (e.g. after deletions): go to the last page that has links.
+            if (!data.resources.length && state.page > 1) {
+                clearTimeout(loadTimer);
+                state.page = Math.max(1, Math.ceil(data.total / PER_PAGE));
+                enterNext = enter;
+                return load();
+            }
+            clearTimeout(loadTimer); loading.hidden = true;
+            lastTotal = data.total;
+
+            const savedId = Number(new URLSearchParams(location.search).get('saved')) || Number(sessionStorage.getItem('sml-saved')) || 0;
+            sessionStorage.removeItem('sml-saved');
+            list.replaceChildren(...data.resources.map(r => renderCard(r, r.id === savedId)));
+            if (enter) playEnter(list);
+            // LCP: the first row of pictures is on screen at once, so it loads now, not lazily.
+            list.querySelectorAll('img.thumb').forEach((im, i) => { if (i < 6) { im.loading = 'eager'; if (i === 0) im.fetchPriority = 'high'; } });
+            current = data.resources;
+            if (sel >= 0) select(sel); // keep the keyboard selection in place after a change
+            renderPager(data.total);
+
+            const filtered = state.q || state.category || state.tag;
+            const n = data.total;
+            $('#resultLine').textContent = filtered
+                ? `${n} ${n === 1 ? 'link' : 'links'}${state.q ? `${n === 1 ? ' matches' : ' match'} "${state.q}"` : ''}${state.category ? ` in ${state.category}` : ''}${state.tag ? ` tagged #${state.tag}` : ''}`
+                : (n ? `Showing ${(state.page - 1) * PER_PAGE + 1}–${Math.min(state.page * PER_PAGE, n)} of ${n}` : '');
+
+            if (!filtered) {
+                $('#summary').textContent = n
+                    ? `${n} ${n === 1 ? 'link' : 'links'} in ${categoryList.length} ${categoryList.length === 1 ? 'category' : 'categories'}. Search by title or note, or pick a category.`
+                    : 'Save a page once and find it again in seconds, by its title, your note or its category.';
+            }
+
+            const empty = $('#emptyState');
+            empty.hidden = data.resources.length > 0;
+            empty.classList.toggle('is-entering', enter && !data.resources.length);
+            if (!data.resources.length) {
+                if (filtered) {
+                    $('#emptyTitle').textContent = 'Nothing matches';
+                    $('#emptyText').textContent = `No link${state.q ? ` mentions "${state.q}"` : ''}${state.category ? ` in ${state.category}` : ''}${state.tag ? ` is tagged #${state.tag}` : ''}. Try fewer words, another category or another tag.`;
+                    $('#emptyAction').textContent = 'Clear search and filter';
+                    $('#emptyAction').onclick = (e) => { e.preventDefault(); clearFilters(); };
+                } else {
+                    $('#emptyAction').onclick = null;
+                }
+                const q = state.q;
+                const tell = () => window.dispatchEvent(new CustomEvent('sml:empty', { detail: { search: q } }));
+                window.smlAssistant ? tell() : window.addEventListener('sml:assistant-ready', tell, { once: true });
+            }
+        } catch (e) {
+            clearTimeout(loadTimer); loading.hidden = true;
+            toast("Couldn't load your links. Check that the server is running, then reload.", { code: Number(e.message) || '', tone: 'danger' });
+        }
+    }
+
+    function clearFilters() {
+        state.q = ''; state.category = ''; state.tag = ''; state.page = 1;
+        $('#searchInput').value = ''; syncChips(); browse();
+    }
+    $('#clearFilters').onclick = clearFilters;
+
+    // Search as you type, after a short pause.
+    let typing;
+    const search = $('#searchInput');
+    search.value = state.q;
+    search.addEventListener('mousedown', () => window.SMLTips?.note('search-click'));
+    document.addEventListener('keydown', (e) => { if (e.key === '/') window.SMLTips?.used('/'); }, true);
+    search.addEventListener('input', () => {
+        clearTimeout(typing);
+        typing = setTimeout(() => { state.q = search.value.trim(); state.page = 1; browse(); }, 250);
+    });
+    search.addEventListener('keydown', (e) => { if (e.key === 'Escape' && search.value) { search.value = ''; state.q = ''; state.page = 1; browse(); } });
+    if (params.get('focus') === 'search') search.focus();
+
+    // ── edit ──
+    const dlg = $('#editDialog');
+    function showErr(id, msg) {
+        const el = $('#' + id + 'Error');
+        el.textContent = msg || ''; el.hidden = !msg;
+    }
+    let getEditCategory = () => '', getEditTags = () => [];
+    function clearEditErrors() {
+        ['editUrl', 'editTitle', 'editDescription', 'editTags'].forEach(id => showErr(id, ''));
+        dlg.querySelectorAll('[aria-invalid]').forEach(el => el.removeAttribute('aria-invalid'));
+    }
+    function openEdit(r) {
+        editing = r;
+        clearEditErrors();
+        $('#editUrl').value = r.url;
+        $('#editTitleInput').value = r.title;
+        $('#editDescription').value = r.description || '';
+        getEditCategory = categoryPicker($('#editCategory'), $('#editCategoryNew'), categoryList, r.category);
+        getEditTags = tagField($('#editTags'), $('#editTagChips'), facetData.tags.map(t => t.name), r.tags || []);
+        dlg.showModal();
+        $('#editTitleInput').focus();
+    }
+    $('#editClose').onclick = () => dlg.close();
+    $('#editForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearEditErrors();
+        const save = $('#editSave');
+        save.disabled = true; save.textContent = 'Saving…';
+        const body = {
+            url: $('#editUrl').value.trim(),
+            title: $('#editTitleInput').value.trim(),
+            description: $('#editDescription').value.trim() || null,
+            category: getEditCategory() || null,
+            tags: getEditTags(),
+        };
+        try {
+            const res = await fetch(`/api/resources/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            if (res.status === 409) { showErr('editUrl', 'Another saved link already has this address.'); $('#editUrl').setAttribute('aria-invalid', 'true'); return; }
+            if (res.status === 422) {
+                const errs = fieldErrors((await res.json()).detail);
+                const map = { url: ['editUrl', 'editUrl'], title: ['editTitle', 'editTitleInput'], description: ['editDescription', 'editDescription'], tags: ['editTags', 'editTags'] };
+                Object.entries(errs).forEach(([f, m]) => { if (map[f]) { showErr(map[f][0], m); $('#' + map[f][1]).setAttribute('aria-invalid', 'true'); } });
+                dlg.querySelector('[aria-invalid="true"]')?.focus();
+                return;
+            }
+            if (!res.ok) throw new Error(res.status);
+            dlg.close();
+            const onlyCategory = body.url === editing.url && body.title === editing.title
+                && (body.description || null) === (editing.description || null) && body.category !== (editing.category || null);
+            if (onlyCategory) window.SMLTips?.note('category-dialog');
+            toast(`Saved changes to "${body.title}".`, { code: res.status, tone: 'success' });
+            resetCategories(); await loadCategories(); load();
+        } catch (err) {
+            toast("Couldn't save the changes. Check your connection and try again.", { code: Number(err.message) || '', tone: 'danger' });
+        } finally {
+            save.disabled = false; save.textContent = 'Save changes';
+        }
+    });
+    $('#editRefresh').onclick = async () => {
+        const b = $('#editRefresh');
+        b.disabled = true;
+        try {
+            const before = JSON.stringify(editing.link_metadata || null);
+            const res = await fetch(`/api/resources/${editing.id}/metadata`, { method: 'POST' });
+            const r = await res.json();
+            const changed = JSON.stringify(r.link_metadata || null) !== before;
+            // Say what really happened: new preview, the same one, or none at all.
+            toast(!r.link_metadata ? "The page didn't share a preview. Your link is unchanged."
+                : changed ? 'Preview updated.' : 'Checked the page again: the preview is already up to date.',
+                { code: res.status, tone: r.link_metadata && changed ? 'success' : 'notice' });
+            if (r.link_metadata && changed) { dlg.close(); load(); }
+        } catch (e) {
+            toast("Couldn't reach the server.", { tone: 'danger' });
+        } finally { b.disabled = false; }
+    };
+
+    // ── keyboard: verb + object, and "." repeats the last change (see the ? list) ──
+    let current = [];        // the links on screen, in order
+    let sel = -1;            // the selected one, or -1
+    let lastAction = null;   // { kind: 'category', value } | { kind: 'delete' }
+    let categoryFor = null;
+    let busy = false;        // a change is on its way to the server: change keys wait for it
+    async function change(fn) {
+        if (busy) return;
+        busy = true;
+        try { await fn(); } finally { busy = false; }
+    }
+    const cards = () => [...document.querySelectorAll('#resourcesList .card')];
+
+    function select(i) {
+        const list = cards();
+        if (!list.length) { sel = -1; return; }
+        sel = Math.max(0, Math.min(list.length - 1, i));
+        list.forEach((c, n) => c.classList.toggle('is-selected', n === sel));
+        // Focus the link itself, so a screen reader reads which link e, c, d and . will act on.
+        list[sel].querySelector('.card-link').focus({ preventScroll: true });
+        list[sel].scrollIntoView({ block: 'nearest' });
+        $('#selectionStatus').textContent = `Selected ${sel + 1} of ${list.length}: ${current[sel]?.title ?? ''}`;
+    }
+
+    function undoToast(message, onUndo) {
+        const el = document.createElement('div');
+        el.className = 'toast toast-success';
+        const msg = document.createElement('span'); msg.className = 'msg'; msg.textContent = message;
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-sm'; b.textContent = 'Undo';
+        let timer = setTimeout(() => dismiss(el), 8000);
+        // The toast and its Undo stay until the restore succeeds; a failure brings the button back.
+        b.onclick = async () => {
+            clearTimeout(timer);
+            b.disabled = true; b.textContent = 'Restoring…';
+            if (await onUndo()) { dismiss(el); return; }
+            b.disabled = false; b.textContent = 'Try Undo again';
+            timer = setTimeout(() => dismiss(el), 15000);
+        };
+        el.append(msg, b);
+        $('#toasts').append(el);
+    }
+
+    async function refresh() { resetCategories(); await loadCategories(); await load(); }
+
+    const offline = (what) => toast(`Couldn't ${what}. Check your connection and try again.`, { tone: 'danger' });
+
+    async function setCategory(r, value) {
+        let res;
+        try { res = await fetch(`/api/resources/${r.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ category: value || null }) }); }
+        catch { offline(`change the category of "${r.title}"`); return; }
+        if (!res.ok) { toast(`Couldn't change the category of "${r.title}".`, { code: res.status, tone: 'danger' }); return; }
+        toast(value ? `Moved "${r.title}" to ${value}.` : `Removed the category from "${r.title}".`, { code: res.status, tone: 'success' });
+        await refresh();
+    }
+
+    // Fast delete from the keyboard: no question first, an Undo after (it saves the link again).
+    async function deleteWithUndo(r) {
+        let res;
+        try { res = await fetch(`/api/resources/${r.id}`, { method: 'DELETE' }); }
+        catch { offline('delete the link'); return; }
+        if (!res.ok) { toast("Couldn't delete the link. Check your connection and try again.", { code: res.status, tone: 'danger' }); return; }
+        document.querySelector(`#resourcesList .card[data-id="${r.id}"]`)?.classList.add('is-leaving');
+        undoToast(`Deleted "${r.title}".`, async () => {
+            let back;
+            try { back = await fetch('/api/resources/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: r.title, url: r.url, description: r.description, category: r.category, tags: r.tags || [] }) }); }
+            catch { offline(`restore "${r.title}"`); return false; }
+            // 409: it is already back (e.g. restored from another tab), which is what Undo wanted.
+            const ok = back.ok || back.status === 409;
+            toast(ok ? `Restored "${r.title}".` : `Couldn't restore "${r.title}".`, { code: back.status, tone: ok ? 'success' : 'danger' });
+            if (ok) await refresh();
+            return ok;
+        });
+        await refresh();
+    }
+
+    function openCategory(r) {
+        categoryFor = r;
+        $('#categoryInput').value = r.category || '';
+        $('#categoryDialog').showModal();
+        $('#categoryInput').select();
+    }
+    $('#categoryClose').onclick = () => $('#categoryDialog').close();
+    $('#categoryForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const value = $('#categoryInput').value.trim();
+        $('#categoryDialog').close();
+        lastAction = { kind: 'category', value };
+        window.SMLTips?.note('category-twice');
+        change(() => setCategory(categoryFor, value));
+    });
+    $('#keysClose').onclick = () => $('#keysDialog').close();
+    $('#tipsReset').onclick = () => { window.SMLTips?.reset(); $('#tipsReset').textContent = 'Tips will show again'; };
+
+    function repeat(r) {
+        if (!lastAction) { toast('Nothing to repeat yet. Change a link first (c or d), then press . on another.', { tone: 'notice' }); return; }
+        if (lastAction.kind === 'category') return setCategory(r, lastAction.value);
+        if (lastAction.kind === 'delete') return deleteWithUndo(r);
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        if (e.target.closest('input, textarea, select, [contenteditable="true"]') || document.querySelector('dialog[open]')) return;
+        // Two-key views, as in Pocket: v then c (cards), g (grid) or l (list).
+        if (viewPending) {
+            viewPending = false;
+            const v = { c: 'cards', g: 'grid', l: 'list' }[e.key];
+            if (v) { e.preventDefault(); setView(v, true); }
+            return;
+        }
+        if (e.key === 'v') { e.preventDefault(); viewPending = true; setTimeout(() => { viewPending = false; }, 1500); return; }
+        const r = sel >= 0 ? current[sel] : null;
+        const needs = (fn) => () => (r ? fn() : select(0)); // a verb with nothing selected selects the first link
+        const keys = {
+            j: () => select(sel + 1),
+            k: () => select(sel < 0 ? 0 : sel - 1),
+            o: needs(() => cards()[sel].querySelector('.card-link').click()),
+            e: needs(() => openEdit(r)),
+            c: needs(() => openCategory(r)),
+            d: needs(() => change(() => { lastAction = { kind: 'delete' }; return deleteWithUndo(r); })),
+            '.': needs(() => change(() => repeat(r))),
+            '?': () => $('#keysDialog').showModal(),
+        };
+        const act = keys[e.key];
+        if (!act) return;
+        window.SMLTips?.used({ k: 'j', o: 'j' }[e.key] || e.key);
+        e.preventDefault();
+        act();
+    });
+    if (params.get('keys')) $('#keysDialog').showModal();
+
+    // ── views: cards (default), grid, list; remembered per browser ──
+    let viewPending = false;
+    let viewSwitchId = 0;
+    function setView(v, announce) {
+        if (!['cards', 'grid', 'list'].includes(v)) v = 'cards';
+        const list = $('#resourcesList');
+        const apply = () => {
+            list.dataset.view = v;
+            document.querySelectorAll('.view-switch [data-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
+        };
+        // A switch the person made glides each card on screen to its new place (View Transitions).
+        // Only those cards get names, and only for the switch; elsewhere it changes at once.
+        if (announce && list.dataset.view !== v && document.startViewTransition && !reduceMotion()) {
+            const all = [...list.children];
+            all.forEach((c) => { c.style.viewTransitionName = ''; });
+            const named = all.filter((c) => { const r = c.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight; });
+            named.forEach((c, i) => { c.style.viewTransitionName = 'sml-card-' + i; });
+            document.documentElement.classList.add('vt-view');
+            const mine = ++viewSwitchId; // a quicker second switch keeps the names; only the last one clears them
+            const done = () => { if (mine !== viewSwitchId) return; all.forEach((c) => { c.style.viewTransitionName = ''; }); document.documentElement.classList.remove('vt-view'); };
+            try { document.startViewTransition(apply).finished.then(done, done); } catch (e) { apply(); done(); }
+        } else apply();
+        try { localStorage.setItem('sml-view', v); } catch (e) { /* blocked */ }
+        if (announce) $('#selectionStatus').textContent = `${v[0].toUpperCase()}${v.slice(1)} view`;
+    }
+    document.querySelectorAll('.view-switch [data-view]').forEach((b) => { b.onclick = () => setView(b.dataset.view, true); });
+    setView((() => { try { return localStorage.getItem('sml-view'); } catch (e) { return null; } })() || 'cards');
+
+    // ── Ctrl+K: jump to any link, category, tag or action ──
+    const jump = $('#jumpDialog'), jumpInput = $('#jumpInput'), jumpList = $('#jumpList');
+    let jumpItems = [], jumpSel = 0, jumpReq = 0, jumpTimer = null;
+    const ACTIONS = [
+        { label: 'Save a link', hint: 'Action', run: () => { location.href = '/add'; } },
+        { label: 'Show all links', hint: 'Action', run: () => clearFilters() },
+        { label: 'Cards view', hint: 'View', run: () => setView('cards', true) },
+        { label: 'Grid view', hint: 'View', run: () => setView('grid', true) },
+        { label: 'List view', hint: 'View', run: () => setView('list', true) },
+        { label: 'Switch light or dark', hint: 'Action', run: () => $('#themeToggle')?.click() },
+        { label: 'Keyboard shortcuts', hint: 'Help', run: () => $('#keysDialog').showModal() },
+    ];
+    function showJump(items) {
+        jumpItems = items.slice(0, 40);
+        jumpSel = Math.min(jumpSel, Math.max(0, jumpItems.length - 1));
+        jumpList.replaceChildren(...jumpItems.map((it, i) => {
+            const li = document.createElement('li');
+            li.id = 'jump-' + i; li.setAttribute('role', 'option'); li.className = 'jump-item';
+            li.setAttribute('aria-selected', String(i === jumpSel));
+            const a = document.createElement('span'); a.className = 'jump-label'; a.textContent = it.label;
+            const b = document.createElement('span'); b.className = 'jump-kind'; b.textContent = it.hint;
+            li.append(a, b);
+            li.onmousemove = () => { if (jumpSel !== i) { jumpSel = i; markJump(); } };
+            li.onclick = () => runJump(i);
+            return li;
+        }));
+        if (!jumpItems.length) {
+            const li = document.createElement('li'); li.className = 'jump-none'; li.textContent = 'Nothing matches. Try fewer letters.';
+            jumpList.append(li);
+        }
+        markJump();
+    }
+    function markJump() {
+        jumpList.querySelectorAll('.jump-item').forEach((li, i) => li.setAttribute('aria-selected', String(i === jumpSel)));
+        jumpInput.setAttribute('aria-activedescendant', jumpItems.length ? 'jump-' + jumpSel : '');
+        jumpList.querySelector(`#jump-${jumpSel}`)?.scrollIntoView({ block: 'nearest' });
+    }
+    function jumpFacets(s) {
+        const has = (t) => !s || t.toLowerCase().includes(s);
+        return [
+            ...facetData.categories.filter(c => has(c.name)).map(c => ({ label: c.name, hint: `Category, ${c.count}`, run: () => { state.tag = ''; state.category = c.name; state.page = 1; syncChips(); browse(); } })),
+            ...facetData.tags.filter(t => has(t.name)).map(t => ({ label: '#' + t.name, hint: `Tag, ${t.count}`, run: () => { state.tag = t.name; state.page = 1; syncChips(); browse(); } })),
+        ];
+    }
+    function renderJump() {
+        const q = jumpInput.value.trim(), s = q.toLowerCase().replace(/^#/, '');
+        const mine = ++jumpReq;
+        const actions = ACTIONS.filter(a => !s || a.label.toLowerCase().includes(s));
+        jumpSel = 0;
+        if (!s) { showJump([...actions, ...jumpFacets('')]); return; }
+        showJump([...jumpFacets(s), ...actions]);
+        clearTimeout(jumpTimer);
+        jumpTimer = setTimeout(async () => {
+            try {
+                const res = await fetch(`/api/resources/?${new URLSearchParams({ search: q, per_page: 8 })}`);
+                if (!res.ok || mine !== jumpReq) return;
+                const links = (await res.json()).resources.map(r => {
+                    let host = r.url; try { host = new URL(r.url).hostname.replace(/^www\./, ''); } catch { /* keep */ }
+                    return { label: r.title, hint: host, run: () => window.open(r.url, '_blank', 'noopener') };
+                });
+                if (mine === jumpReq) showJump([...links, ...jumpFacets(s), ...actions]);
+            } catch { /* offline: the categories, tags and actions still show */ }
+        }, 120);
+    }
+    function runJump(i) {
+        const it = jumpItems[i];
+        if (!it) return;
+        jump.close();
+        it.run();
+    }
+    function openJump() {
+        if (jump.open) { jumpInput.select(); return; }
+        document.querySelector('dialog[open]')?.close();
+        jumpInput.value = '';
+        jump.showModal();
+        jumpInput.focus();
+        renderJump();
+    }
+    jumpInput.addEventListener('input', renderJump);
+    jumpInput.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown') { e.preventDefault(); jumpSel = Math.min(jumpItems.length - 1, jumpSel + 1); markJump(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); jumpSel = Math.max(0, jumpSel - 1); markJump(); }
+        else if (e.key === 'Enter') { e.preventDefault(); runJump(jumpSel); }
+    });
+    jump.addEventListener('click', (e) => { if (e.target === jump) jump.close(); }); // a click outside closes it
+    $('#jumpOpen').onclick = openJump;
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'k') { e.preventDefault(); openJump(); }
+    });
+
+    // Saved from Clippy's quick-save box on this page: show it.
+    window.addEventListener('sml:saved-elsewhere', () => refresh());
+
+    loadCategories().then(load);
+})();
+</script>
+
+</body>
+</html>

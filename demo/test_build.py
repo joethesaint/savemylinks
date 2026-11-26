@@ -93,3 +93,12 @@ def test_local_app_detection_is_demo_only(tmp_path):
     assert (demo / "static" / "app-detect.js").exists()
     app = build(tmp_path / "app", app=True)
     assert "app-detect" not in (app / "index.html").read_text(encoding="utf-8"), "the real app never probes itself"
+
+
+def test_phone_build_can_move_links_in_and_out(tmp_path):
+    # Import/Export JSON (26 Nov 2026): the phone demo must carry the buttons and the script, or links can't be moved.
+    out = build(tmp_path / "site")
+    html = (out / "index.html").read_text(encoding="utf-8")
+    assert 'id="importBtn"' in html and 'id="exportBtn"' in html and 'id="importFile"' in html
+    assert "static/transfer.js" in html
+    assert (out / "static" / "transfer.js").exists()

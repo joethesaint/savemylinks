@@ -22,10 +22,15 @@ BANNER = (
     '<div class="demo-banner" role="note">'
     "<span><strong>Demo.</strong> Links you save here stay in this browser only. "
     'Previews are simulated. <a href="download.html">Download the full app</a> · <a href="https://github.com/joethesaint/savemylinks">Source</a></span>'
-    '<span class="demo-actions">'
+    # Clear all and Reset demo wipe the demo library, so they take two clicks: open "Demo options", then
+    # choose (J03, 27 Nov: "to prevent mistakes or impulses").
+    '<details class="demo-actions">'
+    '<summary class="btn btn-ghost btn-sm">Demo options</summary>'
+    '<span class="demo-actions-menu">'
     '<button type="button" class="btn btn-ghost btn-sm" onclick="smlDemoClear()" title="Keeps only the portfolio link">Clear all</button>'
     '<button type="button" class="btn btn-ghost btn-sm" onclick="smlDemoReset()" title="Brings back the sample links">Reset demo</button>'
     "</span>"
+    "</details>"
     '<span data-app-detect><button type="button" class="btn btn-ghost btn-sm">Have the app? Open it</button></span>'
     "</div>"
 )
@@ -35,7 +40,13 @@ BANNER_CSS = (
     ".demo-banner a{color:inherit;text-decoration:underline}.demo-banner .btn{color:inherit;border-color:currentColor}"
     # Connected to the app on this computer: a green band, the connection set apart by a divider.
     ".demo-banner{gap:.5rem 1.5rem;transition:background-color .3s}"
-    ".demo-actions{display:inline-flex;gap:.5rem}"
+    ".demo-actions{display:inline-flex;align-items:center;gap:.5rem}"
+    ".demo-actions>summary{list-style:none;cursor:pointer}.demo-actions>summary::-webkit-details-marker{display:none}"
+    ".demo-actions>summary::after{content:' \\25BE'}.demo-actions[open]>summary::after{content:' \\25B4'}"
+    ".demo-actions-menu{display:inline-flex;gap:.5rem;margin-left:.5rem}"
+    # The shared button's hover and focus fill is pale: on this dark band it hid the white label.
+    ".demo-banner .demo-actions>summary:hover,.demo-banner .demo-actions>summary:focus-visible,"
+    ".demo-banner .demo-actions[open]>summary{background:rgba(255,255,255,.18);color:#fff}"
     ".demo-banner.is-connected{background:#1d6b45}"
     ".demo-banner [data-app-detect]{display:inline-flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.5rem 1rem}"
     "@media (min-width:720px){.demo-banner [data-app-detect]{padding-left:1.5rem;border-left:1px solid rgba(255,255,255,.35)}}"

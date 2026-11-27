@@ -102,3 +102,17 @@ def test_phone_build_can_move_links_in_and_out(tmp_path):
     assert 'id="importBtn"' in html and 'id="exportBtn"' in html and 'id="importFile"' in html
     assert "static/transfer.js" in html
     assert (out / "static" / "transfer.js").exists()
+
+
+def test_clear_and_reset_take_two_clicks(tmp_path):
+    # J03, 27 Nov: "Clear all" and "Reset demo" wipe the demo library, so they sit behind a "Demo options"
+    # disclosure: one click opens it, a second click acts. No button that wipes is on the banner itself.
+    out = build(tmp_path / "site")
+    for page in ["index.html", "add.html"]:
+        html = (out / page).read_text(encoding="utf-8")
+        m = re.search(r'<details class="demo-actions">\s*<summary[^>]*>Demo options</summary>(.*?)</details>', html, re.S)
+        assert m, f"{page}: no Demo options disclosure"
+        inside = m.group(1)
+        assert "smlDemoClear()" in inside and "smlDemoReset()" in inside, page
+        outside = html.replace(m.group(0), "")
+        assert "smlDemoClear()" not in outside and "smlDemoReset()" not in outside, f"{page}: a wipe button outside the disclosure"

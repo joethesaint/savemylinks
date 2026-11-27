@@ -1,0 +1,62 @@
+# CodeRabbit's queue: one review an hour (its allowance), oldest waiting PR first.
+# .coderabbit.yaml reviews a PR when it gets the "coderabbit" label. This job:
+# - puts every new, non-draft PR from this repo in the queue (label "review-queue"), so none is missed;
+# - starts the next review: swaps "review-queue" for "coderabbit" on the oldest waiting PR, but only
+#   if no review started in the last hour. It runs every hour, and also as soon as a PR joins the
+#   queue, so a PR waits only when the hour's review is already used.
+# The review it starts is the normal one, not "@coderabbitai full review". Added 27 Nov 2026: until
+# then no job did the swap, so no PR after #9 was reviewed.
+name: CodeRabbit queue
+
+on:
+  schedule:
+    - cron: "7 * * * *"
+  pull_request:
+    types: [opened, reopened, ready_for_review, labeled]
+  workflow_dispatch:
+
+permissions:
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: coderabbit-queue
+  cancel-in-progress: false
+
+jobs:
+  queue:
+    # A fork's PR gets a read-only token: it is reviewed when a maintainer adds the label by hand.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Make sure both labels exist
+        run: |
+          gh label create review-queue --color FBCA04 --description "Waiting for CodeRabbit (one review an hour)" 2>/dev/null || true
+          gh label create coderabbit --color 0E8A16 --description "CodeRabbit reviews this PR" 2>/dev/null || true
+
+      - name: A new PR joins the queue
+        if: >-
+          github.event_name == 'pull_request' && !github.event.pull_request.draft &&
+          contains(fromJSON('["opened","reopened","ready_for_review"]'), github.event.action)
+        run: gh pr edit "${{ github.event.pull_request.number }}" --add-label review-queue
+
+      - name: Start the next review (at most one an hour)
+        if: github.event_name != 'pull_request' || github.event.action != 'labeled' || github.event.label.name == 'review-queue'
+        run: |
+          last=$(gh api "repos/$GH_REPO/issues/events?per_page=100" \
+            --jq '[.[] | select(.event == "labeled" and .label.name == "coderabbit")][0].created_at // empty')
+          if [ -n "$last" ]; then
+            age=$(( $(date +%s) - $(date -d "$last" +%s) ))
+            if [ "$age" -lt 3600 ]; then
+              echo "A review started at $last ($((age / 60)) min ago); the next one waits for the hour."
+              exit 0
+            fi
+          fi
+          pr=$(gh pr list --label review-queue --state open --json number,isDraft,createdAt \
+            --jq '[.[] | select(.isDraft | not)] | sort_by(.createdAt) | .[0].number // empty')
+          if [ -z "$pr" ]; then echo "The queue is empty."; exit 0; fi
+          gh pr edit "$pr" --remove-label review-queue --add-label coderabbit
+          echo "Started CodeRabbit's review of #$pr."

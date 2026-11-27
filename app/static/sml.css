@@ -48,8 +48,6 @@
 }
 
 /* Smooth page-to-page navigation where the browser supports it. */
-@view-transition { navigation: auto; }
-
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body {

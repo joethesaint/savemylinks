@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SaveMyLinks: save any page in one click and find it again by category.">
+    <meta name="theme-color" content="#2f6f7a">
+    <!-- Link previews (chat apps, social sites, and SaveMyLinks itself read these). -->
+    <meta property="og:site_name" content="SaveMyLinks">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="SaveMyLinks: save any page, find it again">
+    <meta property="og:description" content="Save any page in one move and find it again in seconds. Free, open source, yours.">
+    <meta property="og:image" content="https://joethesaint.github.io/savemylinks/static/art/social-card.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="SaveMyLinks: a file box of saved links. Save any page in one move, find it again in seconds.">
+    <meta name="twitter:card" content="summary_large_image">
+    <title>Save a link · SaveMyLinks</title>
+    <script>
+        // Set the theme before first paint so the page never flashes the wrong colours.
+        try { const t = localStorage.getItem('theme'); if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+              else if (matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.dataset.theme = 'dark'; } catch (e) {}
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="static/sml.css?v=16">
+    <link rel="icon" type="image/svg+xml" href="static/art/icon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="static/art/icon-32.png">
+    <!-- Installable app (add to home screen); on Android it also appears in the Share menu. -->
+    <link rel="manifest" href="static/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="static/art/apple-touch-icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="SaveMyLinks">
+<style>.demo-banner{display:flex;flex-wrap:wrap;gap:.5rem 1rem;align-items:center;justify-content:center;padding:.5rem max(16px,env(safe-area-inset-left,0px));background:#2f6f7a;color:#fff;font-size:.875rem;text-align:center}.demo-banner a{color:inherit;text-decoration:underline}.demo-banner .btn{color:inherit;border-color:currentColor}.demo-banner{gap:.5rem 1.5rem;transition:background-color .3s}.demo-actions{display:inline-flex;align-items:center;gap:.5rem}.demo-actions>summary{list-style:none;cursor:pointer}.demo-actions>summary::-webkit-details-marker{display:none}.demo-actions>summary::after{content:' \25BE'}.demo-actions[open]>summary::after{content:' \25B4'}.demo-actions-menu{display:inline-flex;gap:.5rem;margin-left:.5rem}.demo-banner .demo-actions>summary:hover,.demo-banner .demo-actions>summary:focus-visible,.demo-banner .demo-actions[open]>summary{background:rgba(255,255,255,.18);color:#fff}.demo-banner.is-connected{background:#1d6b45}.demo-banner [data-app-detect]{display:inline-flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.5rem 1rem}@media (min-width:720px){.demo-banner [data-app-detect]{padding-left:1.5rem;border-left:1px solid rgba(255,255,255,.35)}}.app-status{display:inline-flex;align-items:center;gap:.4rem}.app-dot{width:.6rem;height:.6rem;border-radius:50%;background:#7dffb2;box-shadow:0 0 0 3px rgba(125,255,178,.25)}.demo-banner a.app-open,[data-app-detect] a.app-open{display:inline-block;padding:.25rem .8rem;border-radius:999px;background:#fff;color:#1d6b45;font-weight:600;text-decoration:none}.demo-banner a.app-open:hover{background:#e8f7ee}@media (prefers-reduced-motion:reduce){.demo-banner{transition:none}}</style>
+</head>
+<body>
+    <div class="demo-banner" role="note"><span><strong>Demo.</strong> Links you save here stay in this browser only. Previews are simulated. <a href="download.html">Download the full app</a> · <a href="https://github.com/joethesaint/savemylinks">Source</a></span><details class="demo-actions"><summary class="btn btn-ghost btn-sm">Demo options</summary><span class="demo-actions-menu"><button type="button" class="btn btn-ghost btn-sm" onclick="smlDemoClear()" title="Keeps only the portfolio link">Clear all</button><button type="button" class="btn btn-ghost btn-sm" onclick="smlDemoReset()" title="Brings back the sample links">Reset demo</button></span></details><span data-app-detect><button type="button" class="btn btn-ghost btn-sm">Have the app? Open it</button></span></div>
+    <a href="#main-content" class="skip-link">Skip to content</a>
+
+    <!-- Line icons: 16px, 1.6 stroke, round caps, currentColor (design system). -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></symbol>
+        <symbol id="i-link" viewBox="0 0 16 16"><path d="M6.5 9.5 9.5 6.5"/><path d="M7 4.5 8.6 3a2.8 2.8 0 0 1 4 4L11 8.6"/><path d="M9 11.5 7.4 13a2.8 2.8 0 0 1-4-4L5 7.4"/></symbol>
+        <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></symbol>
+        <symbol id="i-edit" viewBox="0 0 16 16"><path d="M10.5 2.5l3 3L6 13H3v-3z"/></symbol>
+        <symbol id="i-trash" viewBox="0 0 16 16"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/></symbol>
+        <symbol id="i-close" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></symbol>
+        <symbol id="i-sun" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1"/></symbol>
+        <symbol id="i-moon" viewBox="0 0 16 16"><path d="M13 9.5A5.5 5.5 0 1 1 6.5 3a4.5 4.5 0 0 0 6.5 6.5z"/></symbol>
+        <symbol id="i-clip" viewBox="0 0 16 16"><path d="M10.5 5.5 6 10a1.4 1.4 0 0 0 2 2l5-5a2.8 2.8 0 0 0-4-4L4 8a4.2 4.2 0 0 0 6 6l3.5-3.5"/></symbol>
+        <symbol id="i-refresh" viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v2.5h-2.5"/></symbol>
+        <symbol id="i-check" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><path d="M5.2 8.2l1.9 1.9 3.7-3.9"/></symbol>
+        <symbol id="i-info" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><path d="M8 7.2v3.8M8 5h.01"/></symbol>
+        <symbol id="i-alert" viewBox="0 0 16 16"><path d="M8 2l6.3 11H1.7z"/><path d="M8 6.5v3M8 11.5h.01"/></symbol>
+        <symbol id="i-view-cards" viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="11" height="4.5" rx="1"/><rect x="2.5" y="9" width="11" height="4.5" rx="1"/></symbol>
+        <symbol id="i-view-grid" viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"/><rect x="9" y="9" width="4.5" height="4.5" rx="1"/></symbol>
+        <symbol id="i-view-list" viewBox="0 0 16 16"><path d="M2.5 4h11M2.5 8h11M2.5 12h11"/></symbol>
+    </svg>
+
+    <header class="site-header">
+        <div class="wrap">
+            <a class="brand" href="./" aria-label="SaveMyLinks library">
+                <img src="static/art/icon.svg" alt="" width="28" height="28">
+                SaveMyLinks
+            </a>
+            <nav class="nav" aria-label="Main">
+                <a href="./" >Library</a>
+                <a href="add.html" aria-current="page">Save a link</a>
+            </nav>
+            <div class="header-tools">
+                <button type="button" id="assistantToggle" class="btn btn-ghost btn-sm" aria-pressed="true" hidden>
+                    <svg class="icon" aria-hidden="true"><use href="#i-clip"/></svg><span>Hide assistant</span>
+                </button>
+                <button type="button" id="themeToggle" class="btn btn-ghost btn-icon" aria-label="Switch to dark theme">
+                    <svg class="icon" aria-hidden="true"><use href="#i-moon"/></svg>
+                </button>
+                
+            </div>
+        </div>
+    </header>
+
+    <main id="main-content">
+        <div class="wrap">
+            
+<div class="page-head">
+    <div>
+        <h1 class="display">Save a link</h1>
+        <p class="lede">Paste the address. SaveMyLinks suggests a title, files the link under your category, and adds the page's picture and summary a second later.</p>
+    </div>
+</div>
+
+<div class="split">
+    <section class="panel">
+        <form class="form" id="addResourceForm" novalidate>
+            <div class="field">
+                <label class="label" for="url">Web address</label>
+                <input class="input" type="url" id="url" name="url" placeholder="https://example.com/article" required inputmode="url" autocomplete="url" aria-describedby="urlHelp urlError">
+                <p class="help" id="urlHelp">Copy it from your browser's address bar. It starts with https://</p>
+                <p class="error" id="urlError" hidden></p>
+            </div>
+
+            <div class="field">
+                <label class="label" for="title">Title</label>
+                <input class="input" type="text" id="title" name="title" maxlength="200" required aria-describedby="titleHelp titleError">
+                <p class="help" id="titleHelp">What you'll search for later. We suggest one from the address; change it if you like.</p>
+                <p class="error" id="titleError" hidden></p>
+            </div>
+
+            <div class="field">
+                <label class="label" for="category">Category <span class="opt">(optional)</span></label>
+                <select class="input select" id="category" name="category" aria-describedby="categoryError">
+                    <option value="">No category</option>
+                    <option value="__new">New category…</option>
+                </select>
+                <input class="input" type="text" id="categoryNew" maxlength="100" placeholder="Name the new category" aria-label="New category name" hidden>
+                <p class="error" id="categoryError" hidden></p>
+            </div>
+
+            <div class="field">
+                <label class="label" for="tags">Tags <span class="opt">(optional)</span></label>
+                <input class="input" type="text" id="tags" name="tags" placeholder="e.g. python, to-read" autocomplete="off" autocapitalize="off" aria-describedby="tagsHelp tagsError">
+                <div class="chips tag-chips" id="tagChips" aria-label="Tags you've used" hidden></div>
+                <p class="help" id="tagsHelp">Put commas between them, or tap one you've used before.</p>
+                <p class="error" id="tagsError" hidden></p>
+            </div>
+
+            <div class="field">
+                <label class="label" for="description">Note <span class="opt">(optional)</span></label>
+                <textarea class="textarea" id="description" name="description" maxlength="1000" placeholder="Why it's worth keeping" aria-describedby="descriptionError"></textarea>
+                <p class="error" id="descriptionError" hidden></p>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    <img src="static/art/icon-saving.svg" alt="" width="20" height="20" id="savingIcon" hidden>
+                    <span>Save link</span>
+                </button>
+                <a href="./" class="btn">Back to library</a>
+            </div>
+        </form>
+    </section>
+
+    <aside class="promise" aria-labelledby="promiseTitle">
+        <div class="well">
+            <img src="static/art/folder-save.svg" alt="" width="280" height="280">
+        </div>
+        <h2 class="title" id="promiseTitle">What happens when you save</h2>
+        <ol>
+            <li>The link is filed at once. You don't wait for the page to load.</li>
+            <li>About a second later, SaveMyLinks reads the page's own title, picture and summary and adds them to the card. If you kept the suggested title, the page's own title replaces it.</li>
+            <li>Find it again by typing any word of its title or your note, or by tapping its category.</li>
+            <li>Save the same address twice and you're told it's already in your library, so nothing is duplicated.</li>
+        </ol>
+    </aside>
+</div>
+
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <div class="wrap">
+            <span>SaveMyLinks keeps every link you save, filed by category, on your own server. This demo keeps them in your browser.</span>
+            <span>Press <kbd>/</kbd> to search, <kbd>?</kbd> for keyboard shortcuts.</span>
+        </div>
+    </footer>
+
+    <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+    <script src="static/demo-api.js"></script>
+    <script src="static/app-detect.js"></script>
+    <script src="static/sml.js?v=8"></script>
+
+    <!-- Assistant (Clippy). Reacts to what happens on the page. Since 22 Nov (#36, the Director's ask)
+         he also offers an occasional idle tip, at most 3 a visit, never while you're busy; and a
+         double-click on him opens a quick-save box.
+         Pages talk to it with events:
+           window.dispatchEvent(new CustomEvent('sml:save',  { detail: { status: 201|409|422|0, category, message } }))
+           window.dispatchEvent(new CustomEvent('sml:empty', { detail: { search } }))  -->
+    <script type="module">
+        let agent = null;
+        const toggle = document.getElementById('assistantToggle');
+
+        const reactions = {
+            201: (d) => ['Congratulate', `Saved${d.category ? ' to ' + d.category : ''}.`, 'saved'],
+            409: () => ['LookDown', 'Already saved. This URL is in your library.', 'duplicate'],
+            422: (d) => ['Explain', `Not saved. ${d.message || 'Check the highlighted fields.'}`, 'invalid'],
+            0:   () => ['Alert', "Couldn't reach the server. Check your connection and try again.", 'invalid'],
+        };
+
+        function react(animation, text, tone, duration = 5000) {
+            if (!agent || !agent.visible) return;
+            if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) agent.play(animation, { timeout: 3000 });
+            agent.speak(text, { tone, duration });
+        }
+
+        window.addEventListener('sml:save', (e) => {
+            const d = e.detail || {};
+            const r = (reactions[d.status] || reactions[0])(d);
+            react(...r, d.status === 201 ? 4000 : 8000);
+        });
+        window.addEventListener('sml:empty', (e) => {
+            const q = e.detail && e.detail.search;
+            if (q) react('Searching', `Nothing matches "${q}". Try fewer words or another category.`, '');
+            else react('GestureUp', 'No links yet. Use "Save a link" at the top to save your first one.', '', 8000);
+        });
+
+        function syncToggle(hidden) {
+            if (!toggle) return;
+            toggle.hidden = false;
+            toggle.setAttribute('aria-pressed', String(!hidden));
+            toggle.querySelector('span:last-child').textContent = hidden ? 'Show assistant' : 'Hide assistant';
+        }
+        window.addEventListener('sml:assistant', (e) => syncToggle(e.detail.hidden));
+
+        // ── Quick save: double-click Clippy, paste, Enter. The full form is one link away. ──
+        let quick = null;
+        function suggestTitle(raw) {
+            try {
+                const url = new URL(raw);
+                const last = url.pathname.split('/').filter(Boolean).pop();
+                let words = last ? decodeURIComponent(last).replace(/\.[a-z0-9]+$/i, '').replace(/[-_+]+/g, ' ').trim() : '';
+                if (/\d{6,}|^urn:/i.test(words) || !/[a-z]{3,}/i.test(words)) words = ''; // an ID is no title
+                const host = url.hostname.replace(/^www\./, '');
+                return words ? `${words.charAt(0).toUpperCase()}${words.slice(1)} (${host})` : host;
+            } catch { return ''; }
+        }
+        function closeQuick() { if (quick) { quick.remove(); quick = null; } }
+        async function openQuick() {
+            if (!agent || !agent.visible) return;
+            if (quick) { quick.querySelector('input').focus(); return; }
+            agent.closeBubble();
+            quick = document.createElement('form');
+            quick.className = 'clippy-quick';
+            quick.setAttribute('aria-label', 'Quick save');
+            quick.innerHTML = '<label class="clippy-quick-label" for="quickUrl">Save a link</label>'
+                + '<div class="clippy-quick-row"><input class="input" id="quickUrl" type="url" inputmode="url" placeholder="Paste a link" autocomplete="off" required>'
+                + '<button type="submit" class="btn btn-primary btn-sm">Save</button></div>'
+                + '<p class="clippy-quick-help"><a href="add.html">More options</a> · Esc to close</p>';
+            agent.container.append(quick);
+            // Open toward the side with room: he may sit at any edge of the screen.
+            const at = agent.container.getBoundingClientRect();
+            if (at.left + at.width / 2 < window.innerWidth / 2) { quick.style.left = '0'; quick.style.right = 'auto'; }
+            if (at.top < quick.offsetHeight + 20) { quick.style.bottom = 'auto'; quick.style.top = 'calc(100% + 10px)'; }
+            const input = quick.querySelector('input');
+            const more = quick.querySelector('a');
+            const moreBase = more.getAttribute('href'); // add.html on the demo
+            input.addEventListener('input', () => { more.href = input.value.trim() ? moreBase + '?prefill=' + encodeURIComponent(input.value.trim()) : moreBase; });
+            quick.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); closeQuick(); agent.element.focus(); } });
+            quick.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                let url = input.value.trim();
+                if (url && !/^[a-z][a-z0-9+.-]*:/i.test(url)) url = 'https://' + url;
+                try { if (!/^https?:$/.test(new URL(url).protocol)) throw 0; }
+                catch { react('Explain', 'That doesn\'t look like a web address. It starts with https://', 'invalid', 6000); input.focus(); return; }
+                const btn = quick.querySelector('button'); btn.disabled = true; btn.textContent = 'Saving…';
+                let status = 0, message = '';
+                try {
+                    const res = await fetch('/api/resources/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, title: suggestTitle(url) || url }) });
+                    status = res.status;
+                    if (status === 422) { const d = await res.json(); message = (window.SML?.fieldErrors?.(d.detail) && Object.values(window.SML.fieldErrors(d.detail))[0]) || ''; }
+                } catch { status = 0; }
+                closeQuick();
+                if (status === 201) {
+                    agent.play('Save', { timeout: 3000 });
+                    agent.speak('Saved to your library. Its title and picture arrive in a second.', { tone: 'saved', duration: 5000 });
+                    window.dispatchEvent(new CustomEvent('sml:saved-elsewhere'));
+                } else {
+                    window.dispatchEvent(new CustomEvent('sml:save', { detail: { status: status === 409 || status === 422 ? status : 0, message } }));
+                }
+            });
+            input.focus(); // ready to paste at once; the clipboard check below may wait for permission
+            // The link you just copied, when the browser lets us read it (it may ask first).
+            try {
+                const text = (await navigator.clipboard?.readText?.()) || '';
+                const found = text.match(/https?:\/\/[^\s<>"']+/);
+                if (found && quick && !input.value) { input.value = found[0]; input.dispatchEvent(new Event('input')); input.select(); }
+            } catch { /* not allowed: paste by hand */ }
+        }
+        document.addEventListener('clippy:save', openQuick);
+        document.addEventListener('pointerdown', (e) => { if (quick && !e.target.closest('.clippy-agent')) closeQuick(); });
+
+        // ── Idle tips: one now and then while you browse, at most 3 a visit, never while you're busy ──
+        const IDLE_TIPS = [
+            'Press Ctrl+K to jump to any link, category or tag.',
+            'Double-click me to save a link quickly. Paste it and press Enter.',
+            'Press v then g for the grid, or v then l for a compact list.',
+            'Tags find links across categories. Click a tag on a card to see the rest.',
+            'Press / to search from anywhere.',
+            'Select a link with j, change it, then press . on the next one to repeat the change.',
+            'On your phone, Share a page to SaveMyLinks to save it without copying.',
+            'Kept a guessed title? Fetch preview again in the edit window gets the page\'s own.',
+        ];
+        const IDLE_KEY = 'sml-idle-tips-v1';
+        let idleSaid = 0;
+        function idleTip() {
+            if (idleSaid >= 3) return;
+            const busy = !agent || !agent.visible || quick || document.hidden || document.querySelector('dialog[open]')
+                || !agent.bubble.hidden || document.activeElement?.closest?.('input, textarea, select, [contenteditable="true"]');
+            if (!busy) {
+                let seen = [];
+                try { seen = JSON.parse(localStorage.getItem(IDLE_KEY) || '[]'); } catch { /* blocked */ }
+                let next = IDLE_TIPS.findIndex((_, i) => !seen.includes(i));
+                if (next < 0) { seen = []; next = 0; } // said them all: start again
+                seen.push(next);
+                try { localStorage.setItem(IDLE_KEY, JSON.stringify(seen)); } catch { /* blocked */ }
+                idleSaid += 1;
+                react('Explain', IDLE_TIPS[next], '', 9000);
+            }
+            setTimeout(idleTip, (busy ? 60 : 240 + Math.random() * 120) * 1000); // busy: look again in a minute
+        }
+
+        async function start() {
+            try {
+                const { initClippy, assistantPrefs } = await import('./static/modern-clippy.js?v=11');
+                agent = await initClippy({ basePath: './static/' });
+                window.smlAssistant = agent;
+                const prefs = assistantPrefs.get();
+                syncToggle(!!prefs.hidden);
+                toggle.addEventListener('click', () => {
+                    if (agent.visible) agent.dismiss();
+                    else { agent.show(); syncToggle(false); }
+                });
+                // Greet once per browser, not on every page load.
+                if (agent.visible && !prefs.greeted) {
+                    setTimeout(() => agent.bubble.hidden && (assistantPrefs.set({ greeted: true }), react('Greeting', "Hi. Save a link and I'll tell you where it was filed. Hide me with the × any time.", '', 9000)), 600);
+                }
+                window.dispatchEvent(new CustomEvent('sml:assistant-ready'));
+                setTimeout(idleTip, 180 * 1000); // the first tip after three minutes
+            } catch (error) {
+                console.warn('Assistant not loaded:', error.message);
+            }
+        }
+
+        // Load after the page so it never delays the content.
+        if (document.readyState === 'complete') setTimeout(start, 300);
+        else window.addEventListener('load', () => setTimeout(start, 300));
+    </script>
+    <script>
+        // Installable and opens offline (sw.js sits at the app's root so it covers every page).
+        if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+    </script>
+    
+<script>
+(function () {
+    const { toast, fieldErrors, facets, categoryPicker, tagField } = window.SML;
+    const $ = (s) => document.querySelector(s);
+    const form = $('#addResourceForm');
+    const urlInput = $('#url'), titleInput = $('#title');
+    let titleEdited = false;
+
+    // Category dropdown and tag suggestions from what's already in the library.
+    let getCategory = () => '', getTags = () => [];
+    getCategory = categoryPicker($('#category'), $('#categoryNew'), [], '');
+    getTags = tagField($('#tags'), $('#tagChips'), [], []);
+    facets().then(f => {
+        const typedTags = $('#tags').value;
+        getCategory = categoryPicker($('#category'), $('#categoryNew'), f.categories.map(c => c.name), getCategory());
+        getTags = tagField($('#tags'), $('#tagChips'), f.tags.map(t => t.name), []);
+        $('#tags').value = typedTags;
+        $('#tags').dispatchEvent(new Event('input'));
+    });
+
+    // Suggest a title from the address until the person types their own.
+    titleInput.addEventListener('input', () => { titleEdited = titleInput.value.trim() !== ''; });
+    function suggestTitle() {
+        if (titleEdited) return;
+        let u = urlInput.value.trim();
+        if (u && !/^[a-z][a-z0-9+.-]*:/i.test(u)) u = 'https://' + u;
+        try {
+            const url = new URL(u);
+            const last = url.pathname.split('/').filter(Boolean).pop();
+            let words = last ? decodeURIComponent(last).replace(/\.[a-z0-9]+$/i, '').replace(/[-_+]+/g, ' ').trim() : '';
+            // An ID is no title (a LinkedIn post ends in urn:li:activity:7503...): use the site for now.
+            if (/\d{6,}|^urn:/i.test(words) || !/[a-z]{3,}/i.test(words)) words = '';
+            const host = url.hostname.replace(/^www\./, '');
+            titleInput.value = words ? `${words.charAt(0).toUpperCase()}${words.slice(1)} (${host})` : host;
+        } catch { /* not an address yet */ }
+    }
+    urlInput.addEventListener('input', suggestTitle);
+    urlInput.addEventListener('blur', () => {
+        const v = urlInput.value.trim();
+        if (v && !/^[a-z][a-z0-9+.-]*:/i.test(v)) urlInput.value = 'https://' + v; // forgiving: "example.com" works
+        suggestTitle();
+    });
+
+    function setError(field, msg, html) {
+        const el = $('#' + field + 'Error'), input = $('#' + field);
+        if (html) el.innerHTML = html; else el.textContent = msg || '';
+        el.hidden = !(msg || html);
+        if (msg || html) input.setAttribute('aria-invalid', 'true'); else input.removeAttribute('aria-invalid');
+    }
+    function clearErrors() { ['url', 'title', 'category', 'tags', 'description'].forEach(f => setError(f, '')); }
+
+    function check(data) {
+        let ok = true;
+        try { const u = new URL(data.url); if (!/^https?:$/.test(u.protocol)) throw 0; }
+        catch { setError('url', 'Enter a full web address, starting with https://'); ok = false; }
+        if (!data.title) { setError('title', 'Add a title so you can find this link later.'); ok = false; }
+        return ok;
+    }
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearErrors();
+        const data = {
+            url: urlInput.value.trim(),
+            title: titleInput.value.trim(),
+            description: $('#description').value.trim() || null,
+            category: getCategory() || null,
+            tags: getTags(),
+        };
+        if (!check(data)) { form.querySelector('[aria-invalid="true"]').focus(); return; }
+
+        const btn = $('#submitBtn');
+        btn.disabled = true; $('#savingIcon').hidden = false; btn.querySelector('span').textContent = 'Saving…';
+        const announce = (status, extra = {}) => window.dispatchEvent(new CustomEvent('sml:save', { detail: { status, category: data.category, ...extra } }));
+        try {
+            const res = await fetch('/api/resources/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+            if (res.status === 201) {
+                const saved = await res.json();
+                announce(201);
+                toast(`Saved to ${data.category || 'your library'}.`, { code: 201, tone: 'success' });
+                try { sessionStorage.setItem('sml-saved', saved.id); } catch { /* storage blocked */ }
+                setTimeout(() => { location.href = './'; }, 900);
+                return;
+            }
+            if (res.status === 409) {
+                announce(409);
+                const host = (() => { try { return new URL(data.url).hostname.replace(/^www\./, ''); } catch { return ''; } })();
+                setError('url', '', `This address is already in your library. <a href="./?q=${encodeURIComponent(host)}">Find it</a>`);
+                toast('Already saved. Nothing was duplicated.', { code: 409, tone: 'notice' });
+            } else if (res.status === 422) {
+                const errs = fieldErrors((await res.json()).detail);
+                Object.entries(errs).forEach(([f, m]) => setError(f, m));
+                announce(422, { message: Object.values(errs)[0] || '' });
+                toast('Not saved. Fix the highlighted field.', { code: 422, tone: 'danger' });
+            } else {
+                throw new Error(res.status);
+            }
+            form.querySelector('[aria-invalid="true"]')?.focus();
+        } catch (err) {
+            window.dispatchEvent(new CustomEvent('sml:save', { detail: { status: 0 } }));
+            toast("Couldn't reach the server. Your link wasn't saved; try again.", { code: Number(err.message) || '', tone: 'danger' });
+        }
+        btn.disabled = false; $('#savingIcon').hidden = true; btn.querySelector('span').textContent = 'Save link';
+    });
+
+    // Share-to-save: Android's Share menu opens this page with ?title=&text=&url= (see
+    // manifest.webmanifest). Apps often put the link inside "text", so take the first http(s)
+    // address from url or text, fill the form, and save at once.
+    const shared = new URLSearchParams(location.search);
+    const sharedUrl = [shared.get('url'), shared.get('text')]
+        .map((s) => (s || '').match(/https?:\/\/[^\s<>"']+/))
+        .find(Boolean)?.[0].replace(/[).,;!?]+$/, '');
+    if (sharedUrl) {
+        urlInput.value = sharedUrl;
+        const t = (shared.get('title') || '').trim();
+        if (t && !/^https?:\/\//.test(t)) { titleInput.value = t.slice(0, 200); titleEdited = true; } else suggestTitle();
+        history.replaceState(null, '', location.pathname); // a reload must not save it twice
+        form.requestSubmit();
+    } else if (shared.get('prefill')) {
+        // From Clippy's quick-save box ("More options"): fill the address, don't save yet.
+        urlInput.value = shared.get('prefill');
+        suggestTitle();
+        history.replaceState(null, '', location.pathname);
+        titleInput.focus();
+    } else {
+        urlInput.focus();
+    }
+})();
+</script>
+
+</body>
+</html>

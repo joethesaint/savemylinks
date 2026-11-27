@@ -7,7 +7,7 @@
 // Styles, scripts and pictures: the saved copy at once, refreshed in the background. sml.css and
 // sml.js carry ?v=N, so a changed file is a new address and is fetched fresh.
 // API answers are never cached: your library is only ever what the server says it is.
-const CACHE = 'sml-v3';
+const CACHE = 'sml-v4'; // v4 (27 Nov): drops phones' saved copies from before Import and Export
 const PAGE_WAIT_MS = 1500;
 
 self.addEventListener('install', () => self.skipWaiting());

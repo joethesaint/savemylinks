@@ -20,8 +20,10 @@ permissions:
 
 # Main publishes and PR previews queue separately: GitHub keeps only one job waiting per
 # group, so a shared group let a PR's preview clean-up cancel a waiting main publish (#24's
-# merge). Main runs one at a time and is never cancelled; each PR has its own queue. If two
-# pushes to gh-pages meet, the deploy step fetches and retries.
+# merge). Main runs one at a time and is never cancelled; each PR has its own queue. So a main
+# publish and a PR preview can still push to gh-pages at the same moment, and one loses ("cannot
+# lock ref"): the deploy action does not retry that (it failed #48's merge, 26 Nov). Each publish
+# therefore tries up to three times, a short wait apart, each try from a fresh fetch.
 concurrency:
   group: ${{ github.event_name == 'pull_request' && format('gh-pages-pr-{0}', github.event.pull_request.number) || 'gh-pages-main' }}
   cancel-in-progress: false
@@ -42,8 +44,36 @@ jobs:
           python -m pytest demo/test_build.py -q -p no:cacheprovider
           python demo/build.py _site
 
-      - name: Publish the site (main)
+      - name: Publish the site (main, try 1)
+        id: main1
         if: github.event_name != 'pull_request'
+        continue-on-error: true
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: _site
+          branch: gh-pages
+          clean-exclude: pr-preview/
+          attempt-limit: 5
+      - name: Wait before main try 2
+        if: github.event_name != 'pull_request' && steps.main1.outcome == 'failure'
+        run: sleep $((15 + RANDOM % 30))
+      - name: Publish the site (main, try 2)
+        id: main2
+        if: github.event_name != 'pull_request' && steps.main1.outcome == 'failure'
+        continue-on-error: true
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: _site
+          branch: gh-pages
+          clean-exclude: pr-preview/
+          attempt-limit: 5
+      - name: Wait before main try 3
+        if: github.event_name != 'pull_request' && steps.main1.outcome == 'failure' && steps.main2.outcome == 'failure'
+        run: sleep $((15 + RANDOM % 30))
+      - name: Publish the site (main, try 3)
+        id: main3
+        if: github.event_name != 'pull_request' && steps.main1.outcome == 'failure' && steps.main2.outcome == 'failure'
+        continue-on-error: false
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: _site
@@ -51,8 +81,26 @@ jobs:
           clean-exclude: pr-preview/
           attempt-limit: 5
 
-      - name: Publish or remove the PR preview
+      - name: Publish or remove the PR preview (try 1)
+        id: pr1
+        continue-on-error: true
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: _site
+          preview-branch: gh-pages
+          umbrella-dir: pr-preview
+          # No bot comment: it was edited on every push and emailed each time. The preview is
+          # always at https://joethesaint.github.io/savemylinks/pr-preview/pr-<number>/ and
+          # goes in the PR description instead.
+          comment: false
+
+      - name: Wait before the PR preview's second try
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && steps.pr1.outcome == 'failure'
+        run: sleep $((15 + RANDOM % 30))
+
+      - name: Publish or remove the PR preview (try 2)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && steps.pr1.outcome == 'failure'
         uses: rossjrw/pr-preview-action@v1
         with:
           source-dir: _site

@@ -107,6 +107,12 @@
         <ul class="side-list side-tags" id="sideTags"></ul>
         <p class="side-empty" id="sideTagsEmpty" hidden>No tags yet. Add some when you save or edit a link.</p>
     </nav>
+    <section class="side-group side-move" aria-labelledby="sideMoveTitle">
+        <h2 class="side-title" id="sideMoveTitle">Move your links</h2>
+        <button type="button" class="btn btn-ghost btn-sm" id="importBtn" title="Add links from a JSON file; ones you already have are skipped">Import JSON</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="exportBtn" title="Download every link as a JSON file">Export JSON</button>
+        <input type="file" id="importFile" accept=".json,application/json" hidden>
+    </section>
 </aside>
 <div class="library-main">
 <div class="toolbar" role="search">
@@ -446,6 +452,7 @@
     </script>
     
 <script src="static/tips.js?v=1"></script>
+<script src="static/transfer.js?v=1"></script>
 <script>
 (function () {
     const { toast, dismiss, reduceMotion, categories, categoryClass, resetCategories, fieldErrors, facets, categoryPicker, tagField } = window.SML;

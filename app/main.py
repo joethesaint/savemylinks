@@ -8,7 +8,7 @@ and route registration following the established architecture patterns.
 import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -79,6 +79,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Only this server's own address may be used as the Host, and changes must come from our own
+# pages or the browser extension. The native app does the same (native/src/main.rs, guard).
+_CHANGES = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+@app.middleware("http")
+async def refuse_other_sites(request: Request, call_next):
+    server = request.scope.get("server")
+    port = server[1] if server and server[1] else 8000
+    host = request.headers.get("host", "").lower()
+    if host not in (f"127.0.0.1:{port}", f"localhost:{port}"):
+        return JSONResponse(status_code=400, content={"detail": "Invalid host header"})
+    origin = request.headers.get("origin")
+    if request.method in _CHANGES and origin is not None:
+        ours = origin in (f"http://127.0.0.1:{port}", f"http://localhost:{port}")
+        extension = origin.startswith(("chrome-extension://", "moz-extension://"))
+        if not (ours or extension):
+            return JSONResponse(status_code=403, content={"detail": "Changes from another site are refused"})
+    return await call_next(request)
+
 
 # Mount static files (for CSS, JS, images)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")

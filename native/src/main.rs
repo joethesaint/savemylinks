@@ -19,8 +19,9 @@ use std::sync::{Arc, Mutex};
 
 use axum::{
     body::Body,
-    extract::{rejection::PathRejection, Path, Query, State},
-    http::{header, StatusCode, Uri},
+    extract::{rejection::PathRejection, Path, Query, Request, State},
+    http::{header, Method, StatusCode, Uri},
+    middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
@@ -427,7 +428,43 @@ async fn static_file(uri: Uri) -> Response {
     }
 }
 
-pub fn app(store: Store) -> Router {
+// ── who may talk to this server ──
+// A web page on another site can reach 127.0.0.1 too (DNS rebinding, or a plain cross-site form),
+// so the server answers only to its own address, and refuses changes sent from another site.
+// The FastAPI app does the same (app/main.py), and tests/contract/test_host_origin.py checks both.
+
+/// The Host header must be this server's own address, with its port.
+fn host_is_ours(host: &str, port: u16) -> bool {
+    let h = host.to_ascii_lowercase();
+    h == format!("127.0.0.1:{port}") || h == format!("localhost:{port}")
+}
+
+/// A change (POST, PUT, PATCH, DELETE) that names an Origin must come from the app's own pages,
+/// or from the browser extension, which saves links from its own origin.
+fn origin_is_ours(origin: &str, port: u16) -> bool {
+    origin == format!("http://127.0.0.1:{port}")
+        || origin == format!("http://localhost:{port}")
+        || origin.starts_with("chrome-extension://")
+        || origin.starts_with("moz-extension://")
+}
+
+async fn guard(State(port): State<u16>, req: Request, next: Next) -> Response {
+    let host = req.headers().get(header::HOST).and_then(|v| v.to_str().ok()).unwrap_or("");
+    if !host_is_ours(host, port) {
+        return detail(StatusCode::BAD_REQUEST, "Invalid host header");
+    }
+    let changes = matches!(*req.method(), Method::POST | Method::PUT | Method::PATCH | Method::DELETE);
+    if changes {
+        if let Some(origin) = req.headers().get(header::ORIGIN) {
+            if !origin.to_str().map(|o| origin_is_ours(o, port)).unwrap_or(false) {
+                return detail(StatusCode::FORBIDDEN, "Changes from another site are refused");
+            }
+        }
+    }
+    next.run(req).await
+}
+
+pub fn app(store: Store, port: u16) -> Router {
     let state: AppState = Arc::new(Mutex::new(store));
     Router::new()
         .route("/api/resources", get(list).post(create))
@@ -440,6 +477,7 @@ pub fn app(store: Store) -> Router {
         .route("/api/export", get(export))
         .route("/health", get(health))
         .fallback(static_file)
+        .layer(middleware::from_fn_with_state(port, guard))
         .with_state(state)
 }
 
@@ -464,7 +502,7 @@ fn ours_is_running(port: u16) -> bool {
         return false;
     };
     let _ = c.set_read_timeout(Some(std::time::Duration::from_millis(800)));
-    let _ = c.write_all(b"GET /health HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n");
+    let _ = c.write_all(format!("GET /health HTTP/1.0\r\nHost: 127.0.0.1:{port}\r\n\r\n").as_bytes());
     let mut body = String::new();
     let _ = c.read_to_string(&mut body);
     // /health answers {"status":"healthy","service":"SaveMyLinks"}.
@@ -524,7 +562,7 @@ Start it on another port, for example: savemylinks --port 8123
         let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build().expect("tokio runtime");
         rt.block_on(async move {
             let listener = tokio::net::TcpListener::from_std(listener).expect("listener");
-            axum::serve(listener, app(store))
+            axum::serve(listener, app(store, port))
                 .with_graceful_shutdown(async move {
                     tokio::select! {
                         _ = tokio::signal::ctrl_c() => {}
